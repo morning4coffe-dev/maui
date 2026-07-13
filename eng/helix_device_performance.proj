@@ -1,0 +1,71 @@
+<Project Sdk="Microsoft.DotNet.Helix.Sdk" DefaultTargets="Test">
+  <PropertyGroup>
+    <HelixType>test/devices/performance/</HelixType>
+    <HelixBuild Condition="'$(HelixBuild)' == ''">$(BUILD_BUILDNUMBER)</HelixBuild>
+    <HelixBuild Condition="'$(HelixBuild)' == ''">local</HelixBuild>
+    <HelixSource Condition="'$(HelixSource)' == ''">pr/maui/device-performance/</HelixSource>
+    <Creator Condition="'$(Creator)' == ''">maui</Creator>
+
+    <HelixTargetQueues Condition="'$(TargetOS)' == 'ios'">osx.15.arm64.maui.open</HelixTargetQueues>
+    <HelixTargetQueues Condition="'$(TargetOS)' == 'maccatalyst'">osx.15.arm64.maui.open</HelixTargetQueues>
+    <HelixTargetQueues Condition="'$(TargetOS)' == 'android'">ubuntu.2204.amd64.android.33.open</HelixTargetQueues>
+
+    <HelixTargetQueues Condition="'$(TargetOS)' == 'ios' and '$(HelixInternal)' == 'True'">osx.15.arm64.iphone.maui</HelixTargetQueues>
+    <HelixTargetQueues Condition="'$(TargetOS)' == 'maccatalyst' and '$(HelixInternal)' == 'True'">osx.15.arm64.iphone.maui</HelixTargetQueues>
+    <HelixTargetQueues Condition="'$(TargetOS)' == 'android' and '$(HelixInternal)' == 'True'">ubuntu.2204.amd64.android.33</HelixTargetQueues>
+
+    <IncludeDotNetCli>true</IncludeDotNetCli>
+    <DotNetCliPackageType>sdk</DotNetCliPackageType>
+    <IncludeXHarnessCli>true</IncludeXHarnessCli>
+    <EnableAzurePipelinesReporter Condition="'$(SYSTEM_ACCESSTOKEN)' != ''">true</EnableAzurePipelinesReporter>
+    <EnableAzurePipelinesReporter Condition="'$(SYSTEM_ACCESSTOKEN)' == ''">false</EnableAzurePipelinesReporter>
+    <FailOnTestFailure>true</FailOnTestFailure>
+
+    <RepoRoot Condition="'$(RepoRoot)' == '' and '$(BUILD_SOURCESDIRECTORY)' != ''">$(BUILD_SOURCESDIRECTORY)/</RepoRoot>
+    <RepoRoot Condition="'$(RepoRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../'))</RepoRoot>
+
+    <AndroidPackageName Condition="'$(AndroidPackageName)' == ''">com.microsoft.maui.controls.devicetests</AndroidPackageName>
+    <AndroidInstrumentation Condition="'$(AndroidInstrumentation)' == ''">com.microsoft.maui.controls.devicetests.TestInstrumentation</AndroidInstrumentation>
+    <PerformanceOutputDirectory>perf-results</PerformanceOutputDirectory>
+  </PropertyGroup>
+
+  <Target Name="ValidatePerformanceInputs" BeforeTargets="Build">
+    <Error Condition="'$(TargetOS)' != 'ios' and '$(TargetOS)' != 'maccatalyst' and '$(TargetOS)' != 'android'"
+           Text="TargetOS must be ios, maccatalyst, or android." />
+    <Error Condition="'$(PerformancePayloadArchive)' == ''"
+           Text="PerformancePayloadArchive is required." />
+    <Error Condition="!Exists('$(PerformancePayloadArchive)')"
+           Text="PerformancePayloadArchive does not exist: $(PerformancePayloadArchive)" />
+    <Error Condition="'$(BaseAppRelativePath)' == ''"
+           Text="BaseAppRelativePath is required." />
+    <Error Condition="'$(HeadAppRelativePath)' == ''"
+           Text="HeadAppRelativePath is required." />
+    <Error Condition="'$(BaseCommitSha)' == ''"
+           Text="BaseCommitSha is required." />
+    <Error Condition="'$(HeadCommitSha)' == ''"
+           Text="HeadCommitSha is required." />
+  </Target>
+
+  <ItemGroup>
+    <HelixCorrelationPayload Include="$(RepoRoot)eng/scripts/Run-DevicePerformanceComparison.ps1">
+      <Destination>eng/scripts/Run-DevicePerformanceComparison.ps1</Destination>
+    </HelixCorrelationPayload>
+    <HelixCorrelationPayload Include="$(RepoRoot)eng/scripts/Parse-DevicePerformanceResults.ps1">
+      <Destination>eng/scripts/Parse-DevicePerformanceResults.ps1</Destination>
+    </HelixCorrelationPayload>
+    <HelixCorrelationPayload Include="$(RepoRoot)eng/scripts/Compare-DevicePerformanceResults.ps1">
+      <Destination>eng/scripts/Compare-DevicePerformanceResults.ps1</Destination>
+    </HelixCorrelationPayload>
+    <HelixCorrelationPayload Include="$(RepoRoot)eng/scripts/Run-DevicePerformanceComparison.helix.sh">
+      <Destination>eng/scripts/Run-DevicePerformanceComparison.helix.sh</Destination>
+    </HelixCorrelationPayload>
+  </ItemGroup>
+
+  <ItemGroup>
+    <HelixWorkItem Include="DevicePerformance-$(TargetOS)">
+      <PayloadArchive>$(PerformancePayloadArchive)</PayloadArchive>
+      <Timeout>03:00:00</Timeout>
+      <Command>bash "$HELIX_CORRELATION_PAYLOAD/eng/scripts/Run-DevicePerformanceComparison.helix.sh" -Platform "$(TargetOS)" -BaseApp "$HELIX_WORKITEM_ROOT/$(BaseAppRelativePath)" -HeadApp "$HELIX_WORKITEM_ROOT/$(HeadAppRelativePath)" -BaseCommitSha "$(BaseCommitSha)" -HeadCommitSha "$(HeadCommitSha)" -AndroidPackageName "$(AndroidPackageName)" -AndroidInstrumentation "$(AndroidInstrumentation)" -OutputDirectory "$HELIX_WORKITEM_UPLOAD_ROOT/$(PerformanceOutputDirectory)" -XHarnessMode helix</Command>
+    </HelixWorkItem>
+  </ItemGroup>
+</Project>

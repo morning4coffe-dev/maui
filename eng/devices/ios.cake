@@ -16,6 +16,8 @@ var testResultsPath = Argument("results", EnvironmentVariable("IOS_TEST_RESULTS"
 var platform = testDevice.ToLower().Contains("simulator") ? "iPhoneSimulator" : "iPhone";
 var runtimeIdentifier = Argument("rid", EnvironmentVariable("IOS_RUNTIME_IDENTIFIER") ?? GetDefaultRuntimeIdentifier(testDevice));
 var deviceCleanupEnabled = Argument("cleanup", true);
+var performanceVariant = Argument("perf-variant", EnvironmentVariable("MAUI_PERF_VARIANT") ?? "");
+var performanceCommitSha = Argument("perf-commit-sha", EnvironmentVariable("MAUI_PERF_COMMIT_SHA") ?? "");
 
 // Device details
 var udid = Argument("udid", EnvironmentVariable("IOS_SIMULATOR_UDID") ?? "");
@@ -195,6 +197,12 @@ void ExecuteTests(string project, string device, string resultsDir, string confi
 					xcode_args +
 					$"--verbosity=\"Debug\" " +
 					$"--set-env=\"TestFilter={category}\" ");
+
+				if (!string.IsNullOrWhiteSpace(performanceVariant))
+					args.Append($"--set-env=\"MAUI_PERF_VARIANT={performanceVariant}\" ");
+
+				if (!string.IsNullOrWhiteSpace(performanceCommitSha))
+					args.Append($"--set-env=\"MAUI_PERF_COMMIT_SHA={performanceCommitSha}\" ");
 
 				if (device.Contains("device"))
 				{

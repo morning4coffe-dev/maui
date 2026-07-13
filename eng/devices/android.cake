@@ -28,6 +28,8 @@ var testAppInstrumentation = Argument("instrumentation", EnvironmentVariable("AN
 var testResultsPath = Argument("results", EnvironmentVariable("ANDROID_TEST_RESULTS") ?? GetTestResultsDirectory()?.FullPath);
 var deviceCleanupEnabled = Argument("cleanup", true);
 var useCoreClr = Argument("coreclr", false);
+var performanceVariant = Argument("perf-variant", EnvironmentVariable("MAUI_PERF_VARIANT") ?? "");
+var performanceCommitSha = Argument("perf-commit-sha", EnvironmentVariable("MAUI_PERF_COMMIT_SHA") ?? "");
 
 // Device details
 var deviceSkin = Argument("skin", EnvironmentVariable("ANDROID_TEST_SKIN") ?? "Nexus 5X");
@@ -203,13 +205,27 @@ void ExecuteTests(string project, string device, string appPackageName, string r
 	var settings = new DotNetToolSettings
 	{
 		DiagnosticOutput = true,
-		ArgumentCustomization = args => args.Append("run xharness android test " +
-			$"--app=\"{testApp}\" " +
-			$"--package-name=\"{appPackageName}\" " +
-			$"--instrumentation=\"{instrumentation}\" " +
-			$"--device-arch=\"{deviceArch}\" " +
-			$"--output-directory=\"{resultsDir}\" " +
-			$"--verbosity=\"Debug\" ")
+		ArgumentCustomization = args =>
+		{
+			args.Append("run xharness android test " +
+				$"--app=\"{testApp}\" " +
+				$"--package-name=\"{appPackageName}\" " +
+				$"--instrumentation=\"{instrumentation}\" " +
+				$"--device-arch=\"{deviceArch}\" " +
+				$"--output-directory=\"{resultsDir}\" " +
+				$"--verbosity=\"Debug\" ");
+
+			if (!string.IsNullOrWhiteSpace(testFilter))
+				args.Append($"--arg=\"TestFilter={testFilter}\" ");
+
+			if (!string.IsNullOrWhiteSpace(performanceVariant))
+				args.Append($"--arg=\"MAUI_PERF_VARIANT={performanceVariant}\" ");
+
+			if (!string.IsNullOrWhiteSpace(performanceCommitSha))
+				args.Append($"--arg=\"MAUI_PERF_COMMIT_SHA={performanceCommitSha}\" ");
+
+			return args;
+		}
 	};
 
 	bool testsFailed = true;

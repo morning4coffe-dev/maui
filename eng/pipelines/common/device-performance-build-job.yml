@@ -1,0 +1,108 @@
+parameters:
+- name: jobName
+  type: string
+- name: displayName
+  type: string
+- name: variant
+  type: string
+- name: commitSha
+  type: string
+- name: prNumber
+  type: number
+- name: platform
+  type: string
+- name: pool
+  type: object
+
+jobs:
+- job: ${{ parameters.jobName }}
+  displayName: ${{ parameters.displayName }}
+  timeoutInMinutes: 150
+  pool: ${{ parameters.pool }}
+  workspace:
+    clean: all
+  steps:
+  - checkout: self
+    fetchDepth: 0
+    clean: true
+    persistCredentials: false
+
+  - pwsh: |
+      $trustedRoot = "$(Agent.TempDirectory)/device-performance-harness"
+      Remove-Item $trustedRoot -Recurse -Force -ErrorAction SilentlyContinue
+
+      $paths = @(
+        "src/Controls/tests/DeviceTests/TestCategory.cs",
+        "src/Controls/tests/DeviceTests/Performance",
+        "src/Core/tests/DeviceTests.Shared/DeviceTestSharedHelpers.cs",
+        "src/Core/tests/DeviceTests.Shared/DevicePerformanceResult.cs"
+      )
+
+      foreach ($relativePath in $paths) {
+        $source = Join-Path "$(Build.SourcesDirectory)" $relativePath
+        $destination = Join-Path $trustedRoot $relativePath
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+        Copy-Item $source -Destination $destination -Recurse -Force
+      }
+    displayName: Snapshot trusted performance harness
+
+  - bash: |
+      set -euo pipefail
+
+      SHA='${{ parameters.commitSha }}'
+      if [ -z "$SHA" ]; then
+        echo "Commit SHA is required."
+        exit 1
+      fi
+
+      if ! git cat-file -e "$SHA^{commit}" 2>/dev/null; then
+        git fetch --quiet --no-tags origin \
+          "+refs/pull/${{ parameters.prNumber }}/head:refs/remotes/origin/device-performance-pr"
+      fi
+
+      git cat-file -e "$SHA^{commit}"
+      git checkout --detach "$SHA"
+      git remote set-url origin https://github.com/dotnet/maui.git
+      git config --local --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+      echo "Building ${{ parameters.variant }} at $(git rev-parse HEAD)"
+    displayName: Checkout pinned ${{ parameters.variant }} commit
+
+  - pwsh: |
+      Copy-Item "$(Agent.TempDirectory)/device-performance-harness/*" `
+        -Destination "$(Build.SourcesDirectory)" `
+        -Recurse `
+        -Force
+    displayName: Overlay trusted performance harness
+
+  - template: /eng/pipelines/common/provision.yml@self
+    parameters:
+      checkoutDirectory: '$(System.DefaultWorkingDirectory)'
+      skipJdk: ${{ ne(parameters.platform, 'android') }}
+      skipAndroidCommonSdks: ${{ ne(parameters.platform, 'android') }}
+      skipAndroidPlatformApis: ${{ ne(parameters.platform, 'android') }}
+      onlyAndroidPlatformDefaultApis: true
+      skipAndroidEmulatorImages: true
+      skipAndroidCreateAvds: true
+      skipProvisioning: true
+      skipXcode: ${{ eq(parameters.platform, 'android') }}
+      skipSimulatorSetup: true
+      skipInternalFeeds: true
+
+  - script: ./build.sh -restore -build -configuration Release -projects Microsoft.Maui.BuildTasks.slnf /p:IncludeIosTargetFrameworks=false /p:IncludeAndroidTargetFrameworks=false /p:IncludeMacCatalystTargetFrameworks=false /p:IncludeWindowsTargetFrameworks=false /p:IncludeTizenTargetFrameworks=false /p:TreatWarningsAsErrors=false
+    displayName: Build MSBuild tasks
+
+  - ${{ if eq(parameters.platform, 'ios') }}:
+    - script: ./build.sh -restore -build -configuration Release /p:BuildDeviceTests=true /p:IncludeIosTargetFrameworks=true /p:IncludeAndroidTargetFrameworks=false /p:IncludeMacCatalystTargetFrameworks=false /p:IncludeWindowsTargetFrameworks=false /p:IncludeTizenTargetFrameworks=false /p:TreatWarningsAsErrors=false
+      displayName: Build iOS performance app
+
+  - ${{ if eq(parameters.platform, 'maccatalyst') }}:
+    - script: ./build.sh -restore -build -configuration Release /p:BuildDeviceTests=true /p:IncludeIosTargetFrameworks=false /p:IncludeAndroidTargetFrameworks=false /p:IncludeMacCatalystTargetFrameworks=true /p:IncludeWindowsTargetFrameworks=false /p:IncludeTizenTargetFrameworks=false /p:TreatWarningsAsErrors=false
+      displayName: Build MacCatalyst performance app
+
+  - ${{ if eq(parameters.platform, 'android') }}:
+    - script: ./build.sh -restore -build -configuration Release /p:BuildDeviceTests=true /p:IncludeIosTargetFrameworks=false /p:IncludeAndroidTargetFrameworks=true /p:IncludeMacCatalystTargetFrameworks=false /p:IncludeWindowsTargetFrameworks=false /p:IncludeTizenTargetFrameworks=false /p:TreatWarningsAsErrors=false
+      displayName: Build Android performance app
+
+  - publish: $(System.DefaultWorkingDirectory)/artifacts/bin
+    displayName: Publish ${{ parameters.variant }} device-test apps
+    artifact: device_performance_${{ parameters.variant }}

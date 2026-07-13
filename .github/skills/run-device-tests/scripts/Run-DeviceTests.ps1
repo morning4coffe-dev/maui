@@ -40,6 +40,12 @@
 .PARAMETER DeviceUdid
     Optional specific device UDID to use. If not provided, auto-detects appropriate device.
 
+.PARAMETER PerformanceVariant
+    Optional performance variant name, typically "base" or "head".
+
+.PARAMETER PerformanceCommitSha
+    Optional commit SHA included in emitted MAUI_PERF_RESULT records.
+
 .EXAMPLE
     ./Run-DeviceTests.ps1 -Project Controls -Platform ios
 
@@ -94,7 +100,14 @@ param(
     [string]$DeviceUdid,
 
     [Parameter(Mandatory = $false)]
-    [switch]$SkipXcodeVersionCheck
+    [switch]$SkipXcodeVersionCheck,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("base", "head")]
+    [string]$PerformanceVariant,
+
+    [Parameter(Mandatory = $false)]
+    [string]$PerformanceCommitSha
 )
 
 $ErrorActionPreference = "Stop"
@@ -771,6 +784,22 @@ try {
             } else {
                 # iOS/MacCatalyst uses --set-env
                 $xharnessArgs += "--set-env=TestFilter=$TestFilter"
+            }
+        }
+
+        if ($PerformanceVariant) {
+            if ($Platform -eq "android") {
+                $xharnessArgs += "--arg", "MAUI_PERF_VARIANT=$PerformanceVariant"
+            } else {
+                $xharnessArgs += "--set-env=MAUI_PERF_VARIANT=$PerformanceVariant"
+            }
+        }
+
+        if ($PerformanceCommitSha) {
+            if ($Platform -eq "android") {
+                $xharnessArgs += "--arg", "MAUI_PERF_COMMIT_SHA=$PerformanceCommitSha"
+            } else {
+                $xharnessArgs += "--set-env=MAUI_PERF_COMMIT_SHA=$PerformanceCommitSha"
             }
         }
 

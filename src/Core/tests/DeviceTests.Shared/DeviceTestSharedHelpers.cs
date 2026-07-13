@@ -12,6 +12,8 @@ namespace Microsoft.Maui.DeviceTests
 {
 	public static class DeviceTestSharedHelpers
 	{
+		const string PerformanceCategory = "Performance";
+
 		public static string[] GetTestCategoryValues([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)] this Type testCategoryType)
 		{
 			var values = new List<string>();
@@ -67,11 +69,26 @@ namespace Microsoft.Maui.DeviceTests
 						.Select(c => c.Trim())
 						.Where(c => !string.IsNullOrWhiteSpace(c))
 						.ToList();
+
+					AddPerformanceCategoryUnlessExplicitlyIncluded(testCategoryType, categoriesToSkip);
 					return categoriesToSkip.Select(c => $"Category={c}").ToList();
 				}
 			}
 
-			return new List<String>();
+			var defaultCategoriesToSkip = new List<string>();
+			AddPerformanceCategoryUnlessExplicitlyIncluded(testCategoryType, defaultCategoriesToSkip);
+			return defaultCategoriesToSkip.Select(c => $"Category={c}").ToList();
+		}
+
+		static void AddPerformanceCategoryUnlessExplicitlyIncluded(
+			[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)] Type testCategoryType,
+			List<string> categoriesToSkip)
+		{
+			if (GetTestCategoryValues(testCategoryType).Contains(PerformanceCategory, StringComparer.Ordinal)
+				&& !categoriesToSkip.Contains(PerformanceCategory, StringComparer.Ordinal))
+			{
+				categoriesToSkip.Add(PerformanceCategory);
+			}
 		}
 	}
 }

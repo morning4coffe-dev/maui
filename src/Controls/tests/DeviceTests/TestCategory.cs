@@ -36,6 +36,7 @@
 		public const string NavigationPage = "NavigationPage";
 		public const string Page = "Page";
 		public const string Path = "Path";
+		public const string Performance = nameof(Performance);
 		public const string Picker = "Picker";
 		public const string RadioButton = "RadioButton";
 		public const string RefreshView = "RefreshView";

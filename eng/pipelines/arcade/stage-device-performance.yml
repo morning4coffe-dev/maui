@@ -1,0 +1,83 @@
+parameters:
+- name: dependsOn
+  type: object
+  default: []
+- name: testPool
+  type: object
+- name: artifactName
+  type: string
+  default: device_performance_payload
+- name: payloadArchiveName
+  type: string
+  default: payload.zip
+- name: metadataFileName
+  type: string
+  default: payload.json
+- name: targetOS
+  type: string
+- name: runAsPublic
+  type: boolean
+  default: true
+- name: HelixAccessToken
+  type: string
+  default: ''
+- name: helixProject
+  type: string
+  default: eng/helix_device_performance.proj
+
+stages:
+- stage: deviceperformance_${{ parameters.targetOS }}
+  displayName: Device Performance ${{ parameters.targetOS }}
+  dependsOn: ${{ parameters.dependsOn }}
+  jobs:
+  - job: submit_device_performance_${{ parameters.targetOS }}
+    displayName: Submit ${{ parameters.targetOS }} device performance to Helix
+    timeoutInMinutes: 60
+    pool: ${{ parameters.testPool }}
+    workspace:
+      clean: all
+    steps:
+    - checkout: self
+      fetchDepth: 1
+      clean: true
+      persistCredentials: false
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download paired device performance apps
+      inputs:
+        artifactName: ${{ parameters.artifactName }}
+        targetPath: $(Pipeline.Workspace)/${{ parameters.artifactName }}
+
+    - pwsh: |
+        $artifactRoot = "$(Pipeline.Workspace)/${{ parameters.artifactName }}"
+        $archive = Resolve-Path (Join-Path $artifactRoot "${{ parameters.payloadArchiveName }}")
+        $metadataPath = Resolve-Path (Join-Path $artifactRoot "${{ parameters.metadataFileName }}")
+        $metadata = Get-Content $metadataPath -Raw | ConvertFrom-Json
+
+        if ($metadata.platform -ne "${{ parameters.targetOS }}") {
+          throw "Payload platform '$($metadata.platform)' does not match '${{ parameters.targetOS }}'."
+        }
+
+        Write-Host "##vso[task.setvariable variable=PerformancePayloadArchive]$archive"
+        Write-Host "##vso[task.setvariable variable=BaseAppRelativePath]$($metadata.baseAppRelativePath)"
+        Write-Host "##vso[task.setvariable variable=HeadAppRelativePath]$($metadata.headAppRelativePath)"
+        Write-Host "##vso[task.setvariable variable=BaseCommitSha]$($metadata.baseCommitSha)"
+        Write-Host "##vso[task.setvariable variable=HeadCommitSha]$($metadata.headCommitSha)"
+      displayName: Read device performance payload metadata
+
+    - template: ${{ iif(eq(parameters.runAsPublic, true), '/eng/common/templates/steps/send-to-helix.yml', '/eng/common/templates-official/steps/send-to-helix.yml@self') }}
+      parameters:
+        HelixProjectPath: ${{ parameters.helixProject }}
+        HelixProjectArguments: >-
+          /p:TargetOS=${{ parameters.targetOS }}
+          /p:PerformancePayloadArchive="$(PerformancePayloadArchive)"
+          /p:BaseAppRelativePath="$(BaseAppRelativePath)"
+          /p:HeadAppRelativePath="$(HeadAppRelativePath)"
+          /p:BaseCommitSha="$(BaseCommitSha)"
+          /p:HeadCommitSha="$(HeadCommitSha)"
+          /p:HelixInternal=${{ iif(eq(parameters.runAsPublic, true), 'False', 'True') }}
+        HelixAccessToken: ${{ parameters.HelixAccessToken }}
+        HelixConfiguration: Release
+        IncludeDotNetCli: true
+        DisplayNamePrefix: DevicePerformance${{ parameters.targetOS }}
+        WorkItemTimeout: 03:00:00
