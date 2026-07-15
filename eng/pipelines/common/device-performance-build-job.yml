@@ -103,6 +103,29 @@ jobs:
     - script: ./build.sh -restore -build -configuration Release /p:BuildDeviceTests=true /p:IncludeIosTargetFrameworks=false /p:IncludeAndroidTargetFrameworks=true /p:IncludeMacCatalystTargetFrameworks=false /p:IncludeWindowsTargetFrameworks=false /p:IncludeTizenTargetFrameworks=false /p:TreatWarningsAsErrors=false
       displayName: Build Android performance app
 
+  - pwsh: |
+      $actualCommitSha = (& git rev-parse HEAD).Trim()
+      if ($actualCommitSha -ne "${{ parameters.commitSha }}") {
+        throw "Built commit '$actualCommitSha' does not match requested commit '${{ parameters.commitSha }}'."
+      }
+
+      $metadata = [ordered]@{
+        schemaVersion = 1
+        repository = "dotnet/maui"
+        pullRequestNumber = ${{ parameters.prNumber }}
+        variant = "${{ parameters.variant }}"
+        platform = "${{ parameters.platform }}"
+        commitSha = $actualCommitSha
+        harnessSha = "$(Build.SourceVersion)"
+        runtimeVariant = "mono"
+        sdkVersion = (& dotnet --version).Trim()
+      }
+
+      $metadataPath = "$(System.DefaultWorkingDirectory)/artifacts/bin/device-performance-build-metadata.json"
+      New-Item -ItemType Directory -Force -Path (Split-Path -Parent $metadataPath) | Out-Null
+      $metadata | ConvertTo-Json | Set-Content $metadataPath -Encoding UTF8
+    displayName: Record trusted build provenance
+
   - publish: $(System.DefaultWorkingDirectory)/artifacts/bin
     displayName: Publish ${{ parameters.variant }} device-test apps
     artifact: device_performance_${{ parameters.variant }}

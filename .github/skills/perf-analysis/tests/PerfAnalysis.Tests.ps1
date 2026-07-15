@@ -6,6 +6,7 @@ $skillRoot = Split-Path -Parent $PSScriptRoot
 $selector = [IO.Path]::Combine($skillRoot, "scripts", "Select-Benchmarks.ps1")
 $comparator = [IO.Path]::Combine($skillRoot, "scripts", "Compare-BenchmarkResults.ps1")
 $scenarioRegistry = [IO.Path]::Combine($skillRoot, "references", "platform-scenarios.json")
+$recommendationPolicyPath = [IO.Path]::Combine($skillRoot, "references", "recommendation-policy.json")
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ("maui-perf-tests-" + [Guid]::NewGuid().ToString("N"))
 
 function Assert-True([bool]$Condition, [string]$Message) {
@@ -98,6 +99,49 @@ function Invoke-ComparatorFixture(
 New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
 
 try {
+    $recommendationPolicy = Get-Content $recommendationPolicyPath -Raw | ConvertFrom-Json
+    Assert-Equal 1 $recommendationPolicy.schemaVersion "Recommendation policy schema"
+    Assert-Equal 3 $recommendationPolicy.limits.maxRecommendations "Recommendation limit"
+    Assert-Equal 7 (@($recommendationPolicy.nextActions).Count) "Next action count"
+    $nextActionIds = @($recommendationPolicy.nextActions | ForEach-Object { $_.id })
+    foreach ($requiredAction in @(
+        "no_concerns",
+        "accept_tradeoff",
+        "accept_with_followup",
+        "optimize_before_merge",
+        "run_more_measurements",
+        "prefer_validated_workaround",
+        "needs_human_discussion"
+    )) {
+        Assert-True ($nextActionIds -contains $requiredAction) "Missing next action '$requiredAction'"
+    }
+    Assert-True (
+        @($recommendationPolicy.hardGates | Where-Object { $_ -match "Never recommend automatic issue closure" }).Count -eq 1
+    ) "No-auto-close gate missing"
+    Assert-True (
+        @($recommendationPolicy.tradeoffAssessmentGates."likely-not-worth-it" | Where-Object { $_ -match "tested lower-cost" }).Count -eq 1
+    ) "Likely-not-worth-it alternative gate missing"
+    Assert-True (
+        @($recommendationPolicy.hardGates | Where-Object { $_ -match "advisory-only evidence" }).Count -eq 1
+    ) "Advisory evidence assessment gate missing"
+    $acceptTradeoff = $recommendationPolicy.nextActions | Where-Object { $_.id -eq "accept_tradeoff" }
+    Assert-Equal 1 (@($acceptTradeoff.allowedAssessments).Count) "Accept tradeoff assessment count"
+    Assert-Equal "likely-worth-it" $acceptTradeoff.allowedAssessments[0] "Accept tradeoff assessment gate"
+    Assert-True (
+        @($acceptTradeoff.requires | Where-Object { $_ -match "non-advisory" }).Count -eq 1
+    ) "Accept tradeoff non-advisory gate missing"
+    $runMoreMeasurements = $recommendationPolicy.nextActions | Where-Object { $_.id -eq "run_more_measurements" }
+    Assert-Equal "unclear" $runMoreMeasurements.allowedAssessments[0] "Run-more assessment gate"
+    Assert-True $recommendationPolicy.decisionRules.confirmedRegressionTakesPrecedenceOverCoverageGaps "Regression precedence missing"
+    Assert-Equal "needs_human_discussion" $recommendationPolicy.decisionRules.unsupportedMissingEvidenceAction "Unsupported evidence action"
+    Assert-True (-not $recommendationPolicy.decisionRules.externalEvidenceCanValidateWorkaround) "External workaround evidence must not validate"
+    Assert-True (
+        @($recommendationPolicy.costAttributions) -contains "deliberate"
+    ) "Deliberate cost attribution missing"
+    Assert-True (
+        @($recommendationPolicy.workaroundStatuses) -contains "plausible-unverified"
+    ) "Unverified workaround status missing"
+
     $platform = Invoke-SelectorFixture "platform" @(
         "src/Controls/src/Core/Handlers/Items/Android/MauiRecyclerView.cs",
         "src/Controls/src/Core/Handlers/Items2/iOS/LayoutFactory2.cs"
@@ -117,12 +161,32 @@ try {
     Assert-Equal "ios" $iosScenario.pipeline.platforms[0] "iOS canonical pipeline platform"
     Assert-Equal "maccatalyst" $iosScenario.pipeline.platforms[1] "MacCatalyst canonical pipeline platform"
 
+    $uncoveredItemsViewLayout = Invoke-SelectorFixture "items-view-layout" @(
+        "src/Controls/src/Core/Handlers/Items/iOS/ItemsViewLayout.cs"
+    )
+    Assert-Equal "collectionview-items-update-ios" $uncoveredItemsViewLayout.deviceScenarios[0].id "ItemsViewLayout should use its dedicated update scenario"
+    Assert-Equal "manual-device-ci-ready" $uncoveredItemsViewLayout.deviceScenarios[0].automationStatus "ItemsViewLayout update scenario status"
+    Assert-Equal "collectionview-keepitemsinview-update" $uncoveredItemsViewLayout.deviceScenarios[0].resultScenario "ItemsViewLayout result scenario"
+
     $windowsPlatform = Invoke-SelectorFixture "windows-platform" @(
         "src/Controls/src/Core/Handlers/Items/Windows/ItemsViewHandler.cs"
     )
     $windowsScenario = $windowsPlatform.deviceScenarios[0]
     Assert-Equal "required-not-yet-automated" $windowsScenario.automationStatus "Windows scenario remains unsupported"
     Assert-True ($null -eq $windowsScenario.pipeline) "Unsupported scenarios must not expose a pipeline handoff"
+
+    $carouselPlatform = Invoke-SelectorFixture "carousel-platform" @(
+        "src/Controls/src/Core/Handlers/Items/Android/MauiCarouselRecyclerView.cs",
+        "src/Controls/src/Core/Handlers/Items/iOS/MauiCollectionView.cs",
+        "src/Controls/src/Core/Handlers/Items2/CarouselViewHandler2.iOS.cs",
+        "src/Controls/src/Core/PublicAPI/net-ios/PublicAPI.Unshipped.txt"
+    )
+    $carouselScenarioIds = @($carouselPlatform.deviceScenarios | ForEach-Object { $_.id })
+    Assert-Equal 1 $carouselScenarioIds.Count "CarouselView should select only the generic handler scenario"
+    Assert-Equal "collectionview-handler-device" $carouselScenarioIds[0] "CarouselView scenario selection"
+    Assert-Equal "required-not-yet-automated" $carouselPlatform.deviceScenarios[0].automationStatus "CarouselView remains unsupported"
+    Assert-Equal 0 $carouselPlatform.coverage.staticOnlyFileCount "PublicAPI files must not create performance coverage gaps"
+    Assert-Equal 3 $carouselPlatform.coverage.deviceRequiredFileCount "CarouselView device file count"
 
     $controlHandler = Invoke-SelectorFixture "control-handler" @(
         "src/Core/src/Handlers/Button/ButtonHandler.cs"

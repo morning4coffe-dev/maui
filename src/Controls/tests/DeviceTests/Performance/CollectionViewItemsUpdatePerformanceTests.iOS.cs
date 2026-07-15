@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
-using AndroidX.RecyclerView.Widget;
+using Foundation;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Handlers.Items;
 using Microsoft.Maui.Handlers;
 using Microsoft.Maui.Hosting;
+using Microsoft.Maui.Platform;
+using UIKit;
 using Xunit;
 using Xunit.Sdk;
 using static Microsoft.Maui.DeviceTests.AssertHelpers;
@@ -58,7 +61,9 @@ namespace Microsoft.Maui.DeviceTests
 
 			await CreateHandlerAndAddToWindow<CollectionViewHandler>(collectionView, async handler =>
 			{
-				RecyclerView recyclerView = handler.PlatformView;
+				UICollectionView platformView = handler.PlatformView as UICollectionView
+					?? handler.PlatformView.FindDescendantView<UICollectionView>()
+					?? throw new XunitException("Could not locate the native UICollectionView.");
 				var counters = new Dictionary<string, double>(StringComparer.Ordinal)
 				{
 					["initialItemCount"] = InitialItemCount,
@@ -67,7 +72,7 @@ namespace Microsoft.Maui.DeviceTests
 					["lastFirstVisiblePosition"] = -1
 				};
 
-				await AssertEventually(() => recyclerView.GetAdapter()?.ItemCount == InitialItemCount);
+				await AssertEventually(() => platformView.NumberOfItemsInSection(0) == InitialItemCount);
 
 				DevicePerformanceResult result = await DevicePerformanceMeasurement.MeasureAsync(
 					"collectionview-keepitemsinview-update",
@@ -77,11 +82,11 @@ namespace Microsoft.Maui.DeviceTests
 					{
 						await InvokeOnMainThreadAsync(() =>
 							collectionView.ScrollTo(index: 50, position: ScrollToPosition.Start, animate: false));
-						await WaitForRecyclerViewIdle(recyclerView, expectedFirstVisiblePosition: 50);
+						await WaitForCollectionViewToSettle(platformView, expectedVisiblePosition: 50);
 
 						await InvokeOnMainThreadAsync(() =>
 							items.Insert(0, new PerformanceItem($"Inserted {iteration + 1}")));
-						int firstVisiblePosition = await WaitForRecyclerViewIdle(recyclerView);
+						int firstVisiblePosition = await WaitForCollectionViewToSettle(platformView);
 						counters["lastFirstVisiblePosition"] = firstVisiblePosition;
 						if (firstVisiblePosition == 0)
 							counters["updatesEndingAtFirstItem"]++;
@@ -92,9 +97,12 @@ namespace Microsoft.Maui.DeviceTests
 			});
 		}
 
-		async Task<int> WaitForRecyclerViewIdle(RecyclerView recyclerView, int? expectedFirstVisiblePosition = null)
+		async Task<int> WaitForCollectionViewToSettle(
+			UICollectionView collectionView,
+			int? expectedVisiblePosition = null)
 		{
 			var timeout = System.Diagnostics.Stopwatch.StartNew();
+			double previousOffset = double.NaN;
 			int stableSamples = 0;
 
 			while (timeout.Elapsed < TimeSpan.FromSeconds(10))
@@ -103,28 +111,35 @@ namespace Microsoft.Maui.DeviceTests
 
 				var state = await InvokeOnMainThreadAsync(() =>
 				{
-					var layoutManager = recyclerView.GetLayoutManager() as LinearLayoutManager;
+					int[] visiblePositions = collectionView.IndexPathsForVisibleItems
+						.Where(indexPath => indexPath.Section == 0)
+						.Select(indexPath => (int)indexPath.Item)
+						.ToArray();
 					return new
 					{
-						FirstVisiblePosition = layoutManager?.FindFirstVisibleItemPosition() ?? -1,
-						IsIdle = recyclerView.ScrollState == RecyclerView.ScrollStateIdle
+						Offset = (double)collectionView.ContentOffset.Y,
+						IsMoving = collectionView.Dragging || collectionView.Decelerating || collectionView.Tracking,
+						FirstVisiblePosition = visiblePositions.Length == 0 ? -1 : visiblePositions.Min(),
+						ExpectedItemVisible = !expectedVisiblePosition.HasValue
+							|| visiblePositions.Contains(expectedVisiblePosition.Value)
 					};
 				});
 
-				bool positionMatches = !expectedFirstVisiblePosition.HasValue
-					|| state.FirstVisiblePosition == expectedFirstVisiblePosition.Value;
-				stableSamples = state.IsIdle && positionMatches
+				bool offsetStable = !double.IsNaN(previousOffset)
+					&& Math.Abs(state.Offset - previousOffset) < 0.5;
+				stableSamples = offsetStable && !state.IsMoving && state.ExpectedItemVisible
 					? stableSamples + 1
 					: 0;
+				previousOffset = state.Offset;
 
 				if (stableSamples >= 3)
 					return state.FirstVisiblePosition;
 			}
 
 			throw new XunitException(
-				expectedFirstVisiblePosition.HasValue
-					? $"RecyclerView did not settle at position {expectedFirstVisiblePosition.Value}."
-					: "RecyclerView did not settle.");
+				expectedVisiblePosition.HasValue
+					? $"CollectionView did not settle with item {expectedVisiblePosition.Value} visible."
+					: "CollectionView did not settle.");
 		}
 
 		sealed class PerformanceItem

@@ -22,6 +22,30 @@ param(
     [string]$HeadCommitSha,
 
     [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$ExpectedScenario,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$Repository,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateRange(1, [int]::MaxValue)]
+    [int]$PullRequestNumber,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$HarnessSha,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$AzdoBuildId,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$AzdoBuildUrl,
+
+    [Parameter(Mandatory = $true)]
     [string]$OutputArchive,
 
     [Parameter(Mandatory = $true)]
@@ -88,6 +112,47 @@ function Copy-App($app, [string]$destinationDirectory) {
     return $destination
 }
 
+function Read-BuildMetadata(
+    [string]$root,
+    [string]$expectedVariant,
+    [string]$expectedCommitSha
+) {
+    $matches = @(Get-ChildItem $root -File -Recurse -Filter "device-performance-build-metadata.json")
+    if ($matches.Count -ne 1)
+    {
+        throw "Expected exactly one $expectedVariant build metadata file, found $($matches.Count)."
+    }
+
+    $metadata = Get-Content $matches[0].FullName -Raw | ConvertFrom-Json
+    $expectedValues = [ordered]@{
+        schemaVersion = 1
+        repository = $Repository
+        pullRequestNumber = $PullRequestNumber
+        variant = $expectedVariant
+        platform = $Platform
+        commitSha = $expectedCommitSha
+        harnessSha = $HarnessSha
+    }
+
+    foreach ($entry in $expectedValues.GetEnumerator())
+    {
+        if ([string]$metadata.($entry.Key) -ne [string]$entry.Value)
+        {
+            throw "$expectedVariant build metadata $($entry.Key) '$($metadata.($entry.Key))' does not match expected '$($entry.Value)'."
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace([string]$metadata.runtimeVariant) -or
+        [string]::IsNullOrWhiteSpace([string]$metadata.sdkVersion))
+    {
+        throw "$expectedVariant build metadata is missing runtime or SDK identity."
+    }
+
+    return $metadata
+}
+
+$baseBuildMetadata = Read-BuildMetadata $BaseArtifacts "base" $BaseCommitSha
+$headBuildMetadata = Read-BuildMetadata $HeadArtifacts "head" $HeadCommitSha
 $baseApp = Find-ControlsDeviceTestApp $BaseArtifacts "base"
 $headApp = Find-ControlsDeviceTestApp $HeadArtifacts "head"
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) ("maui-device-perf-payload-" + [Guid]::NewGuid().ToString("N"))
@@ -121,10 +186,21 @@ try
     $baseRelativePath = "payload/base/$($baseApp.Name)"
     $headRelativePath = "payload/head/$($headApp.Name)"
     $metadata = [PSCustomObject]@{
-        schemaVersion = 1
+        schemaVersion = 2
+        repository = $Repository
+        pullRequestNumber = $PullRequestNumber
         platform = $Platform
+        expectedScenario = $ExpectedScenario
         baseCommitSha = $BaseCommitSha
         headCommitSha = $HeadCommitSha
+        harnessSha = $HarnessSha
+        azdoBuildId = $AzdoBuildId
+        azdoBuildUrl = $AzdoBuildUrl
+        baseRuntimeVariant = $baseBuildMetadata.runtimeVariant
+        headRuntimeVariant = $headBuildMetadata.runtimeVariant
+        baseSdkVersion = $baseBuildMetadata.sdkVersion
+        headSdkVersion = $headBuildMetadata.sdkVersion
+        expectedVariantRuns = 2
         baseAppRelativePath = $baseRelativePath
         headAppRelativePath = $headRelativePath
         archive = (Resolve-Path $OutputArchive).Path

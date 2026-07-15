@@ -76,16 +76,67 @@ foreach ($path in $InputPath)
             }
 
             Assert-RequiredProperty $result "schemaVersion" $file.FullName
+            Assert-RequiredProperty $result "repository" $file.FullName
+            Assert-RequiredProperty $result "pullRequestNumber" $file.FullName
             Assert-RequiredProperty $result "scenario" $file.FullName
             Assert-RequiredProperty $result "platform" $file.FullName
             Assert-RequiredProperty $result "variant" $file.FullName
             Assert-RequiredProperty $result "commitSha" $file.FullName
+            Assert-RequiredProperty $result "harnessSha" $file.FullName
+            Assert-RequiredProperty $result "runOrdinal" $file.FullName
+            Assert-RequiredProperty $result "expectedVariantRuns" $file.FullName
+            Assert-RequiredProperty $result "build" $file.FullName
+            Assert-RequiredProperty $result "environment" $file.FullName
+            Assert-RequiredProperty $result "correctness" $file.FullName
+            Assert-RequiredProperty $result "timestampUtc" $file.FullName
             Assert-RequiredProperty $result "measurementsMilliseconds" $file.FullName
             Assert-RequiredProperty $result "statistics" $file.FullName
 
-            if ([int]$result.schemaVersion -ne 1)
+            if ([int]$result.schemaVersion -ne 2)
             {
                 throw "Unsupported performance result schema '$($result.schemaVersion)' in '$($file.FullName)'."
+            }
+
+            if ([int]$result.pullRequestNumber -le 0 -or
+                [int]$result.runOrdinal -le 0 -or
+                [int]$result.expectedVariantRuns -le 0 -or
+                [int]$result.runOrdinal -gt [int]$result.expectedVariantRuns)
+            {
+                throw "Performance result in '$($file.FullName)' has invalid PR/run provenance."
+            }
+
+            if ($result.variant -notin @("base", "head") -or
+                $result.platform -notin @("android", "ios", "maccatalyst"))
+            {
+                throw "Performance result in '$($file.FullName)' has an unsupported variant or platform."
+            }
+
+            foreach ($field in @("azdoBuildId", "azdoBuildUrl", "helixJobId", "helixWorkItem"))
+            {
+                Assert-RequiredProperty $result.build $field $file.FullName
+            }
+
+            foreach ($field in @("executionKind", "deviceModel", "osVersion", "runtimeFramework", "processArchitecture", "runtimeVariant", "sdkVersion"))
+            {
+                Assert-RequiredProperty $result.environment $field $file.FullName
+            }
+
+            Assert-RequiredProperty $result.correctness "passed" $file.FullName
+            Assert-RequiredProperty $result.correctness "accessibilityStatus" $file.FullName
+            if ($result.correctness.passed -isnot [bool] -or
+                $result.correctness.accessibilityStatus -notin @("not-assessed", "passed", "failed"))
+            {
+                throw "Performance result in '$($file.FullName)' has invalid correctness metadata."
+            }
+
+            $timestamp = [DateTimeOffset]::MinValue
+            if (-not [DateTimeOffset]::TryParse(
+                [string]$result.timestampUtc,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [Globalization.DateTimeStyles]::RoundtripKind,
+                [ref]$timestamp))
+            {
+                throw "Performance result in '$($file.FullName)' has an invalid timestamp."
             }
 
             if (@($result.measurementsMilliseconds).Count -eq 0)

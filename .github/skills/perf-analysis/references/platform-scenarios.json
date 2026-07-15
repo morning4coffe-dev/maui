@@ -5,14 +5,16 @@
       "id": "collectionview-items-update-android",
       "title": "Android CollectionView item-update and scroll stability",
       "pathPatterns": [
-        "(^|/)src/Controls/src/Core/Handlers/Items/Android/",
-        "(^|/)src/Controls/src/Core/Handlers/Items/.*\\.android\\.cs$"
+        "(^|/)src/Controls/src/Core/Handlers/Items/Android/ItemsSources/",
+        "(^|/)src/Controls/src/Core/Handlers/Items/Android/MauiRecyclerView\\.cs$",
+        "(^|/)src/Controls/src/Core/Handlers/Items/MauiRecyclerView\\.android\\.cs$"
       ],
       "platforms": [
         "Android"
       ],
       "runner": "dedicated-device-or-emulator",
       "automationStatus": "manual-device-ci-ready",
+      "resultScenario": "collectionview-keepitemsinview-update",
       "pipeline": {
         "path": "eng/pipelines/ci-device-performance.yml",
         "platforms": [
@@ -38,13 +40,11 @@
       ]
     },
     {
-      "id": "collectionview-scroll-ios",
-      "title": "iOS and MacCatalyst CollectionView layout/ScrollTo stability",
+      "id": "collectionview-items-update-ios",
+      "title": "iOS and MacCatalyst CollectionView item-update and scroll stability",
       "pathPatterns": [
-        "(^|/)src/Controls/src/Core/Handlers/Items/iOS/",
-        "(^|/)src/Controls/src/Core/Handlers/Items2/iOS/",
-        "(^|/)src/Controls/src/Core/Handlers/Items/.*\\.ios\\.cs$",
-        "(^|/)src/Controls/src/Core/Handlers/Items2/.*\\.ios\\.cs$"
+        "(^|/)src/Controls/src/Core/Handlers/Items/iOS/ItemsViewLayout\\.cs$",
+        "(^|/)src/Controls/src/Core/Handlers/Items/ItemsViewLayout\\.ios\\.cs$"
       ],
       "platforms": [
         "iOS",
@@ -52,6 +52,48 @@
       ],
       "runner": "dedicated-simulator-or-device",
       "automationStatus": "manual-device-ci-ready",
+      "resultScenario": "collectionview-keepitemsinview-update",
+      "pipeline": {
+        "path": "eng/pipelines/ci-device-performance.yml",
+        "platforms": [
+          "ios",
+          "maccatalyst"
+        ]
+      },
+      "rationale": "ItemsViewLayout scroll-offset preservation executes inside UIKit collection updates.",
+      "setup": [
+        "Use a fixed-size CollectionView with KeepItemsInView and identical data on base and head.",
+        "Use one fixed simulator/device runtime and build configuration for both commits.",
+        "Warm realization and scrolling before recording measurements."
+      ],
+      "operations": [
+        "Scroll to a stable realized item and insert one item before the visible range.",
+        "Wait for collection updates and scrolling to settle after every insertion.",
+        "Record the first visible item so a faster jump to the beginning cannot be treated as equivalent."
+      ],
+      "metrics": [
+        "insertion-to-stable-scroll latency: median and p95",
+        "first visible item after each update",
+        "layout invalidation counts when instrumentation is available",
+        "managed/native allocation deltas when instrumentation is available"
+      ]
+    },
+    {
+      "id": "collectionview-scroll-ios",
+      "title": "iOS and MacCatalyst CollectionView layout/ScrollTo stability",
+      "pathPatterns": [
+        "(^|/)src/Controls/src/Core/Handlers/Items/iOS/ObservableGroupedSource\\.cs$",
+        "(^|/)src/Controls/src/Core/Handlers/Items2/iOS/(ItemsViewController2|LayoutFactory2|TemplatedCell2)\\.cs$",
+        "(^|/)src/Controls/src/Core/Handlers/Items/ObservableGroupedSource\\.ios\\.cs$",
+        "(^|/)src/Controls/src/Core/Handlers/Items2/(ItemsViewController2|LayoutFactory2|TemplatedCell2)\\.ios\\.cs$"
+      ],
+      "platforms": [
+        "iOS",
+        "MacCatalyst"
+      ],
+      "runner": "dedicated-simulator-or-device",
+      "automationStatus": "manual-device-ci-ready",
+      "resultScenario": "collectionview-grouped-scrollto-makevisible",
       "pipeline": {
         "path": "eng/pipelines/ci-device-performance.yml",
         "platforms": [

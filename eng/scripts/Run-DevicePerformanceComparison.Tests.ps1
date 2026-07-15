@@ -26,6 +26,16 @@ try
         -HeadApp $headApp `
         -BaseCommitSha abc123 `
         -HeadCommitSha def456 `
+        -ExpectedScenario collectionview-grouped-scrollto-makevisible `
+        -Repository dotnet/maui `
+        -PullRequestNumber 42 `
+        -HarnessSha harness123 `
+        -AzdoBuildId 100 `
+        -AzdoBuildUrl https://build/100 `
+        -BaseRuntimeVariant mono `
+        -HeadRuntimeVariant mono `
+        -BaseSdkVersion 10.0.100 `
+        -HeadSdkVersion 10.0.101 `
         -OutputDirectory $output `
         -DeviceId simulator-id `
         -DryRun
@@ -38,8 +48,13 @@ try
     Assert-Equal "head" $plan[1].variant "Run 2 variant"
     Assert-Equal "head" $plan[2].variant "Run 3 variant"
     Assert-Equal "base" $plan[3].variant "Run 4 variant"
-    Assert-Equal $true ($plan[0].arguments -contains "--set-env=TestFilter=Category=Performance") "iOS performance filter"
+    Assert-Equal $true ($plan[0].arguments -contains "--set-env=TestFilter=Category=PerformanceCollectionViewScroll") "iOS performance filter"
     Assert-Equal $true ($plan[1].arguments -contains "--set-env=MAUI_PERF_VARIANT=head") "Head variant metadata"
+    Assert-Equal $true ($plan[0].arguments -contains "--set-env=MAUI_PERF_PR_NUMBER=42") "iOS PR provenance"
+    Assert-Equal $true ($plan[2].arguments -contains "--set-env=MAUI_PERF_RUN_ORDINAL=2") "iOS ABBA run ordinal"
+    Assert-Equal $true ($plan[0].arguments -contains "--set-env=MAUI_PERF_HARNESS_SHA=harness123") "iOS harness provenance"
+    Assert-Equal $true ($plan[0].arguments -contains "--set-env=MAUI_PERF_SDK_VERSION=10.0.100") "iOS base SDK provenance"
+    Assert-Equal $true ($plan[1].arguments -contains "--set-env=MAUI_PERF_SDK_VERSION=10.0.101") "iOS head SDK provenance"
 
     $androidOutput = Join-Path $testRoot "android-output"
     $baseApk = Join-Path $testRoot "base.apk"
@@ -52,26 +67,53 @@ try
         -HeadApp $headApk `
         -BaseCommitSha abc123 `
         -HeadCommitSha def456 `
+        -ExpectedScenario collectionview-keepitemsinview-update `
+        -Repository dotnet/maui `
+        -PullRequestNumber 42 `
+        -HarnessSha harness123 `
+        -AzdoBuildId 100 `
+        -AzdoBuildUrl https://build/100 `
+        -BaseRuntimeVariant mono `
+        -HeadRuntimeVariant mono `
+        -BaseSdkVersion 10.0.100 `
+        -HeadSdkVersion 10.0.101 `
         -OutputDirectory $androidOutput `
         -DeviceId emulator-5554 `
         -DryRun
 
     $androidPlan = Get-Content (Join-Path $androidOutput "run-plan.json") -Raw | ConvertFrom-Json
-    Assert-Equal $true ($androidPlan[0].arguments -contains "TestFilter=Category=Performance") "Android performance filter"
+    Assert-Equal $true ($androidPlan[0].arguments -contains "TestFilter=Category=PerformanceCollectionViewItemsUpdate") "Android performance filter"
     Assert-Equal $true ($androidPlan[0].arguments -contains "com.microsoft.maui.controls.devicetests.TestInstrumentation") "Android instrumentation"
     Assert-Equal $true ($androidPlan[1].arguments -contains "MAUI_PERF_VARIANT=head") "Android head metadata"
+    Assert-Equal $true ($androidPlan[0].arguments -contains "MAUI_PERF_REPOSITORY=dotnet/maui") "Android repository provenance"
+    Assert-Equal $true ($androidPlan[3].arguments -contains "MAUI_PERF_RUN_ORDINAL=2") "Android ABBA run ordinal"
+    Assert-Equal $true ($androidPlan[0].arguments -contains "MAUI_PERF_AZDO_BUILD_ID=100") "Android build provenance"
 
     $helixOutput = Join-Path $testRoot "helix-output"
     $previousXHarnessCliPath = $env:XHARNESS_CLI_PATH
+    $previousHelixCorrelationId = $env:HELIX_CORRELATION_ID
+    $previousHelixWorkItem = $env:HELIX_WORKITEM_FRIENDLYNAME
     try
     {
         $env:XHARNESS_CLI_PATH = "/payload/Microsoft.DotNet.XHarness.CLI.dll"
+        $env:HELIX_CORRELATION_ID = "helix-job"
+        $env:HELIX_WORKITEM_FRIENDLYNAME = "DevicePerformance-ios"
         & $script `
             -Platform ios `
             -BaseApp $baseApp `
             -HeadApp $headApp `
             -BaseCommitSha abc123 `
             -HeadCommitSha def456 `
+            -ExpectedScenario collectionview-grouped-scrollto-makevisible `
+            -Repository dotnet/maui `
+            -PullRequestNumber 42 `
+            -HarnessSha harness123 `
+            -AzdoBuildId 100 `
+            -AzdoBuildUrl https://build/100 `
+            -BaseRuntimeVariant mono `
+            -HeadRuntimeVariant mono `
+            -BaseSdkVersion 10.0.100 `
+            -HeadSdkVersion 10.0.101 `
             -OutputDirectory $helixOutput `
             -XHarnessMode helix `
             -DryRun
@@ -84,6 +126,8 @@ try
     finally
     {
         $env:XHARNESS_CLI_PATH = $previousXHarnessCliPath
+        $env:HELIX_CORRELATION_ID = $previousHelixCorrelationId
+        $env:HELIX_WORKITEM_FRIENDLYNAME = $previousHelixWorkItem
     }
 
     Write-Host "All device performance driver tests passed."

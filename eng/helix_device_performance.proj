@@ -26,6 +26,8 @@
 
     <AndroidPackageName Condition="'$(AndroidPackageName)' == ''">com.microsoft.maui.controls.devicetests</AndroidPackageName>
     <AndroidInstrumentation Condition="'$(AndroidInstrumentation)' == ''">com.microsoft.maui.controls.devicetests.TestInstrumentation</AndroidInstrumentation>
+    <PerformanceRepository Condition="'$(PerformanceRepository)' == ''">dotnet/maui</PerformanceRepository>
+    <PerformanceExpectedVariantRuns Condition="'$(PerformanceExpectedVariantRuns)' == ''">2</PerformanceExpectedVariantRuns>
     <PerformanceOutputDirectory>perf-results</PerformanceOutputDirectory>
   </PropertyGroup>
 
@@ -44,6 +46,20 @@
            Text="BaseCommitSha is required." />
     <Error Condition="'$(HeadCommitSha)' == ''"
            Text="HeadCommitSha is required." />
+    <Error Condition="'$(PerformanceExpectedScenario)' == ''"
+           Text="PerformanceExpectedScenario is required." />
+    <Error Condition="'$(PerformancePullRequestNumber)' == '' or '$(PerformancePullRequestNumber)' == '0'"
+           Text="PerformancePullRequestNumber is required." />
+    <Error Condition="'$(PerformanceHarnessSha)' == ''"
+           Text="PerformanceHarnessSha is required." />
+    <Error Condition="'$(PerformanceAzdoBuildId)' == ''"
+           Text="PerformanceAzdoBuildId is required." />
+    <Error Condition="'$(PerformanceAzdoBuildUrl)' == ''"
+           Text="PerformanceAzdoBuildUrl is required." />
+    <Error Condition="'$(PerformanceBaseRuntimeVariant)' == '' or '$(PerformanceHeadRuntimeVariant)' == ''"
+           Text="Base and head runtime variants are required." />
+    <Error Condition="'$(PerformanceBaseSdkVersion)' == '' or '$(PerformanceHeadSdkVersion)' == ''"
+           Text="Base and head SDK versions are required." />
   </Target>
 
   <ItemGroup>
@@ -65,7 +81,8 @@
     <HelixWorkItem Include="DevicePerformance-$(TargetOS)">
       <PayloadArchive>$(PerformancePayloadArchive)</PayloadArchive>
       <Timeout>03:00:00</Timeout>
-      <Command>bash "$HELIX_CORRELATION_PAYLOAD/eng/scripts/Run-DevicePerformanceComparison.helix.sh" -Platform "$(TargetOS)" -BaseApp "$HELIX_WORKITEM_ROOT/$(BaseAppRelativePath)" -HeadApp "$HELIX_WORKITEM_ROOT/$(HeadAppRelativePath)" -BaseCommitSha "$(BaseCommitSha)" -HeadCommitSha "$(HeadCommitSha)" -AndroidPackageName "$(AndroidPackageName)" -AndroidInstrumentation "$(AndroidInstrumentation)" -OutputDirectory "$HELIX_WORKITEM_UPLOAD_ROOT/$(PerformanceOutputDirectory)" -XHarnessMode helix</Command>
+      <DownloadFilesFromResults>perf-results/comparison-summary.json;perf-results/comparison-summary.md;perf-results/results.json;perf-results/run-plan.json</DownloadFilesFromResults>
+      <Command>bash "$HELIX_CORRELATION_PAYLOAD/eng/scripts/Run-DevicePerformanceComparison.helix.sh" -Platform "$(TargetOS)" -BaseApp "$HELIX_WORKITEM_ROOT/$(BaseAppRelativePath)" -HeadApp "$HELIX_WORKITEM_ROOT/$(HeadAppRelativePath)" -BaseCommitSha "$(BaseCommitSha)" -HeadCommitSha "$(HeadCommitSha)" -ExpectedScenario "$(PerformanceExpectedScenario)" -Repository "$(PerformanceRepository)" -PullRequestNumber "$(PerformancePullRequestNumber)" -HarnessSha "$(PerformanceHarnessSha)" -AzdoBuildId "$(PerformanceAzdoBuildId)" -AzdoBuildUrl "$(PerformanceAzdoBuildUrl)" -BaseRuntimeVariant "$(PerformanceBaseRuntimeVariant)" -HeadRuntimeVariant "$(PerformanceHeadRuntimeVariant)" -BaseSdkVersion "$(PerformanceBaseSdkVersion)" -HeadSdkVersion "$(PerformanceHeadSdkVersion)" -ExpectedVariantRuns "$(PerformanceExpectedVariantRuns)" -AndroidPackageName "$(AndroidPackageName)" -AndroidInstrumentation "$(AndroidInstrumentation)" -OutputDirectory "$HELIX_WORKITEM_UPLOAD_ROOT/$(PerformanceOutputDirectory)" -XHarnessMode helix</Command>
     </HelixWorkItem>
   </ItemGroup>
 </Project>

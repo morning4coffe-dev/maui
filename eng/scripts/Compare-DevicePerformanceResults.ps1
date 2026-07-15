@@ -14,6 +14,31 @@ param(
     [Parameter(Mandatory = $false)]
     [string]$JsonOut,
 
+    [Parameter(Mandatory = $true)]
+    [string]$ExpectedRepository,
+
+    [Parameter(Mandatory = $true)]
+    [int]$ExpectedPullRequestNumber,
+
+    [Parameter(Mandatory = $true)]
+    [string]$ExpectedBaseCommitSha,
+
+    [Parameter(Mandatory = $true)]
+    [string]$ExpectedHeadCommitSha,
+
+    [Parameter(Mandatory = $true)]
+    [string]$ExpectedHarnessSha,
+
+    [Parameter(Mandatory = $true)]
+    [string]$ExpectedPlatform,
+
+    [Parameter(Mandatory = $true)]
+    [string]$ExpectedScenario,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(1, 10)]
+    [int]$ExpectedVariantRuns = 2,
+
     [Parameter(Mandatory = $false)]
     [double]$TimePctTolerance = 15
 )
@@ -63,6 +88,23 @@ function Format-Milliseconds([double]$value) {
     return "{0:N2} ms" -f $value
 }
 
+function Get-UniqueValues($items, [string]$propertyPath) {
+    $values = foreach ($item in $items) {
+        $value = $item
+        foreach ($segment in $propertyPath.Split('.')) {
+            if ($null -eq $value) {
+                break
+            }
+            $property = $value.PSObject.Properties[$segment]
+            $value = if ($null -ne $property) { $property.Value } else { $null }
+        }
+        if ($null -ne $value) {
+            "$value"
+        }
+    }
+    return @($values | Sort-Object -Unique)
+}
+
 if (-not (Test-Path $ResultsPath))
 {
     throw "Results file does not exist: $ResultsPath"
@@ -78,29 +120,84 @@ foreach ($group in $grouped)
     $baseResults = @($group.Group | Where-Object { $_.variant -eq "base" })
     $headResults = @($group.Group | Where-Object { $_.variant -eq "head" })
     $parts = $group.Name.Split('|', 2)
+    $provenanceErrors = New-Object System.Collections.Generic.List[string]
 
-    if ($baseResults.Count -eq 0 -or $headResults.Count -eq 0)
-    {
-        $comparisons.Add([PSCustomObject]@{
-            Scenario = $parts[0]
-            Platform = $parts[1]
-            Complete = $false
-            Flag = "inconclusive"
-            Reason = "Expected at least one base and one head result."
-        })
-        continue
+    if ($baseResults.Count -ne $ExpectedVariantRuns) {
+        $provenanceErrors.Add("Expected $ExpectedVariantRuns base results, found $($baseResults.Count).")
+    }
+    if ($headResults.Count -ne $ExpectedVariantRuns) {
+        $provenanceErrors.Add("Expected $ExpectedVariantRuns head results, found $($headResults.Count).")
     }
 
     $baseCommits = @($baseResults.commitSha | Sort-Object -Unique)
     $headCommits = @($headResults.commitSha | Sort-Object -Unique)
-    if ($baseCommits.Count -ne 1 -or $headCommits.Count -ne 1)
-    {
+    if ($baseCommits.Count -ne 1 -or $baseCommits[0] -ne $ExpectedBaseCommitSha) {
+        $provenanceErrors.Add("Base results do not match expected commit '$ExpectedBaseCommitSha'.")
+    }
+    if ($headCommits.Count -ne 1 -or $headCommits[0] -ne $ExpectedHeadCommitSha) {
+        $provenanceErrors.Add("Head results do not match expected commit '$ExpectedHeadCommitSha'.")
+    }
+
+    $allResults = @($baseResults + $headResults)
+    $expectedProperties = @(
+        @{ Path = "repository"; Expected = $ExpectedRepository; Name = "repository" },
+        @{ Path = "pullRequestNumber"; Expected = "$ExpectedPullRequestNumber"; Name = "PR number" },
+        @{ Path = "harnessSha"; Expected = $ExpectedHarnessSha; Name = "harness SHA" },
+        @{ Path = "platform"; Expected = $ExpectedPlatform; Name = "platform" },
+        @{ Path = "scenario"; Expected = $ExpectedScenario; Name = "scenario" },
+        @{ Path = "expectedVariantRuns"; Expected = "$ExpectedVariantRuns"; Name = "expected run count" }
+    )
+    foreach ($expectedProperty in $expectedProperties) {
+        $values = @(Get-UniqueValues $allResults $expectedProperty.Path)
+        if ($values.Count -ne 1 -or $values[0] -ne $expectedProperty.Expected) {
+            $provenanceErrors.Add("Results do not match expected $($expectedProperty.Name) '$($expectedProperty.Expected)'.")
+        }
+    }
+
+    foreach ($variant in @(
+        @{ Name = "base"; Results = $baseResults },
+        @{ Name = "head"; Results = $headResults }
+    )) {
+        $ordinals = @($variant.Results.runOrdinal | ForEach-Object { [int]$_ } | Sort-Object -Unique)
+        $expectedOrdinals = @(1..$ExpectedVariantRuns)
+        if (($ordinals -join ",") -ne ($expectedOrdinals -join ",")) {
+            $provenanceErrors.Add("$($variant.Name) run ordinals must be 1..$ExpectedVariantRuns.")
+        }
+    }
+
+    if (@($allResults | Where-Object { $_.correctness.passed -ne $true }).Count -gt 0) {
+        $provenanceErrors.Add("One or more device results failed correctness validation.")
+    }
+
+    $environmentPaths = @(
+        "environment.executionKind",
+        "environment.deviceModel",
+        "environment.osVersion",
+        "environment.runtimeFramework",
+        "environment.processArchitecture",
+        "environment.runtimeVariant",
+        "environment.sdkVersion",
+        "build.azdoBuildId",
+        "build.azdoBuildUrl",
+        "build.helixJobId",
+        "build.helixWorkItem"
+    )
+    foreach ($environmentPath in $environmentPaths) {
+        $values = @(Get-UniqueValues $allResults $environmentPath)
+        if ($values.Count -ne 1 -or [string]::IsNullOrWhiteSpace($values[0])) {
+            $provenanceErrors.Add("'$environmentPath' must be present and identical for all results.")
+        }
+    }
+
+    if ($provenanceErrors.Count -gt 0) {
         $comparisons.Add([PSCustomObject]@{
             Scenario = $parts[0]
             Platform = $parts[1]
             Complete = $false
+            ProvenanceValidated = $false
+            CorrectnessPassed = @($allResults | Where-Object { $_.correctness.passed -ne $true }).Count -eq 0
             Flag = "inconclusive"
-            Reason = "Each variant must contain results from exactly one commit."
+            Reason = $provenanceErrors -join " "
         })
         continue
     }
@@ -165,10 +262,19 @@ foreach ($group in $grouped)
         Scenario = $baseResults[0].scenario
         Platform = $baseResults[0].platform
         Complete = $true
+        ProvenanceValidated = $true
+        CorrectnessPassed = $true
         BaseCommit = $baseCommits[0]
         HeadCommit = $headCommits[0]
         BaseResultCount = $baseResults.Count
         HeadResultCount = $headResults.Count
+        Build = [PSCustomObject]@{
+            azdoBuildId = $baseResults[0].build.azdoBuildId
+            azdoBuildUrl = $baseResults[0].build.azdoBuildUrl
+            helixJobId = $baseResults[0].build.helixJobId
+            helixWorkItem = $baseResults[0].build.helixWorkItem
+        }
+        Environment = $baseResults[0].environment
         Base = $base
         Head = $head
         MedianDeltaPct = $medianDeltaPct
@@ -231,9 +337,22 @@ else
 }
 
 $summary = [PSCustomObject]@{
-    schemaVersion = 1
+    schemaVersion = 2
     verdict = $verdict
     timePctTolerance = $TimePctTolerance
+    expected = [PSCustomObject]@{
+        repository = $ExpectedRepository
+        pullRequestNumber = $ExpectedPullRequestNumber
+        baseCommitSha = $ExpectedBaseCommitSha
+        headCommitSha = $ExpectedHeadCommitSha
+        harnessSha = $ExpectedHarnessSha
+        platform = $ExpectedPlatform
+        scenario = $ExpectedScenario
+        variantRuns = $ExpectedVariantRuns
+    }
+    provenanceValidated = $results.Count -gt 0 -and @($comparisons | Where-Object { -not $_.ProvenanceValidated }).Count -eq 0
+    correctnessPassed = $results.Count -gt 0 -and @($comparisons | Where-Object { -not $_.CorrectnessPassed }).Count -eq 0
+    accessibilityStatuses = @($results.correctness.accessibilityStatus | Sort-Object -Unique)
     comparisons = @($comparisons | ForEach-Object { $_ })
 }
 

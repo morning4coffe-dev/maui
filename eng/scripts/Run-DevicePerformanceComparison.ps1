@@ -22,6 +22,50 @@ param(
     [string]$HeadCommitSha,
 
     [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$ExpectedScenario,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateNotNullOrEmpty()]
+    [string]$Repository = "dotnet/maui",
+
+    [Parameter(Mandatory = $true)]
+    [ValidateRange(1, [int]::MaxValue)]
+    [int]$PullRequestNumber,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$HarnessSha,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$AzdoBuildId,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$AzdoBuildUrl,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$BaseRuntimeVariant,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$HeadRuntimeVariant,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$BaseSdkVersion,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$HeadSdkVersion,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet(2)]
+    [int]$ExpectedVariantRuns = 2,
+
+    [Parameter(Mandatory = $true)]
     [string]$OutputDirectory,
 
     [Parameter(Mandatory = $false)]
@@ -32,9 +76,6 @@ param(
 
     [Parameter(Mandatory = $false)]
     [string]$AndroidInstrumentation = "com.microsoft.maui.controls.devicetests.TestInstrumentation",
-
-    [Parameter(Mandatory = $false)]
-    [string]$TestFilter = "Category=Performance",
 
     [Parameter(Mandatory = $false)]
     [string]$Timeout = "01:15:00",
@@ -51,6 +92,24 @@ $ErrorActionPreference = "Stop"
 $scriptDirectory = $PSScriptRoot
 $parser = Join-Path $scriptDirectory "Parse-DevicePerformanceResults.ps1"
 $comparator = Join-Path $scriptDirectory "Compare-DevicePerformanceResults.ps1"
+$effectiveTestFilter = switch ($ExpectedScenario) {
+    "collectionview-keepitemsinview-update" { "Category=PerformanceCollectionViewItemsUpdate" }
+    "collectionview-grouped-scrollto-makevisible" { "Category=PerformanceCollectionViewScroll" }
+    default { throw "No trusted test filter is registered for scenario '$ExpectedScenario'." }
+}
+
+if ($XHarnessMode -eq "helix") {
+    foreach ($name in @("XHARNESS_CLI_PATH", "HELIX_CORRELATION_ID", "HELIX_WORKITEM_FRIENDLYNAME")) {
+        if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+            throw "$name is required for Helix execution."
+        }
+    }
+}
+
+function Get-EnvironmentValue([string]$name, [string]$defaultValue) {
+    $value = [Environment]::GetEnvironmentVariable($name)
+    return $(if ([string]::IsNullOrWhiteSpace($value)) { $defaultValue } else { $value })
+}
 
 function Assert-AppExists([string]$path, [string]$name) {
     if (-not (Test-Path $path))
@@ -103,7 +162,7 @@ function Get-XHarnessCommand([string]$variant, [string]$app, [string]$commitSha,
         $arguments.Add($Timeout)
         $arguments.Add("-v")
         $arguments.Add("--arg")
-        $arguments.Add("TestFilter=$TestFilter")
+        $arguments.Add("TestFilter=$effectiveTestFilter")
         $arguments.Add("--arg")
         $arguments.Add("MAUI_PERF_VARIANT=$variant")
         $arguments.Add("--arg")
@@ -129,9 +188,34 @@ function Get-XHarnessCommand([string]$variant, [string]$app, [string]$commitSha,
         $arguments.Add("--launch-timeout")
         $arguments.Add("00:10:00")
         $arguments.Add("-v")
-        $arguments.Add("--set-env=TestFilter=$TestFilter")
+        $arguments.Add("--set-env=TestFilter=$effectiveTestFilter")
         $arguments.Add("--set-env=MAUI_PERF_VARIANT=$variant")
         $arguments.Add("--set-env=MAUI_PERF_COMMIT_SHA=$commitSha")
+    }
+
+    $runtimeVariant = if ($variant -eq "base") { $BaseRuntimeVariant } else { $HeadRuntimeVariant }
+    $sdkVersion = if ($variant -eq "base") { $BaseSdkVersion } else { $HeadSdkVersion }
+    $provenance = [ordered]@{
+        MAUI_PERF_REPOSITORY = $Repository
+        MAUI_PERF_PR_NUMBER = $PullRequestNumber
+        MAUI_PERF_HARNESS_SHA = $HarnessSha
+        MAUI_PERF_RUN_ORDINAL = $script:currentRunOrdinal
+        MAUI_PERF_EXPECTED_VARIANT_RUNS = $ExpectedVariantRuns
+        MAUI_PERF_AZDO_BUILD_ID = $AzdoBuildId
+        MAUI_PERF_AZDO_BUILD_URL = $AzdoBuildUrl
+        MAUI_PERF_HELIX_JOB_ID = Get-EnvironmentValue "HELIX_CORRELATION_ID" "local"
+        MAUI_PERF_HELIX_WORK_ITEM = Get-EnvironmentValue "HELIX_WORKITEM_FRIENDLYNAME" "local"
+        MAUI_PERF_RUNTIME_VARIANT = $runtimeVariant
+        MAUI_PERF_SDK_VERSION = $sdkVersion
+    }
+
+    foreach ($entry in $provenance.GetEnumerator()) {
+        if ($Platform -eq "android") {
+            $arguments.Add("--arg")
+            $arguments.Add("$($entry.Key)=$($entry.Value)")
+        } else {
+            $arguments.Add("--set-env=$($entry.Key)=$($entry.Value)")
+        }
     }
 
     return [PSCustomObject]@{
@@ -159,6 +243,7 @@ $plan = New-Object System.Collections.Generic.List[object]
 foreach ($run in $runs)
 {
     $runDirectory = Join-Path $OutputDirectory "$($run.Variant)-run$($run.Number)"
+    $script:currentRunOrdinal = $run.Number
     $command = Get-XHarnessCommand $run.Variant $run.App $run.CommitSha $runDirectory
     $plan.Add([PSCustomObject]@{
         Variant = $run.Variant
@@ -206,5 +291,16 @@ if ($LASTEXITCODE -ne 0)
     exit $LASTEXITCODE
 }
 
-& $comparator -ResultsPath $resultsPath -JsonOut $summaryJson -MarkdownOut $summaryMarkdown
+& $comparator `
+    -ResultsPath $resultsPath `
+    -JsonOut $summaryJson `
+    -MarkdownOut $summaryMarkdown `
+    -ExpectedRepository $Repository `
+    -ExpectedPullRequestNumber $PullRequestNumber `
+    -ExpectedBaseCommitSha $BaseCommitSha `
+    -ExpectedHeadCommitSha $HeadCommitSha `
+    -ExpectedHarnessSha $HarnessSha `
+    -ExpectedPlatform $Platform `
+    -ExpectedScenario $ExpectedScenario `
+    -ExpectedVariantRuns $ExpectedVariantRuns
 exit $LASTEXITCODE

@@ -291,6 +291,10 @@ Write-Info "Changed files: $($changed.Count)"
 
 $productFiles = New-Object System.Collections.Generic.List[string]
 foreach ($file in $changed) {
+    if ($file -imatch '(^|/)PublicAPI\.(Shipped|Unshipped)\.txt$') {
+        continue
+    }
+
     foreach ($root in $ProductRoots) {
         if ($file -like "$root*") {
             $productFiles.Add($file)
@@ -423,6 +427,7 @@ $deviceScenarios = @(
             platforms = @($definition.platforms)
             runner = $definition.runner
             automationStatus = $definition.automationStatus
+            resultScenario = $definition.resultScenario
             pipeline = $definition.pipeline
             rationale = $definition.rationale
             setup = @($definition.setup)

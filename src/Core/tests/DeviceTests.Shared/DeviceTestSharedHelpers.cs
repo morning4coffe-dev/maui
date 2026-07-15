@@ -56,7 +56,14 @@ namespace Microsoft.Maui.DeviceTests
 					Console.WriteLine($"TestFilter: {filterValue}");
 					string categoryToRun = $"{filterValue.Split('=')[1]}";
 					var categories = new List<String>(GetTestCategoryValues(testCategoryType));
-					categories.Remove(categoryToRun);
+					if (string.Equals(categoryToRun, PerformanceCategory, StringComparison.Ordinal))
+					{
+						categories.RemoveAll(IsPerformanceCategory);
+					}
+					else
+					{
+						categories.Remove(categoryToRun);
+					}
 					return categories.Select(c => $"Category={c}").ToList();
 				}
 
@@ -84,11 +91,14 @@ namespace Microsoft.Maui.DeviceTests
 			[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)] Type testCategoryType,
 			List<string> categoriesToSkip)
 		{
-			if (GetTestCategoryValues(testCategoryType).Contains(PerformanceCategory, StringComparer.Ordinal)
-				&& !categoriesToSkip.Contains(PerformanceCategory, StringComparer.Ordinal))
+			foreach (string performanceCategory in GetTestCategoryValues(testCategoryType).Where(IsPerformanceCategory))
 			{
-				categoriesToSkip.Add(PerformanceCategory);
+				if (!categoriesToSkip.Contains(performanceCategory, StringComparer.Ordinal))
+					categoriesToSkip.Add(performanceCategory);
 			}
 		}
+
+		static bool IsPerformanceCategory(string category) =>
+			category.StartsWith(PerformanceCategory, StringComparison.Ordinal);
 	}
 }

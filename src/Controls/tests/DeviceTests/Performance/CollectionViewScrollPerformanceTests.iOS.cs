@@ -15,7 +15,7 @@ using static Microsoft.Maui.DeviceTests.AssertHelpers;
 namespace Microsoft.Maui.DeviceTests
 {
 	[Collection(RunInNewWindowCollection)]
-	[Category(TestCategory.Performance)]
+	[Category(TestCategory.PerformanceCollectionViewScroll)]
 	public class CollectionViewScrollPerformanceTests : ControlsHandlerTestBase
 	{
 		const int GroupCount = 5;

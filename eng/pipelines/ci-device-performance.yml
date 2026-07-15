@@ -27,6 +27,10 @@ parameters:
   - ios
   - maccatalyst
   - android
+- name: expectedScenario
+  displayName: Expected emitted scenario
+  type: string
+  default: ''
 - name: macOSPool
   type: object
   default:
@@ -93,12 +97,19 @@ stages:
         targetPath: $(Pipeline.Workspace)/device_performance_head
 
     - pwsh: |
+        $buildUrl = "$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)"
         ./eng/scripts/Prepare-DevicePerformancePayload.ps1 `
           -BaseArtifacts "$(Pipeline.Workspace)/device_performance_base" `
           -HeadArtifacts "$(Pipeline.Workspace)/device_performance_head" `
           -Platform "${{ parameters.platform }}" `
           -BaseCommitSha "${{ parameters.baseCommitSha }}" `
           -HeadCommitSha "${{ parameters.headCommitSha }}" `
+          -ExpectedScenario "${{ parameters.expectedScenario }}" `
+          -Repository "dotnet/maui" `
+          -PullRequestNumber ${{ parameters.prNumber }} `
+          -HarnessSha "$(Build.SourceVersion)" `
+          -AzdoBuildId "$(Build.BuildId)" `
+          -AzdoBuildUrl $buildUrl `
           -OutputArchive "$(Build.ArtifactStagingDirectory)/payload.zip" `
           -MetadataOut "$(Build.ArtifactStagingDirectory)/payload.json"
       displayName: Prepare paired device performance payload

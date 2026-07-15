@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "limits": {
+    "maxRecommendations": 3
+  },
+  "tradeoffAssessments": [
+    "likely-worth-it",
+    "likely-not-worth-it",
+    "unclear",
+    "not-applicable"
+  ],
+  "costAttributions": [
+    "accidental",
+    "deliberate",
+    "unknown"
+  ],
+  "tradeoffAssessmentGates": {
+    "likely-worth-it": [
+      "correctness benefit established by tests or linked issue evidence",
+      "complete non-advisory performance evidence",
+      "no better tested alternative"
+    ],
+    "likely-not-worth-it": [
+      "material performance cost confirmed by non-advisory evidence",
+      "a tested lower-cost implementation or validated workaround preserves required correctness"
+    ],
+    "unclear": [
+      "evidence is incomplete, advisory-only, conflicting, or lacks a tested alternative"
+    ],
+    "not-applicable": [
+      "no correctness-versus-performance tradeoff is present"
+    ]
+  },
+  "confidenceLevels": [
+    "high",
+    "medium",
+    "low"
+  ],
+  "recommendationEvidence": [
+    "measured",
+    "statically-supported",
+    "hypothesis"
+  ],
+  "workaroundStatuses": [
+    "validated",
+    "plausible-unverified",
+    "none"
+  ],
+  "nextActions": [
+    {
+      "id": "no_concerns",
+      "allowedAssessments": [
+        "not-applicable"
+      ],
+      "requires": [
+        "complete whole-PR coverage",
+        "complete non-advisory evidence",
+        "no confirmed regression",
+        "no high-confidence static hot-path finding"
+      ]
+    },
+    {
+      "id": "accept_tradeoff",
+      "allowedAssessments": [
+        "likely-worth-it"
+      ],
+      "requires": [
+        "complete whole-PR coverage",
+        "complete non-advisory evidence",
+        "measured deliberate cost",
+        "correctness benefit established by tests or linked issue evidence",
+        "no better tested alternative"
+      ]
+    },
+    {
+      "id": "accept_with_followup",
+      "allowedAssessments": [
+        "likely-worth-it"
+      ],
+      "requires": [
+        "complete whole-PR coverage",
+        "complete non-advisory evidence",
+        "correctness benefit established",
+        "measured or statically-supported optimization opportunity",
+        "current cost does not clearly justify blocking the fix"
+      ]
+    },
+    {
+      "id": "optimize_before_merge",
+      "allowedAssessments": [
+        "likely-not-worth-it",
+        "not-applicable"
+      ],
+      "requires": [
+        "confirmed material regression or high-confidence hot-path regression",
+        "regression is accidental or a viable lower-cost approach is identified",
+        "confirmed regression is not suppressed by unrelated coverage gaps"
+      ]
+    },
+    {
+      "id": "run_more_measurements",
+      "allowedAssessments": [
+        "unclear"
+      ],
+      "requires": [
+        "decision-relevant evidence is missing, stale, incomplete, sampled-only, static-only, or device-required",
+        "a concrete supported measurement path exists",
+        "no confirmed blocking regression already determines optimize-before-merge"
+      ]
+    },
+    {
+      "id": "prefer_validated_workaround",
+      "allowedAssessments": [
+        "likely-not-worth-it"
+      ],
+      "requires": [
+        "sealed executed-validation artifact identifies the workaround",
+        "affected platform scope is established",
+        "workaround validated on every affected platform",
+        "workaround preserves required correctness",
+        "framework-fix cost is measured and likely not worth it",
+        "human triage remains responsible for issue disposition"
+      ]
+    },
+    {
+      "id": "needs_human_discussion",
+      "allowedAssessments": [
+        "unclear"
+      ],
+      "requires": [
+        "evidence supports competing correctness, performance, compatibility, or maintenance concerns, or no supported measurement path exists"
+      ]
+    }
+  ],
+  "decisionRules": {
+    "confirmedRegressionTakesPrecedenceOverCoverageGaps": true,
+    "acceptanceRequiresCompleteNonAdvisoryEvidence": true,
+    "missingEvidenceRequiresConcreteMeasurementPath": true,
+    "unsupportedMissingEvidenceAction": "needs_human_discussion",
+    "externalEvidenceCanValidateWorkaround": false
+  },
+  "tradeoffFactors": [
+    "correctness severity",
+    "absolute measured cost",
+    "relative measured cost",
+    "execution frequency",
+    "affected scope",
+    "better tested alternative",
+    "workaround quality",
+    "evidence confidence"
+  ],
+  "hardGates": [
+    "Keep empirical verdict separate from recommended next action.",
+    "Do not calculate a synthetic worth-it score.",
+    "Use unknown when a factor is not established by evidence.",
+    "Do not invent an absolute cost, execution frequency, affected scope, or expected percentage benefit.",
+    "Incomplete or advisory-only evidence cannot support likely-worth-it or likely-not-worth-it.",
+    "Partial evidence cannot produce no_concerns.",
+    "A plausible-unverified workaround cannot drive merge or issue-disposition advice.",
+    "Validated requires a sealed executed-validation artifact, established affected scope, and correctness tests on every affected platform; accessibility remains not-assessed unless explicitly tested.",
+    "Never recommend automatic issue closure and expose no issue-closing capability."
+  ]
+}
