@@ -277,11 +277,19 @@ namespace Microsoft.Maui.Platform
 				IsInnerPath = false;
 			}
 
+#if UNO
+			var geometricClip = compositor.CreateRectangleClip(
+				0,
+				0,
+				(float)Math.Max(0, pathSize.Width),
+				(float)Math.Max(0, pathSize.Height));
+#else
 			var device = CanvasDevice.GetSharedDevice();
 			var geometry = clipPath.AsPath(device);
 			var path = new CompositionPath(geometry);
 			var pathGeometry = compositor.CreatePathGeometry(path);
 			var geometricClip = compositor.CreateGeometricClip(pathGeometry);
+#endif
 
 			// Use ActualOffset (not LayoutInformation.GetLayoutSlot) because it reflects the true
 			// visual position of Content after WinUI alignment adjustments (e.g. a Stretch=None

@@ -1,5 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
   <PropertyGroup>
     <TargetFrameworks>netstandard2.1;netstandard2.0;$(_MauiDotNetTfm);$(MauiPlatforms)</TargetFrameworks>
     <TargetFrameworks Condition="'$(IncludePreviousTfms)' == 'true'">$(TargetFrameworks);$(_MauiPreviousDotNetTfm);$(MauiPreviousPlatforms)</TargetFrameworks>
@@ -42,7 +44,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Core\src\Core.csproj" />
+    <ProjectReference Include="..\..\..\Core\src\Core.csproj">
+      <SkipGetTargetFrameworkProperties Condition="'$(MauiUnoTarget)' == 'true'">true</SkipGetTargetFrameworkProperties>
+      <SetTargetFramework Condition="'$(MauiUnoTarget)' == 'true'">TargetFramework=$(TargetFramework);MauiUnoTarget=true</SetTargetFramework>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
@@ -69,6 +74,16 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(_MauiTargetPlatformIsUno)' == 'True'">
+    <PackageReference Include="Uno.WinUI" />
+    <Page Include="Compatibility\Handlers\ListView\Windows\ListViewStyles.xaml" />
+    <Page Include="Compatibility\Handlers\TableView\Windows\TableViewStyles.xaml" />
+    <Page Include="Platform\Windows\CollectionView\ItemsViewStyles.xaml" />
+    <Page Include="Platform\Windows\Styles\*.xaml"
+          Exclude="Platform\Windows\Styles\Resources.xaml" />
+    <Page Include="Platform\Windows\TabbedPage\TabbedPageStyle.xaml" />
   </ItemGroup>
 
   <ItemGroup Condition=" '$(TargetPlatformIdentifier)' == 'android' ">

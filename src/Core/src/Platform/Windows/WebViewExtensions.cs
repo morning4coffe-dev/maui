@@ -118,8 +118,17 @@ namespace Microsoft.Maui.Platform
 
 		public static void EvaluateJavaScript(this WebView2 webView, EvaluateJavaScriptAsyncRequest request)
 		{
+#if UNO
+			request.RunAndReport(EvaluateJavaScriptAsync(webView, request.Script));
+#else
 			request.RunAndReport(webView.ExecuteScriptAsync(request.Script));
+#endif
 		}
+
+#if UNO
+		static async System.Threading.Tasks.Task<string> EvaluateJavaScriptAsync(WebView2 webView, string script) =>
+			await webView.ExecuteScriptAsync(script) ?? string.Empty;
+#endif
 
 		internal static bool IsValid(this WebView2 webView)
 		{

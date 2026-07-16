@@ -163,6 +163,33 @@
         Version="$(MicrosoftGraphicsWin2DPackageVersion)"
     />
     <PackageReference
+        Update="Uno.WinUI"
+        Version="$(UnoWinUIPackageVersion)"
+    />
+    <PackageReference
+        Update="Uno.WinUI.Runtime.Skia.Win32"
+        Version="$(UnoWinUIPackageVersion)"
+    />
+    <PackageReference
+        Update="SkiaSharp.Views.Uno.WinUI"
+        Version="$(SkiaSharpViewsUnoWinUIPackageVersion)"
+    />
+    <PackageReference
+        Update="SkiaSharp"
+        Version="$(UnoSkiaSharpPackageVersion)"
+        Condition="'$(_MauiTargetPlatformIsUno)' == 'True'"
+    />
+    <PackageReference
+        Update="SkiaSharp.HarfBuzz"
+        Version="$(UnoSkiaSharpPackageVersion)"
+        Condition="'$(_MauiTargetPlatformIsUno)' == 'True'"
+    />
+    <PackageReference
+        Update="SkiaSharp.NativeAssets.Win32"
+        Version="$(UnoSkiaSharpPackageVersion)"
+        Condition="'$(_MauiTargetPlatformIsUno)' == 'True'"
+    />
+    <PackageReference
         Update="Microsoft.AspNetCore.Authorization"
         Version="$(MicrosoftAspNetCoreAuthorizationPackageVersion)"
     />

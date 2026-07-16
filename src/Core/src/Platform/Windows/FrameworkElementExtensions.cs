@@ -26,7 +26,12 @@ namespace Microsoft.Maui.Platform
 			platformControl.VerticalAlignment = textAlignment.VerticalTextAlignment.ToPlatformVerticalAlignment();
 		}
 
-		internal static IEnumerable<T?> GetDescendantsByName<T>(this DependencyObject parent, string elementName) where T : DependencyObject
+		internal static IEnumerable<T?> GetDescendantsByName<T>(this DependencyObject parent, string elementName)
+#if UNO
+			where T : class, DependencyObject
+#else
+			where T : DependencyObject
+#endif
 		{
 			var myChildrenCount = VisualTreeHelper.GetChildrenCount(parent);
 			for (int i = 0; i < myChildrenCount; i++)
@@ -45,7 +50,12 @@ namespace Microsoft.Maui.Platform
 			}
 		}
 
-		internal static T? GetDescendantByName<T>(this DependencyObject parent, string elementName) where T : DependencyObject
+		internal static T? GetDescendantByName<T>(this DependencyObject parent, string elementName)
+#if UNO
+			where T : class, DependencyObject
+#else
+			where T : DependencyObject
+#endif
 		{
 			var myChildrenCount = VisualTreeHelper.GetChildrenCount(parent);
 			for (int i = 0; i < myChildrenCount; i++)
@@ -211,7 +221,11 @@ namespace Microsoft.Maui.Platform
 
 		internal static WPoint? GetLocationOnScreen(this UIElement element)
 		{
-			var ttv = element.TransformToVisual(element.XamlRoot.Content);
+			var rootContent = element.XamlRoot?.Content;
+			if (rootContent is null)
+				return null;
+
+			var ttv = element.TransformToVisual(rootContent);
 			WPoint screenCoords = ttv.TransformPoint(new WPoint(0, 0));
 			return new WPoint(screenCoords.X, screenCoords.Y);
 		}
@@ -222,8 +236,8 @@ namespace Microsoft.Maui.Platform
 				return null;
 
 			var view = element.ToPlatform();
-			return
-				view.GetLocationRelativeTo(view.XamlRoot.Content);
+			var rootContent = view.XamlRoot?.Content;
+			return rootContent is null ? null : view.GetLocationRelativeTo(rootContent);
 		}
 
 		internal static WPoint? GetLocationRelativeTo(this UIElement element, UIElement relativeTo)
@@ -304,6 +318,10 @@ namespace Microsoft.Maui.Platform
 
 		internal static bool TryGetInputPane([NotNullWhen(true)] out InputPane? inputPane)
 		{
+#if UNO
+			inputPane = null;
+			return false;
+#else
 			var handleId = Process.GetCurrentProcess().MainWindowHandle;
 			if (handleId == IntPtr.Zero)
 			{
@@ -314,6 +332,7 @@ namespace Microsoft.Maui.Platform
 
 			inputPane = InputPaneInterop.GetForWindow(handleId);
 			return true;
+#endif
 		}
 	}
 }

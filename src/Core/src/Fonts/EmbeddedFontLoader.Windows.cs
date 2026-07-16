@@ -25,9 +25,13 @@ namespace Microsoft.Maui
 				throw new InvalidOperationException("ResourceStream for embedded font was null.");
 			}
 
+#if UNO
+			return LoadFontPackaged(font.FontName, font.ResourceStream);
+#else
 			return AppInfoUtils.IsPackagedApp
 				? LoadFontPackaged(font.FontName, font.ResourceStream)
 				: LoadFontUnpackaged(font.FontName, font.ResourceStream);
+#endif
 		}
 
 		private string? LoadFontPackaged(string fontName, Stream resourceStream)

@@ -40,6 +40,7 @@ namespace Microsoft.Maui.Platform
 			var titlebarMargins = new UI.Xaml.Thickness(0, 0, 0, 0);
 			if (isVisible && UI.Windowing.AppWindowTitleBar.IsCustomizationSupported())
 			{
+#if !UNO
 				var titleBar = platformWindow.GetAppWindow()?.TitleBar;
 				if (titleBar is not null)
 				{
@@ -47,6 +48,7 @@ namespace Microsoft.Maui.Platform
 					appbarHeight = (int)(titleBar.Height / density);
 					titlebarMargins = new UI.Xaml.Thickness(titleBar.LeftInset, 0, titleBar.RightInset, 0);
 				}
+#endif
 			}
 
 			_rootView.UpdateAppTitleBar(
@@ -189,7 +191,12 @@ namespace Microsoft.Maui.Platform
 			SolidColorBrush defaultForegroundBrush = (SolidColorBrush)Application.Current.Resources["TextFillColorPrimaryBrush"];
 			SolidColorBrush inactiveForegroundBrush = (SolidColorBrush)Application.Current.Resources["TextFillColorDisabledBrush"];
 
-			if (e.WindowActivationState == WindowActivationState.Deactivated)
+			if (e.WindowActivationState ==
+#if UNO
+				global::Windows.UI.Core.CoreWindowActivationState.Deactivated)
+#else
+				WindowActivationState.Deactivated)
+#endif
 			{
 				_rootView.WindowTitleForeground = inactiveForegroundBrush;
 			}

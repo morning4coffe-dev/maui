@@ -64,7 +64,7 @@ namespace Microsoft.Maui.Hosting
 					{
 						ApplicationModel.Platform.PerformActionForShortcutItem(application, shortcutItem, completionHandler);
 					}));
-#elif WINDOWS
+#elif WINDOWS && !UNO
 				life.AddWindows(windows => windows
 					.OnActivated((window, args) =>
 					{
@@ -83,7 +83,7 @@ namespace Microsoft.Maui.Hosting
 #endif
 			});
 
-#if !(ANDROID || __IOS__ || __MACCATALYST__ || WINDOWS || TIZEN)
+#if !(ANDROID || __IOS__ || __MACCATALYST__ || WINDOWS || TIZEN) || UNO
 			builder.Services.TryAddEnumerable(ServiceDescriptor.Transient<IMauiInitializeService, MainThreadBridgeInitializer>());
 #endif
 
@@ -126,7 +126,7 @@ namespace Microsoft.Maui.Hosting
 		/// on custom platform backends / external TFMs where no native
 		/// MainThread implementation exists.
 		/// </summary>
-#if !(ANDROID || __IOS__ || __MACCATALYST__ || WINDOWS || TIZEN)
+#if !(ANDROID || __IOS__ || __MACCATALYST__ || WINDOWS || TIZEN) || UNO
 		class MainThreadBridgeInitializer : IMauiInitializeService
 		{
 			public void Initialize(IServiceProvider services)
@@ -163,7 +163,7 @@ namespace Microsoft.Maui.Hosting
 					}
 				}
 
-#if WINDOWS
+#if WINDOWS && !UNO
 				ApplicationModel.Platform.MapServiceToken = _essentialsBuilder.MapServiceToken;
 #endif
 

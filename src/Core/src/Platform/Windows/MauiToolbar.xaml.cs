@@ -7,6 +7,9 @@ using WImageSource = Microsoft.UI.Xaml.Media.ImageSource;
 namespace Microsoft.Maui.Platform
 {
 	public partial class MauiToolbar
+#if UNO
+		: CommandBar
+#endif
 	{
 		public static readonly DependencyProperty IsBackButtonVisibleProperty
 			= DependencyProperty.Register(nameof(IsBackButtonVisible), typeof(NavigationViewBackButtonVisible), typeof(MauiToolbar),

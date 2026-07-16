@@ -1,7 +1,9 @@
 ﻿using System;
 using System.IO;
 using Microsoft.Extensions.DependencyInjection;
+#if !UNO
 using Microsoft.Graphics.Canvas.UI.Xaml;
+#endif
 using Microsoft.Maui.Graphics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -28,6 +30,7 @@ namespace Microsoft.Maui.Platform
 					Height = bitmap.PixelHeight / rasterizationScale
 				};
 			}
+#if !UNO
 			else if (source is CanvasImageSource canvas)
 			{
 				return new Size
@@ -36,6 +39,7 @@ namespace Microsoft.Maui.Platform
 					Height = canvas.Size.Height
 				};
 			}
+#endif
 
 			throw new InvalidCastException($"\"{source.GetType().FullName}\" is not supported.");
 		}

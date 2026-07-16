@@ -39,9 +39,17 @@ namespace Microsoft.Maui.Platform
 			else if (e is DoubleTappedRoutedEventArgs dt)
 				return dt.GetPosition(relativeTo);
 			else if (e is DragStartingEventArgs ds)
+#if UNO
+				return relativeTo is null ? null : ds.GetPosition(relativeTo);
+#else
 				return ds.GetPosition(relativeTo);
+#endif
 			else if (e is DragEventArgs d)
+#if UNO
+				return relativeTo is null ? null : d.GetPosition(relativeTo);
+#else
 				return d.GetPosition(relativeTo);
+#endif
 			else if (e is PointerRoutedEventArgs p)
 			{
 				var point = p.GetCurrentPoint(relativeTo);

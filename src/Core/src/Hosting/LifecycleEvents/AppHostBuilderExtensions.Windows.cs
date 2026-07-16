@@ -27,11 +27,20 @@ namespace Microsoft.Maui.LifecycleEvents
 				{
 					switch (args.WindowActivationState)
 					{
+#if UNO
+						case global::Windows.UI.Core.CoreWindowActivationState.CodeActivated:
+						case global::Windows.UI.Core.CoreWindowActivationState.PointerActivated:
+#else
 						case UI.Xaml.WindowActivationState.CodeActivated:
 						case UI.Xaml.WindowActivationState.PointerActivated:
+#endif
 							window.GetWindow()?.Activated();
 							break;
+#if UNO
+						case global::Windows.UI.Core.CoreWindowActivationState.Deactivated:
+#else
 						case UI.Xaml.WindowActivationState.Deactivated:
+#endif
 							window.GetWindow()?.Deactivated();
 							break;
 					}
@@ -49,6 +58,7 @@ namespace Microsoft.Maui.LifecycleEvents
 
 		static void OnConfigureWindow(IWindowsLifecycleBuilder windows)
 		{
+#if !UNO
 			windows
 				.OnPlatformMessage((window, e) =>
 				{
@@ -74,6 +84,7 @@ namespace Microsoft.Maui.LifecycleEvents
 						}
 					}
 				});
+#endif
 		}
 	}
 }

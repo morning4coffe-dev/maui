@@ -1,5 +1,10 @@
 ﻿using System;
+#if UNO
+using System.Diagnostics.CodeAnalysis;
+#endif
+#if !UNO
 using System.Runtime.InteropServices;
+#endif
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.LifecycleEvents;
@@ -14,19 +19,22 @@ namespace Microsoft.Maui
 {
 	public class MauiWinUIWindow : UI.Xaml.Window, IPlatformSizeRestrictedWindow
 	{
-		static readonly SizeInt32 DefaultMinimumSize = new SizeInt32(0, 0);
-		static readonly SizeInt32 DefaultMaximumSize = new SizeInt32(int.MaxValue, int.MaxValue);
+		static readonly SizeInt32 DefaultMinimumSize = CreateSize(0, 0);
+		static readonly SizeInt32 DefaultMaximumSize = CreateSize(int.MaxValue, int.MaxValue);
 
+#if !UNO
 		readonly WindowMessageManager _windowManager;
-
 		IntPtr _windowIcon;
+#endif
 		bool _enableResumeEvent;
 		bool _isActivated;
 		ViewManagement.UISettings _viewSettings;
 
 		public MauiWinUIWindow()
 		{
+#if !UNO
 			_windowManager = WindowMessageManager.Get(this);
+#endif
 			_viewSettings = new ViewManagement.UISettings();
 
 			Activated += OnActivated;
@@ -54,13 +62,20 @@ namespace Microsoft.Maui
 				base.SystemBackdrop = new MicaBackdrop() { Kind = MicaKind.BaseAlt };
 			}
 
+#if !UNO
 			SubClassingWin32();
 			SetIcon();
+#endif
 		}
 
 		protected virtual void OnActivated(object sender, UI.Xaml.WindowActivatedEventArgs args)
 		{
-			if (args.WindowActivationState != UI.Xaml.WindowActivationState.Deactivated)
+			if (args.WindowActivationState !=
+#if UNO
+				global::Windows.UI.Core.CoreWindowActivationState.Deactivated)
+#else
+				UI.Xaml.WindowActivationState.Deactivated)
+#endif
 			{
 				// We have to track isActivated calls because WinUI will call OnActivated Twice
 				// when maximizing a window
@@ -81,7 +96,12 @@ namespace Microsoft.Maui
 					_enableResumeEvent = true;
 				}
 			}
-			else if (args.WindowActivationState == UI.Xaml.WindowActivationState.Deactivated &&
+			else if (args.WindowActivationState ==
+#if UNO
+				global::Windows.UI.Core.CoreWindowActivationState.Deactivated &&
+#else
+				UI.Xaml.WindowActivationState.Deactivated &&
+#endif
 				!_isActivated)
 			{
 				// Don't invoke deactivated event if we're not activated. It's possible we can
@@ -106,11 +126,13 @@ namespace Microsoft.Maui
 			VisibilityChanged -= OnVisibilityChanged;
 			_viewSettings.ColorValuesChanged -= ViewSettingsColorValuesChanged;
 
+#if !UNO
 			if (_windowIcon != IntPtr.Zero)
 			{
 				_ = DestroyIcon(_windowIcon);
 				_windowIcon = IntPtr.Zero;
 			}
+#endif
 
 			Window = null;
 		}
@@ -120,11 +142,31 @@ namespace Microsoft.Maui
 			Services?.InvokeLifecycleEvents<WindowsLifecycle.OnClosed>(del => del(this, args));
 		}
 
+#if UNO
+		protected virtual void OnVisibilityChanged(object sender, global::Windows.UI.Core.VisibilityChangedEventArgs args)
+		{
+			Services?.InvokeLifecycleEvents<WindowsLifecycle.OnVisibilityChanged>(del => del(this, args));
+		}
+#else
 		protected virtual void OnVisibilityChanged(object sender, UI.Xaml.WindowVisibilityChangedEventArgs args)
 		{
 			Services?.InvokeLifecycleEvents<WindowsLifecycle.OnVisibilityChanged>(del => del(this, args));
 		}
+#endif
 
+		static SizeInt32 CreateSize(int width, int height)
+		{
+#if UNO
+			return new SizeInt32 { Width = width, Height = height };
+#else
+			return new SizeInt32(width, height);
+#endif
+		}
+
+#if UNO
+		[SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "This property mirrors the instance-based WinUI window API.")]
+		public IntPtr WindowHandle => IntPtr.Zero;
+#else
 		public IntPtr WindowHandle => _windowManager.WindowHandle;
 
 		void SubClassingWin32()
@@ -191,12 +233,14 @@ namespace Microsoft.Maui
 					m => m.Invoke(this, new WindowsPlatformMessageEventArgs(e.Hwnd, e.MessageId, e.WParam, e.LParam)));
 			}
 		}
+#endif
 
 		/// <summary>
 		/// Default the Window Icon to the icon stored in the .exe, if any.
 		/// 
 		/// The Icon can be overridden by callers by calling SetIcon themselves.
 		/// </summary>
+#if !UNO
 		void SetIcon()
 		{
 			var processPath = Environment.ProcessPath;
@@ -215,6 +259,7 @@ namespace Microsoft.Maui
 				}
 			}
 		}
+#endif
 
 		void ViewSettingsColorValuesChanged(ViewManagement.UISettings sender, object args)
 		{
@@ -247,11 +292,13 @@ namespace Microsoft.Maui
 			Window?.Handler?.GetServiceProvider() ??
 			IPlatformApplication.Current?.Services;
 
+#if !UNO
 		[DllImport("shell32.dll", CharSet = CharSet.Auto)]
 		static extern IntPtr ExtractAssociatedIcon(IntPtr hInst, string iconPath, ref IntPtr index);
 
 		[DllImport("user32.dll", SetLastError = true)]
 		static extern int DestroyIcon(IntPtr hIcon);
+#endif
 
 		internal void SetWindow(IWindow window)
 		{

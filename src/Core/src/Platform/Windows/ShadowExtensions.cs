@@ -64,7 +64,11 @@ namespace Microsoft.Maui.Platform
 							bitmap.PixelHeight,
 							BitmapAlphaMode.Premultiplied))
 						{
+#if UNO
+							var brush = await CompositionImageBrush.FromBGRASoftwareBitmapAsync(
+#else
 							var brush = CompositionImageBrush.FromBGRASoftwareBitmap(
+#endif
 								visual.Compositor,
 								softwareBitmap,
 								new Size(bitmap.PixelWidth, bitmap.PixelHeight));

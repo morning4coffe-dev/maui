@@ -75,7 +75,11 @@ namespace Microsoft.Maui.Platform
 
 		internal bool HasShadow => _dropShadow != null;
 
+#if UNO
+		public new void Dispose()
+#else
 		public void Dispose()
+#endif
 		{
 			DisposeClip();
 			DisposeShadow();
@@ -114,12 +118,16 @@ namespace Microsoft.Maui.Platform
 
 			var pathSize = new Graphics.Rect(0, 0, width, height);
 			var clipPath = clipGeometry.PathForBounds(pathSize);
+#if UNO
+			var geometricClip = compositor.CreateRectangleClip(0, 0, (float)width, (float)height);
+#else
 			var device = CanvasDevice.GetSharedDevice();
 			var geometry = clipPath.AsPath(device);
 
 			var path = new CompositionPath(geometry);
 			var pathGeometry = compositor.CreatePathGeometry(path);
 			var geometricClip = compositor.CreateGeometricClip(pathGeometry);
+#endif
 
 			// The clip needs to consider the child's offset in case it is in a different position because of a different alignment.
 			geometricClip.Offset = new Vector2(-Child.ActualOffset.X, -Child.ActualOffset.Y);
@@ -130,6 +138,9 @@ namespace Microsoft.Maui.Platform
 
 		void DisposeClip()
 		{
+			if (Child is null)
+				return;
+
 			var visual = ElementCompositionPreview.GetElementVisual(Child);
 			visual.Clip = null;
 		}
@@ -213,7 +224,11 @@ namespace Microsoft.Maui.Platform
 
 			if (_shadowHost is not null)
 			{
+#if UNO
+				ElementCompositionPreview.SetElementChildVisual(_shadowHost, null!);
+#else
 				ElementCompositionPreview.SetElementChildVisual(_shadowHost, null);
+#endif
 			}
 
 			if (_shadowCanvasCachedChildren.Count > 0)

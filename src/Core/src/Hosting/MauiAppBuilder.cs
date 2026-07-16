@@ -86,7 +86,14 @@ namespace Microsoft.Maui.Hosting
 					resources.AddLibraryResources<UI.Xaml.Controls.XamlControlsResources>();
 
 					// Microsoft.Maui
+#if UNO
+					GlobalStaticResources.Initialize();
+					GlobalStaticResources.RegisterDefaultStyles();
+					GlobalStaticResources.RegisterResourceDictionariesBySource();
+					resources.AddLibraryResources("MicrosoftMauiCoreIncluded", "ms-appx:///Microsoft.Maui/Platform/Windows/Styles/Resources.Uno.xaml");
+#else
 					resources.AddLibraryResources("MicrosoftMauiCoreIncluded", "ms-appx:///Microsoft.Maui/Platform/Windows/Styles/Resources.xbf");
+#endif
 				}
 #endif
 			}

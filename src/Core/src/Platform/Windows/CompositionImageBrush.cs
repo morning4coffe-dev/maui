@@ -1,15 +1,67 @@
 ﻿#nullable disable
-
 using System;
+#if UNO
+using System.Threading.Tasks;
+using Microsoft.UI.Composition;
+using Microsoft.UI.Xaml.Media;
+using Windows.Foundation;
+using Windows.Graphics.Imaging;
+using Windows.Storage.Streams;
+#else
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.UI.Composition;
 using Microsoft.Graphics.DirectX;
 using Microsoft.UI.Composition;
 using Windows.Foundation;
 using Windows.Graphics.Imaging;
+#endif
 
 namespace Microsoft.Maui.Platform
 {
+#if UNO
+	class CompositionImageBrush : IDisposable
+	{
+		readonly LoadedImageSurface _surface;
+		readonly CompositionSurfaceBrush _brush;
+
+		CompositionImageBrush(LoadedImageSurface surface, CompositionSurfaceBrush brush)
+		{
+			_surface = surface;
+			_brush = brush;
+		}
+
+		public CompositionBrush Brush => _brush;
+
+		public static async Task<CompositionImageBrush> FromBGRASoftwareBitmapAsync(
+			Compositor compositor,
+			SoftwareBitmap bitmap,
+			Size outputSize)
+		{
+			var stream = new InMemoryRandomAccessStream();
+			var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
+			encoder.SetSoftwareBitmap(bitmap);
+			await encoder.FlushAsync();
+			stream.Seek(0);
+
+			var surface = LoadedImageSurface.StartLoadFromStream(stream, outputSize);
+			TypedEventHandler<LoadedImageSurface, LoadedImageSourceLoadCompletedEventArgs> handler = null;
+			handler = (sender, args) =>
+			{
+				sender.LoadCompleted -= handler;
+				stream.Dispose();
+			};
+			surface.LoadCompleted += handler;
+
+			return new CompositionImageBrush(surface, compositor.CreateSurfaceBrush(surface));
+		}
+
+		public void Dispose()
+		{
+			_brush.Dispose();
+			_surface.Dispose();
+		}
+	}
+#else
 	class CompositionImageBrush : IDisposable
 	{
 		CompositionGraphicsDevice _graphicsDevice;
@@ -74,4 +126,5 @@ namespace Microsoft.Maui.Platform
 			_graphicsDevice.Dispose();
 		}
 	}
+#endif
 }

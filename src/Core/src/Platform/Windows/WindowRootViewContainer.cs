@@ -33,10 +33,10 @@ namespace Microsoft.Maui.Platform
 			var height = availableSize.Height;
 
 			if (double.IsInfinity(width))
-				width = XamlRoot.Size.Width;
+				width = XamlRoot?.Size.Width ?? 0;
 
 			if (double.IsInfinity(height))
-				height = XamlRoot.Size.Height;
+				height = XamlRoot?.Size.Height ?? 0;
 
 			var size = new Size(width, height);
 

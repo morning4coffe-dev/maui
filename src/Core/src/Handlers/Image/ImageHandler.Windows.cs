@@ -11,6 +11,9 @@ namespace Microsoft.Maui.Handlers
 	public partial class ImageHandler : ViewHandler<IImage, WImage>
 	{
 		private Graphics.Size _cachedImageSize;
+#if UNO
+		private XamlRoot? _xamlRoot;
+#endif
 
 		/// <inheritdoc/>
 		protected override WImage CreatePlatformView() => new WImage();
@@ -19,6 +22,10 @@ namespace Microsoft.Maui.Handlers
 		protected override void ConnectHandler(WImage platformView)
 		{
 			platformView.ImageOpened += OnImageOpened;
+#if UNO
+			platformView.Loaded += OnPlatformViewLoaded;
+			platformView.Unloaded += OnPlatformViewUnloaded;
+#endif
 
 			base.ConnectHandler(platformView);
 		}
@@ -28,10 +35,46 @@ namespace Microsoft.Maui.Handlers
 		{
 			platformView.ImageOpened -= OnImageOpened;
 			platformView.Loaded -= OnImageLoaded;
+#if UNO
+			platformView.Loaded -= OnPlatformViewLoaded;
+			platformView.Unloaded -= OnPlatformViewUnloaded;
+			UnsubscribeFromXamlRoot();
+#endif
 
 			base.DisconnectHandler(platformView);
 			SourceLoader.Reset();
 		}
+
+#if UNO
+		void OnPlatformViewLoaded(object sender, RoutedEventArgs e)
+		{
+			if (sender is WImage image && image.XamlRoot is { } xamlRoot && xamlRoot != _xamlRoot)
+			{
+				UnsubscribeFromXamlRoot();
+				_xamlRoot = xamlRoot;
+				_xamlRoot.Changed += OnXamlRootChanged;
+			}
+		}
+
+		void OnPlatformViewUnloaded(object sender, RoutedEventArgs e) => UnsubscribeFromXamlRoot();
+
+		void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
+		{
+			if (!SourceLoader.SourceManager.IsLoading &&
+				SourceLoader.SourceManager.RequiresReload(PlatformView))
+			{
+				UpdateValue(nameof(IImage.Source));
+			}
+		}
+
+		void UnsubscribeFromXamlRoot()
+		{
+			if (_xamlRoot is not null)
+				_xamlRoot.Changed -= OnXamlRootChanged;
+
+			_xamlRoot = null;
+		}
+#endif
 
 		/// <inheritdoc/>
 		public override bool NeedsContainer =>
@@ -290,7 +333,12 @@ namespace Microsoft.Maui.Handlers
 				// BitmapSource may not have PixelWidth/PixelHeight set until image is loaded
 				if (bitmap.PixelWidth > 0 && bitmap.PixelHeight > 0)
 				{
+#if UNO
+					var density = PlatformView.GetDisplayDensity();
+					return new Graphics.Size(bitmap.PixelWidth / density, bitmap.PixelHeight / density);
+#else
 					return new Graphics.Size(bitmap.PixelWidth, bitmap.PixelHeight);
+#endif
 				}
 				// If not available, return zero
 			}

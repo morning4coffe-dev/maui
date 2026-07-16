@@ -54,6 +54,8 @@ namespace Microsoft.Maui.Platform
 		internal static T? GetParentOfType<T>(this ParentView? view)
 #if ANDROID
 			where T : class, ParentView
+#elif UNO
+			where T : class, ParentView
 #elif PLATFORM
 			where T : ParentView
 #else
@@ -109,6 +111,8 @@ namespace Microsoft.Maui.Platform
 #if WINDOWS || ANDROID
 		internal static T? GetParentOfType<T>(this PlatformView view)
 #if ANDROID
+			where T : class, ParentView
+#elif UNO
 			where T : class, ParentView
 #elif PLATFORM
 			where T : ParentView

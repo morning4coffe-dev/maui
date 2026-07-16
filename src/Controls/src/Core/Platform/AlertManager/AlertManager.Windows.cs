@@ -84,7 +84,8 @@ namespace Microsoft.Maui.Controls.Platform
 					alertDialog.PrimaryButtonText = arguments.Accept;
 
 				// This is a temporary workaround
-				alertDialog.XamlRoot = PlatformView.Content.XamlRoot;
+				alertDialog.XamlRoot = PlatformView.Content?.XamlRoot ??
+					throw new InvalidOperationException("The window content must have a XamlRoot before showing an alert.");
 
 				var currentAlert = CurrentAlert;
 
@@ -135,7 +136,8 @@ namespace Microsoft.Maui.Controls.Platform
 				}
 
 				// This is a temporary workaround
-				promptDialog.XamlRoot = PlatformView.Content.XamlRoot;
+				promptDialog.XamlRoot = PlatformView.Content?.XamlRoot ??
+					throw new InvalidOperationException("The window content must have a XamlRoot before showing a prompt.");
 
 				CurrentPrompt = ShowPrompt(promptDialog);
 				arguments.SetResult(await CurrentPrompt.ConfigureAwait(false));
