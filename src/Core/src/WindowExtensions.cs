@@ -38,7 +38,9 @@ namespace Microsoft.Maui
 		/// </remarks>
 		public static Task<IScreenshotResult?> CaptureAsync(this IWindow window)
 		{
-#if PLATFORM
+#if UNO
+			return ScreenshotDispatch.CaptureAsync(window?.Handler, ScreenshotDispatch.WindowCaptureKey);
+#elif PLATFORM
 			if (window?.Handler?.PlatformView is not PlatformView platformView)
 				return Task.FromResult<IScreenshotResult?>(null);
 
@@ -52,7 +54,7 @@ namespace Microsoft.Maui
 		}
 
 
-#if PLATFORM
+#if PLATFORM && !UNO
 		async static Task<IScreenshotResult?> CaptureAsync(PlatformView window) =>
 			await Screenshot.Default.CaptureAsync(window);
 #endif

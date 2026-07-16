@@ -1,5 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+	<Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
 	<PropertyGroup>
 		<TargetFrameworks>netstandard2.1;netstandard2.0;$(_MauiDotNetTfm);$(MauiPlatforms)</TargetFrameworks>
 		<TargetFrameworks Condition="'$(IncludePreviousTfms)' == 'true'">$(TargetFrameworks);$(_MauiPreviousDotNetTfm);$(MauiPreviousPlatforms)</TargetFrameworks>
@@ -31,8 +33,14 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\..\Controls\src\Core\Controls.Core.csproj" />
-		<ProjectReference Include="..\..\..\Core\src\Core.csproj" />
+		<ProjectReference Include="..\..\..\Controls\src\Core\Controls.Core.csproj">
+			<SkipGetTargetFrameworkProperties Condition="'$(MauiUnoTarget)' == 'true'">true</SkipGetTargetFrameworkProperties>
+			<SetTargetFramework Condition="'$(MauiUnoTarget)' == 'true'">TargetFramework=$(TargetFramework);MauiUnoTarget=true</SetTargetFramework>
+		</ProjectReference>
+		<ProjectReference Include="..\..\..\Core\src\Core.csproj">
+			<SkipGetTargetFrameworkProperties Condition="'$(MauiUnoTarget)' == 'true'">true</SkipGetTargetFrameworkProperties>
+			<SetTargetFramework Condition="'$(MauiUnoTarget)' == 'true'">TargetFramework=$(TargetFramework);MauiUnoTarget=true</SetTargetFramework>
+		</ProjectReference>
 	</ItemGroup>
 
 	<ItemGroup Condition=" '$(_MauiDesignDllBuild)' == 'True' and '$(TargetFramework)' == '$(_MauiDotNetTfm)'">

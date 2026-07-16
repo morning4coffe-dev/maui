@@ -231,7 +231,7 @@ namespace Microsoft.Maui.Platform
 						var transform = child.TransformToVisual(null);
 						var bounds = transform.TransformBounds(
 							new FRect(0, 0, child.ActualWidth, child.ActualHeight));
-						var rect = GetRect(bounds, XamlRoot.RasterizationScale);
+						var rect = GetRect(bounds, XamlRoot?.RasterizationScale ?? 1);
 						rectArray.Add(rect);
 					}
 
@@ -253,12 +253,13 @@ namespace Microsoft.Maui.Platform
 
 		private static Rect32 GetRect(FRect bounds, double scale)
 		{
-			return new Rect32(
-				_X: (int)Math.Round(bounds.X * scale),
-				_Y: (int)Math.Round(bounds.Y * scale),
-				_Width: (int)Math.Round(bounds.Width * scale),
-				_Height: (int)Math.Round(bounds.Height * scale)
-			);
+			return new Rect32
+			{
+				X = (int)Math.Round(bounds.X * scale),
+				Y = (int)Math.Round(bounds.Y * scale),
+				Width = (int)Math.Round(bounds.Width * scale),
+				Height = (int)Math.Round(bounds.Height * scale),
+			};
 		}
 
 		void OnAppTitleBarContentControlLoaded(object sender, RoutedEventArgs e)

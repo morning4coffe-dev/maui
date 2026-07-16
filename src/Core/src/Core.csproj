@@ -1,5 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
   <PropertyGroup>
     <TargetFrameworks>netstandard2.1;netstandard2.0;$(_MauiDotNetTfm);$(MauiPlatforms)</TargetFrameworks>
     <TargetFrameworks Condition="'$(IncludePreviousTfms)' == 'true'">$(TargetFrameworks);$(_MauiPreviousDotNetTfm);$(MauiPreviousPlatforms)</TargetFrameworks>
@@ -47,11 +49,23 @@
     <PackageReference Include="System.Numerics.Vectors" Condition="$(TargetFramework.StartsWith('netstandard'))" />
     <PackageReference Include="System.Text.Json" Condition="$(TargetFramework.StartsWith('netstandard'))" />
   </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.Contains('-windows'))">
+  <ItemGroup Condition="'$(_MauiTargetPlatformIsWindows)' == 'True' and '$(_MauiTargetPlatformIsUno)' != 'True'">
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="Microsoft.Web.WebView2" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="Microsoft.Graphics.Win2D" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(_MauiTargetPlatformIsUno)' == 'True'">
+    <PackageReference Include="Uno.WinUI" />
+    <ProjectReference Include="..\..\Graphics\src\Graphics.Skia\Graphics.Skia.csproj"
+                      SkipGetTargetFrameworkProperties="true"
+                      SetTargetFramework="TargetFramework=$(TargetFramework);MauiUnoTarget=true" />
+    <Compile Remove="ImageSources\FontImageSourceService\FontImageSourceService.Windows.cs" />
+    <Page Include="Platform\Windows\MauiToolbar.xaml" />
+    <Page Include="Platform\Windows\Styles\*.xaml"
+          Exclude="Platform\Windows\Styles\Resources.xaml" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(_MauiTargetPlatformIsWindows)' == 'True' and '$(_MauiTargetPlatformIsUno)' != 'True'">
     <ProjectReference Include="..\..\Graphics\src\Graphics.Win2D\Graphics.Win2D.csproj" />
   </ItemGroup>
   <ItemGroup Condition="$(TargetFramework.Contains('-android'))">

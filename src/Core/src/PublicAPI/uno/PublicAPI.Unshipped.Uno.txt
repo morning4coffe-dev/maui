@@ -1,0 +1,13 @@
+#nullable enable
+*REMOVED*~Microsoft.Maui.Core_XamlTypeInfo.XamlMetaDataProvider.GetXamlType(string fullName) -> Microsoft.UI.Xaml.Markup.IXamlType
+*REMOVED*~Microsoft.Maui.Core_XamlTypeInfo.XamlMetaDataProvider.GetXamlType(System.Type type) -> Microsoft.UI.Xaml.Markup.IXamlType
+*REMOVED*~Microsoft.Maui.Core_XamlTypeInfo.XamlMetaDataProvider.GetXmlnsDefinitions() -> Microsoft.UI.Xaml.Markup.XmlnsDefinition[]
+*REMOVED*~Microsoft.Maui.Platform.MauiToolbar.Connect(int connectionId, object target) -> void
+*REMOVED*~Microsoft.Maui.Platform.MauiToolbar.GetBindingConnector(int connectionId, object target) -> Microsoft.UI.Xaml.Markup.IComponentConnector
+*REMOVED*Microsoft.Maui.Core_XamlTypeInfo.XamlMetaDataProvider
+*REMOVED*Microsoft.Maui.Core_XamlTypeInfo.XamlMetaDataProvider.XamlMetaDataProvider() -> void
+*REMOVED*Microsoft.Maui.Platform.MauiToolbar.InitializeComponent() -> void
+*REMOVED*virtual Microsoft.Maui.LifecycleEvents.WindowsLifecycle.OnVisibilityChanged.Invoke(Microsoft.UI.Xaml.Window! window, Microsoft.UI.Xaml.WindowVisibilityChangedEventArgs! args) -> void
+*REMOVED*virtual Microsoft.Maui.MauiWinUIWindow.OnVisibilityChanged(object! sender, Microsoft.UI.Xaml.WindowVisibilityChangedEventArgs! args) -> void
+virtual Microsoft.Maui.LifecycleEvents.WindowsLifecycle.OnVisibilityChanged.Invoke(Microsoft.UI.Xaml.Window! window, Windows.UI.Core.VisibilityChangedEventArgs! args) -> void
+virtual Microsoft.Maui.MauiWinUIWindow.OnVisibilityChanged(object! sender, Windows.UI.Core.VisibilityChangedEventArgs! args) -> void

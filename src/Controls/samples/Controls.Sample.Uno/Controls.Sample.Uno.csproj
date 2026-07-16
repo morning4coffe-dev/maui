@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <MauiUnoTarget>true</MauiUnoTarget>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.Win32" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="..\..\..\Core\src\Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;MauiUnoTarget=true" />
+    <ProjectReference
+      Include="..\..\..\Graphics\src\Graphics\Graphics.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;MauiUnoTarget=true" />
+    <ProjectReference
+      Include="..\..\src\Core\Controls.Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;MauiUnoTarget=true" />
+    <ProjectReference
+      Include="..\..\src\Xaml\Controls.Xaml.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;MauiUnoTarget=true" />
+  </ItemGroup>
+
+  <Target Name="_ConfigureMauiUnoRestoreGraph"
+          BeforeTargets="_GenerateRestoreProjectPathWalk;_GenerateRestoreGraph"
+          Condition="'$(MauiUnoTarget)' == 'true'">
+    <PropertyGroup>
+      <_GenerateRestoreGraphProjectEntryInputProperties>
+        $(_GenerateRestoreGraphProjectEntryInputProperties);
+        MauiUnoTarget=true
+      </_GenerateRestoreGraphProjectEntryInputProperties>
+    </PropertyGroup>
+  </Target>
+
+</Project>

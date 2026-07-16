@@ -132,6 +132,9 @@ namespace Microsoft.Maui.Handlers
 
 		public static void MapFlowDirection(IWindowHandler handler, IWindow view)
 		{
+#if UNO
+			return;
+#else
 			var WindowHandle = handler.PlatformView.GetWindowHandle();
 
 			// Retrieve current extended style
@@ -144,6 +147,7 @@ namespace Microsoft.Maui.Handlers
 
 			if (updated_style != extended_style)
 				PlatformMethods.SetWindowLongPtr(WindowHandle, PlatformMethods.WindowLongFlags.GWL_EXSTYLE, updated_style);
+#endif
 		}
 
 		public static void MapRequestDisplayDensity(IWindowHandler handler, IWindow window, object? args)
@@ -165,7 +169,11 @@ namespace Microsoft.Maui.Handlers
 
 			if (titleBarRects is null)
 			{
+#if UNO
+				titleBar.SetDragRectangles([]);
+#else
 				titleBar.SetDragRectangles(null);
+#endif
 			}
 			else
 			{
@@ -174,11 +182,21 @@ namespace Microsoft.Maui.Handlers
 				for (var i = 0; i < titleBarRects.Length; i++)
 				{
 					Rect rect = titleBarRects[i];
+#if UNO
+					dragRects[i] = new RectInt32
+					{
+						X = (int)(rect.X * density),
+						Y = (int)(rect.Y * density),
+						Width = (int)(rect.Width * density),
+						Height = (int)(rect.Height * density),
+					};
+#else
 					dragRects[i] = new RectInt32(
-					(int)(rect.X * density),
-					(int)(rect.Y * density),
-					(int)(rect.Width * density),
-					(int)(rect.Height * density));
+						(int)(rect.X * density),
+						(int)(rect.Y * density),
+						(int)(rect.Width * density),
+						(int)(rect.Height * density));
+#endif
 				}
 
 				titleBar.SetDragRectangles(dragRects);

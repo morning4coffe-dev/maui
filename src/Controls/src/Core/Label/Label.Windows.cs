@@ -30,7 +30,9 @@ namespace Microsoft.Maui.Controls
 		{
 			var size = base.ArrangeOverride(bounds);
 
+#if !UNO
 			RecalculateSpanPositions();
+#endif
 
 			return size;
 		}

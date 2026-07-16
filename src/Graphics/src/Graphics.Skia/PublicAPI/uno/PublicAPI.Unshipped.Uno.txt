@@ -1,0 +1,3 @@
+#nullable enable
+Microsoft.Maui.Graphics.Win2D.W2DGraphicsView
+Microsoft.Maui.Graphics.Win2D.W2DGraphicsView.W2DGraphicsView() -> void

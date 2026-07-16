@@ -1,5 +1,7 @@
 #nullable enable
+#if !UNO
 using Microsoft.Graphics.Canvas.UI.Xaml;
+#endif
 using Microsoft.Maui.Graphics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -160,8 +162,7 @@ namespace Microsoft.Maui.Platform
 		{
 			if (platformButton.GetContent<WImage>() is WImage nativeImage)
 			{
-				// If we're a CanvasImageSource (font image source), we need to explicitly set the image height
-				// to the desired size of the font, otherwise it will be stretched to the available space
+#if !UNO
 				if (nativeImageSource is CanvasImageSource canvas)
 				{
 					var size = canvas.GetImageSourceSize(platformButton);
@@ -169,6 +170,7 @@ namespace Microsoft.Maui.Platform
 					nativeImage.Height = size.Height;
 					nativeImage.MaxHeight = double.PositiveInfinity;
 				}
+#endif
 
 				// Ensure that we only scale images down and never up
 				if (nativeImageSource is BitmapImage bitmapImage)

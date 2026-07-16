@@ -3,7 +3,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using Microsoft.Extensions.Logging;
+#if !UNO
 using Microsoft.Graphics.Canvas.Text;
+#endif
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Storage;
 using Microsoft.UI.Xaml;
@@ -157,11 +159,18 @@ namespace Microsoft.Maui
 			}
 		}
 
+#if UNO
+		static string? FindFontFamilyName(string? fontFile)
+#else
 		string? FindFontFamilyName(string? fontFile)
+#endif
 		{
 			if (fontFile == null)
 				return null;
 
+#if UNO
+			return null;
+#else
 			// Under Native AOT, observed crashes when invoking Win2D CanvasFontSet -> GetPropertyValues
 			// This lookup is an optimization; returning null should just cause callers to use the
 			// PostScript name already embedded in the file path.
@@ -202,6 +211,7 @@ namespace Microsoft.Maui
 
 				return null;
 			}
+#endif
 #endif
 		}
 	}

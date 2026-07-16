@@ -48,7 +48,7 @@ namespace Microsoft.Maui.Platform
 
 		internal static void UpdateTitle(this UI.Xaml.Window platformWindow, IWindow window, IMauiContext? mauiContext)
 		{
-			platformWindow.Title = window.Title;
+			platformWindow.Title = window.Title ?? string.Empty;
 			mauiContext?
 				.GetNavigationRootManager()?
 				.SetTitle(window.Title);
@@ -83,11 +83,9 @@ namespace Microsoft.Maui.Platform
 				? Math.Round(y * density)
 				: currPos.Y;
 
-			var pos = new PointInt32(
-				(int)x,
-				(int)y);
+			var pos = CreatePoint((int)x, (int)y);
 
-			if (pos != currPos)
+			if (!AreEqual(pos, currPos))
 				appWindow.Move(pos);
 		}
 
@@ -115,11 +113,9 @@ namespace Microsoft.Maui.Platform
 				? Math.Round(height * density)
 				: currSize.Height;
 
-			var size = new SizeInt32(
-				(int)width,
-				(int)height);
+			var size = CreateSize((int)width, (int)height);
 
-			if (size != currSize)
+			if (!AreEqual(size, currSize))
 				appWindow.Resize(size);
 		}
 
@@ -146,9 +142,7 @@ namespace Microsoft.Maui.Platform
 				? (int)Math.Clamp(minHeight * density, 0, int.MaxValue)
 				: 0;
 
-			var minSize = new SizeInt32(
-				actualMinWidth,
-				actualMinHeight);
+			var minSize = CreateSize(actualMinWidth, actualMinHeight);
 
 			restrictedWindow.MinimumSize = minSize;
 
@@ -162,7 +156,7 @@ namespace Microsoft.Maui.Platform
 				temp.Width = actualMinWidth;
 			if (currentSize.Height < actualMinHeight)
 				temp.Height = actualMinHeight;
-			if (currentSize != temp)
+			if (!AreEqual(currentSize, temp))
 				appWindow.Resize(temp);
 		}
 
@@ -189,9 +183,7 @@ namespace Microsoft.Maui.Platform
 				? (int)Math.Clamp(maxHeight * density, 0, int.MaxValue)
 				: int.MaxValue;
 
-			var MaxSize = new SizeInt32(
-				actualMaxWidth,
-				actualMaxHeight);
+			var MaxSize = CreateSize(actualMaxWidth, actualMaxHeight);
 
 			restrictedWindow.MaximumSize = MaxSize;
 
@@ -205,7 +197,7 @@ namespace Microsoft.Maui.Platform
 				temp.Width = actualMaxWidth;
 			if (currentSize.Height > actualMaxHeight)
 				temp.Height = actualMaxHeight;
-			if (currentSize != temp)
+			if (!AreEqual(currentSize, temp))
 				appWindow.Resize(temp);
 		}
 
@@ -245,16 +237,29 @@ namespace Microsoft.Maui.Platform
 
 		public static IntPtr GetWindowHandle(this UI.Xaml.Window platformWindow)
 		{
+#if UNO
+			return platformWindow is MauiWinUIWindow mauiWindow ? mauiWindow.WindowHandle : IntPtr.Zero;
+#else
 			var hwnd = WindowNative.GetWindowHandle(platformWindow);
 
 			if (hwnd == IntPtr.Zero)
 				throw new NullReferenceException("The Window Handle is null.");
 
 			return hwnd;
+#endif
 		}
 
 		public static float GetDisplayDensity(this UI.Xaml.Window platformWindow)
 		{
+#if UNO
+			var xamlRootScale = (platformWindow.Content as FrameworkElement)?.XamlRoot?.RasterizationScale;
+			if (xamlRootScale is > 0)
+				return (float)xamlRootScale.Value;
+
+			// Uno's AppWindow coordinates are logical before XamlRoot is available.
+			// Applying the host scale here double-scales the initial window and prevents rendering.
+			return 1.0f;
+#else
 			var hwnd = platformWindow.GetWindowHandle();
 
 			if (hwnd == IntPtr.Zero)
@@ -263,31 +268,41 @@ namespace Microsoft.Maui.Platform
 			}
 
 			return PlatformMethods.GetDpiForWindow(hwnd) / DeviceDisplay.BaseLogicalDpi;
+#endif
 		}
 
 		internal static void Minimize(this UI.Xaml.Window platformWindow)
 		{
+#if !UNO
 			PlatformMethods
 				.ShowWindow(platformWindow.GetWindowHandle(),
 							PlatformMethods.ShowWindowFlags.SW_MINIMIZE);
+#endif
 		}
 
 		internal static void Maximize(this UI.Xaml.Window platformWindow)
 		{
+#if !UNO
 			PlatformMethods
 				.ShowWindow(platformWindow.GetWindowHandle(),
 							PlatformMethods.ShowWindowFlags.SW_MAXIMIZE);
+#endif
 		}
 
 		internal static void Restore(this UI.Xaml.Window platformWindow)
 		{
+#if !UNO
 			PlatformMethods
 				.ShowWindow(platformWindow.GetWindowHandle(),
 							PlatformMethods.ShowWindowFlags.SW_RESTORE);
+#endif
 		}
 
 		public static UI.Windowing.AppWindow? GetAppWindow(this UI.Xaml.Window platformWindow)
 		{
+#if UNO
+			return platformWindow.AppWindow;
+#else
 			var hwnd = platformWindow.GetWindowHandle();
 
 			if (hwnd == IntPtr.Zero)
@@ -295,7 +310,32 @@ namespace Microsoft.Maui.Platform
 
 			var windowId = UI.Win32Interop.GetWindowIdFromWindow(hwnd);
 			return UI.Windowing.AppWindow.GetFromWindowId(windowId);
+#endif
 		}
+
+		static PointInt32 CreatePoint(int x, int y)
+		{
+#if UNO
+			return new PointInt32 { X = x, Y = y };
+#else
+			return new PointInt32(x, y);
+#endif
+		}
+
+		static SizeInt32 CreateSize(int width, int height)
+		{
+#if UNO
+			return new SizeInt32 { Width = width, Height = height };
+#else
+			return new SizeInt32(width, height);
+#endif
+		}
+
+		static bool AreEqual(PointInt32 left, PointInt32 right) =>
+			left.X == right.X && left.Y == right.Y;
+
+		static bool AreEqual(SizeInt32 left, SizeInt32 right) =>
+			left.Width == right.Width && left.Height == right.Height;
 
 		internal static DisplayOrientation GetOrientation(this IWindow? window)
 		{

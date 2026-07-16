@@ -56,12 +56,11 @@ namespace Microsoft.Maui.Controls.Platform
 			TextTransform defaultTextTransform,
 			double defaultCharacterSpacing)
 		{
-			var textBlockInlines = textBlock.Inlines;
-			textBlockInlines.Clear();
-
-			// Have to implement a measure here, otherwise inline.ContentStart and ContentEnd will be null, when used in RecalculatePositions
-			textBlock.Measure(new global::Windows.Foundation.Size(double.MaxValue, double.MaxValue));
-
+#if UNO
+			// Uno 6.5 does not support the WinUI inline/highlighter path reliably.
+			// Preserve transformed text without creating any Inline objects.
+			textBlock.Text = formattedString.ToPlainText(defaultTextTransform);
+#else
 			var runs = formattedString.ToRunAndColorsTuples(
 				fontManager,
 				defaultLineHeight,
@@ -70,6 +69,12 @@ namespace Microsoft.Maui.Controls.Platform
 				defaultColor,
 				defaultTextTransform,
 				defaultCharacterSpacing).ToArray();
+
+			var textBlockInlines = textBlock.Inlines;
+			textBlockInlines.Clear();
+
+			// Have to implement a measure here, otherwise inline.ContentStart and ContentEnd will be null, when used in RecalculatePositions
+			textBlock.Measure(new global::Windows.Foundation.Size(double.MaxValue, double.MaxValue));
 
 			var lineHeights = new List<double>(runs.Length);
 			foreach (var (run, _, _) in runs)
@@ -102,6 +107,21 @@ namespace Microsoft.Maui.Controls.Platform
 
 				currentTextIndex += runTextLength;
 			}
+#endif
+		}
+
+		internal static string ToPlainText(this FormattedString formattedString, TextTransform defaultTextTransform)
+		{
+			if (formattedString?.Spans is null)
+				return string.Empty;
+
+			return string.Concat(formattedString.Spans.Select(span =>
+			{
+				var transform = span.TextTransform != TextTransform.Default
+					? span.TextTransform
+					: defaultTextTransform;
+				return TextTransformUtilities.GetTransformedText(span.Text, transform);
+			}));
 		}
 
 		public static IEnumerable<Tuple<Run, Color, Color>> ToRunAndColorsTuples(

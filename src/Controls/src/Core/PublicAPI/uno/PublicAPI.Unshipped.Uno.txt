@@ -1,0 +1,6 @@
+#nullable enable
+*REMOVED*~Microsoft.Maui.Controls.Controls_Core_XamlTypeInfo.XamlMetaDataProvider.GetXamlType(string fullName) -> Microsoft.UI.Xaml.Markup.IXamlType
+*REMOVED*~Microsoft.Maui.Controls.Controls_Core_XamlTypeInfo.XamlMetaDataProvider.GetXamlType(System.Type type) -> Microsoft.UI.Xaml.Markup.IXamlType
+*REMOVED*~Microsoft.Maui.Controls.Controls_Core_XamlTypeInfo.XamlMetaDataProvider.GetXmlnsDefinitions() -> Microsoft.UI.Xaml.Markup.XmlnsDefinition[]
+*REMOVED*Microsoft.Maui.Controls.Controls_Core_XamlTypeInfo.XamlMetaDataProvider
+*REMOVED*Microsoft.Maui.Controls.Controls_Core_XamlTypeInfo.XamlMetaDataProvider.XamlMetaDataProvider() -> void

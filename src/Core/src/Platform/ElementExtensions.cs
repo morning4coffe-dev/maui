@@ -12,7 +12,11 @@ using PlatformWindow = Android.App.Activity;
 using PlatformApplication = Android.App.Application;
 #elif WINDOWS
 using PlatformView = Microsoft.UI.Xaml.FrameworkElement;
+#if UNO
+using BasePlatformType = System.Object;
+#else
 using BasePlatformType = WinRT.IWinRTObject;
+#endif
 using PlatformWindow = Microsoft.UI.Xaml.Window;
 using PlatformApplication = Microsoft.UI.Xaml.Application;
 #elif TIZEN

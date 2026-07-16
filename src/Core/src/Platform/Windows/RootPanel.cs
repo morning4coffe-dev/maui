@@ -31,12 +31,12 @@ namespace Microsoft.Maui.Platform
 
 			if (double.IsInfinity(width))
 			{
-				width = XamlRoot.Size.Width;
+				width = XamlRoot?.Size.Width ?? 0;
 			}
 
 			if (double.IsInfinity(height))
 			{
-				height = XamlRoot.Size.Height;
+				height = XamlRoot?.Size.Height ?? 0;
 			}
 
 			var size = new global::Windows.Foundation.Size(width, height);

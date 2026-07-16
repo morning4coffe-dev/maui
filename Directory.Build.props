@@ -2,6 +2,14 @@
   <Import Project="Sdk.props" Sdk="Microsoft.DotNet.Arcade.Sdk" />
   <Import Condition="'$(EnvironmentBuildPropsImported)' != 'True'" Project="$(MSBuildThisFileDirectory)eng\Environment.Build.props" />
 
+  <PropertyGroup Condition="'$(MauiUnoTarget)' == 'true'">
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)artifacts\obj\uno\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\</IntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\bin\uno\$(MSBuildProjectName)\</BaseOutputPath>
+    <OutputPath>$(BaseOutputPath)$(Configuration)\</OutputPath>
+  </PropertyGroup>
+
   <PropertyGroup>
     <!-- 
       Keep backward compatibility with XamlC, XamlCompilationAttribute, and xaml-comp processing instruction

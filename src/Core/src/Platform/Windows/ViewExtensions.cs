@@ -332,6 +332,9 @@ namespace Microsoft.Maui.Platform
 				return new Rect();
 
 			var root = platformView.XamlRoot;
+			if (root?.Content is null)
+				return new Rect();
+
 			var offset = platformView.TransformToVisual(root.Content) as UI.Xaml.Media.MatrixTransform;
 			if (offset != null)
 				return new Rect(offset.Matrix.OffsetX, offset.Matrix.OffsetY, platformView.ActualWidth, platformView.ActualHeight);
@@ -347,7 +350,9 @@ namespace Microsoft.Maui.Platform
 			if (platformView == null)
 				return new Rect();
 
-			var rootView = platformView.XamlRoot.Content;
+			var rootView = platformView.XamlRoot?.Content;
+			if (rootView is null)
+				return new Rect();
 			if (platformView == rootView)
 			{
 				if (rootView is not FrameworkElement el)
@@ -383,7 +388,12 @@ namespace Microsoft.Maui.Platform
 			return null;
 		}
 
-		internal static T? GetChildAt<T>(this DependencyObject view, int index) where T : DependencyObject
+		internal static T? GetChildAt<T>(this DependencyObject view, int index)
+#if UNO
+			where T : class, DependencyObject
+#else
+			where T : DependencyObject
+#endif
 		{
 			if (VisualTreeHelper.GetChildrenCount(view) >= index)
 				return null;

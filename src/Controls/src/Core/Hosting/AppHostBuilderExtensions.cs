@@ -284,7 +284,14 @@ public static partial class AppHostBuilderExtensions
 					if (dictionaries != null)
 					{
 						// Microsoft.Maui.Controls
+#if UNO
+						GlobalStaticResources.Initialize();
+						GlobalStaticResources.RegisterDefaultStyles();
+						GlobalStaticResources.RegisterResourceDictionariesBySource();
+						UI.Xaml.Application.Current?.Resources?.AddLibraryResources("MicrosoftMauiControlsIncluded", "ms-appx:///Microsoft.Maui.Controls/Platform/Windows/Styles/Resources.Uno.xaml");
+#else
 						UI.Xaml.Application.Current?.Resources?.AddLibraryResources("MicrosoftMauiControlsIncluded", "ms-appx:///Microsoft.Maui.Controls/Platform/Windows/Styles/Resources.xbf");
+#endif
 					}
 				});
 #endif

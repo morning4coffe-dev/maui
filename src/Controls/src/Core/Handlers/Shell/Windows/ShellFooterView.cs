@@ -3,7 +3,9 @@ using System;
 using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Windows.Foundation;
+#if !UNO
 using Windows.UI.Xaml;
+#endif
 
 namespace Microsoft.Maui.Controls.Platform
 {

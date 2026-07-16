@@ -55,6 +55,13 @@ namespace Microsoft.Maui
 #endif
 		}
 
+		public void CompleteLoad<T>(IImageSourceServiceResult<T>? result, float resolution)
+		{
+			CompleteLoad((IDisposable?)result);
+			IsResolutionDependent = result?.IsResolutionDependent ?? false;
+			CurrentResolution = resolution;
+		}
+
 		public bool RequiresReload(PlatformView uiContext)
 		{
 			if (!IsResolutionDependent)
