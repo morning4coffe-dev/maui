@@ -77,6 +77,7 @@
     <!-- Includes the WebAssembly startup rendering fix needed by the multi-head sample. -->
     <UnoWinUIPackageVersion>6.7.0-dev.704</UnoWinUIPackageVersion>
     <UnoWasmBootstrapPackageVersion>10.0.96</UnoWasmBootstrapPackageVersion>
+    <UnoCommunityToolkitMauiPackageVersion>14.2.2</UnoCommunityToolkitMauiPackageVersion>
     <!-- Everything else -->
     <MicrosoftAspNetCoreAuthorizationPackageVersion>10.0.0</MicrosoftAspNetCoreAuthorizationPackageVersion>
     <MicrosoftAspNetCoreAuthenticationFacebookPackageVersion>10.0.0</MicrosoftAspNetCoreAuthenticationFacebookPackageVersion>

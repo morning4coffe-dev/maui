@@ -16,6 +16,21 @@
 
   <ItemGroup>
     <PackageReference Include="Uno.WinUI" />
+    <!-- Force neutral third-party assets; platform heads must not select MAUI's native handlers. -->
+    <PackageDownload
+      Include="CommunityToolkit.Maui"
+      Version="[$(UnoCommunityToolkitMauiPackageVersion)]" />
+    <PackageDownload
+      Include="CommunityToolkit.Maui.Core"
+      Version="[$(UnoCommunityToolkitMauiPackageVersion)]" />
+    <Reference
+      Include="CommunityToolkit.Maui"
+      HintPath="$(NuGetPackageRoot)communitytoolkit.maui/$(UnoCommunityToolkitMauiPackageVersion)/lib/net10.0/CommunityToolkit.Maui.dll"
+      Private="true" />
+    <Reference
+      Include="CommunityToolkit.Maui.Core"
+      HintPath="$(NuGetPackageRoot)communitytoolkit.maui.core/$(UnoCommunityToolkitMauiPackageVersion)/lib/net10.0/CommunityToolkit.Maui.Core.dll"
+      Private="true" />
   </ItemGroup>
 
   <ItemGroup>
