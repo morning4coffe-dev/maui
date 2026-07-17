@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <MauiUnoTarget>true</MauiUnoTarget>
+  </PropertyGroup>
+
+  <Import Project="..\..\..\..\Directory.Build.props" />
+</Project>
