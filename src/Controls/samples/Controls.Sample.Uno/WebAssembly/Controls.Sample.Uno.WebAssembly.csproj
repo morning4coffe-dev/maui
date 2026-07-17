@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Microsoft.Maui.Controls.Sample.Uno</RootNamespace>
+    <IsUnoHead>true</IsUnoHead>
+    <WasmBuildNative>true</WasmBuildNative>
+  </PropertyGroup>
+
+  <Import Project="..\MauiUnoSample.props" />
+
+  <ItemGroup>
+    <PackageReference Include="Uno.Wasm.Bootstrap" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.WebAssembly.Browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="..\Shared\Controls.Sample.Uno.Shared.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+
+</Project>
