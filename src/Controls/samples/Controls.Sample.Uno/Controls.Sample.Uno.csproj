@@ -12,6 +12,10 @@
 
   <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
 
+  <PropertyGroup>
+    <_MauiUnoBuildProperties>MauiUnoTarget=true;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false</_MauiUnoBuildProperties>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Uno.WinUI" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.Win32" />
@@ -21,19 +25,19 @@
     <ProjectReference
       Include="..\..\..\Core\src\Core.csproj"
       SkipGetTargetFrameworkProperties="true"
-      SetTargetFramework="TargetFramework=net10.0;MauiUnoTarget=true" />
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
     <ProjectReference
       Include="..\..\..\Graphics\src\Graphics\Graphics.csproj"
       SkipGetTargetFrameworkProperties="true"
-      SetTargetFramework="TargetFramework=net10.0;MauiUnoTarget=true" />
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
     <ProjectReference
       Include="..\..\src\Core\Controls.Core.csproj"
       SkipGetTargetFrameworkProperties="true"
-      SetTargetFramework="TargetFramework=net10.0;MauiUnoTarget=true" />
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
     <ProjectReference
       Include="..\..\src\Xaml\Controls.Xaml.csproj"
       SkipGetTargetFrameworkProperties="true"
-      SetTargetFramework="TargetFramework=net10.0;MauiUnoTarget=true" />
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
   </ItemGroup>
 
   <Target Name="_ConfigureMauiUnoRestoreGraph"
@@ -42,7 +46,7 @@
     <PropertyGroup>
       <_GenerateRestoreGraphProjectEntryInputProperties>
         $(_GenerateRestoreGraphProjectEntryInputProperties);
-        MauiUnoTarget=true
+        $(_MauiUnoBuildProperties)
       </_GenerateRestoreGraphProjectEntryInputProperties>
     </PropertyGroup>
   </Target>
