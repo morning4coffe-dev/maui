@@ -1,3 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
+using CommunityToolkit.Maui.Views;
+
 namespace Microsoft.Maui.Controls.Sample.Uno;
 
 public sealed class MainPage : ContentPage
@@ -52,6 +55,8 @@ public sealed class MainPage : ContentPage
 			WidthRequest = 32,
 		};
 
+		var toolkitExpander = CreateToolkitExpander();
+
 		button.Clicked += (_, _) =>
 		{
 			count++;
@@ -77,6 +82,7 @@ public sealed class MainPage : ContentPage
 					fontImage,
 					entry,
 					button,
+					toolkitExpander,
 					new Slider
 					{
 						AutomationId = "MauiSlider",
@@ -91,5 +97,44 @@ public sealed class MainPage : ContentPage
 				},
 			},
 		};
+	}
+
+	[DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties, typeof(Expander))]
+	[UnconditionalSuppressMessage(
+		"Trimming",
+		"IL2026",
+		Justification = "The Expander's public IsExpanded property is explicitly preserved for its string-based binding.")]
+	static Expander CreateToolkitExpander()
+	{
+		var header = new Button
+		{
+			AutomationId = "ToolkitExpanderToggle",
+			FontAttributes = FontAttributes.Bold,
+			Text = "Collapse CommunityToolkit.Maui Expander",
+		};
+
+		var expander = new Expander
+		{
+			AutomationId = "ToolkitExpander",
+			Content = new Label
+			{
+				AutomationId = "ToolkitExpanderContent",
+				Padding = new Thickness(16, 8),
+				Text = "This package-only composite control is running through MAUI's WinUI handlers on Uno.",
+			},
+			Header = header,
+			IsExpanded = true,
+		};
+		// Button.Clicked is the accessible toggle; remove Expander's attached tap gesture to avoid duplicate activation.
+		header.GestureRecognizers.Clear();
+		header.Clicked += (_, _) =>
+		{
+			expander.IsExpanded = !expander.IsExpanded;
+			header.Text = expander.IsExpanded
+				? "Collapse CommunityToolkit.Maui Expander"
+				: "Expand CommunityToolkit.Maui Expander";
+		};
+
+		return expander;
 	}
 }

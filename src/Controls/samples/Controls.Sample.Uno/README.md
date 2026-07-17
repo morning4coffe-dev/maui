@@ -47,17 +47,25 @@ The Uno packages are temporarily pinned to `6.7.0-dev.704`. That build contains
 the upstream WebAssembly startup-race fix that avoids rendering before Uno has
 created its root window.
 
+`CommunityToolkit.Maui` is consumed through exact `PackageDownload` items and
+explicit `lib/net10.0` references. This keeps every head on the neutral
+composite-control implementation instead of letting Android or Apple select
+the Toolkit's native MAUI assets. The normal `UseMauiCommunityToolkit()`
+initializer is intentionally not called because it eagerly registers neutral
+platform-handler stubs.
+
 The sample exercises labels, formatted-text fallback, font images, entry input,
 buttons, stack and scroll layouts, slider, progress bar, window creation,
-resources, focus, and property mapper updates.
+resources, focus, property mapper updates, and a package-only
+`CommunityToolkit.Maui` Expander.
 
 ## Validation status
 
 | Target | Status |
 | --- | --- |
 | Windows Desktop | Builds, launches, and handles input |
-| Android x64 emulator | Builds, installs, launches, and handles button input |
-| WebAssembly | Builds, renders, and handles entry/button input without browser errors |
+| Android x64 emulator | Builds, installs, launches, and toggles the Toolkit Expander |
+| WebAssembly | Builds, renders, and toggles the Toolkit Expander without browser errors |
 | iOS simulator | Compiles; runtime requires macOS |
 | Mac Catalyst x64 | Compiles; runtime requires macOS |
 | X11, Linux framebuffer, macOS Desktop | Host registrations compile; runtime not yet exercised |
@@ -70,3 +78,6 @@ resources, focus, and property mapper updates.
   Uno's path-geometry interop is internal.
 - Formatted label spans fall back to plain text because the current Uno Skia
   inline/highlighter path is not reliable for this handler projection.
+- Third-party controls with custom handlers still need their Windows sources
+  rebuilt for `MauiUnoTarget`; neutral NuGet assets commonly contain
+  unsupported platform stubs.
