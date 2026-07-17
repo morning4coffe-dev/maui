@@ -171,6 +171,34 @@
         Version="$(UnoWinUIPackageVersion)"
     />
     <PackageReference
+        Update="Uno.WinUI.Runtime.Skia.Android"
+        Version="$(UnoWinUIPackageVersion)"
+    />
+    <PackageReference
+        Update="Uno.WinUI.Runtime.Skia.AppleUIKit"
+        Version="$(UnoWinUIPackageVersion)"
+    />
+    <PackageReference
+        Update="Uno.WinUI.Runtime.Skia.Linux.FrameBuffer"
+        Version="$(UnoWinUIPackageVersion)"
+    />
+    <PackageReference
+        Update="Uno.WinUI.Runtime.Skia.MacOS"
+        Version="$(UnoWinUIPackageVersion)"
+    />
+    <PackageReference
+        Update="Uno.WinUI.Runtime.Skia.WebAssembly.Browser"
+        Version="$(UnoWinUIPackageVersion)"
+    />
+    <PackageReference
+        Update="Uno.WinUI.Runtime.Skia.X11"
+        Version="$(UnoWinUIPackageVersion)"
+    />
+    <PackageReference
+        Update="Uno.Wasm.Bootstrap"
+        Version="$(UnoWasmBootstrapPackageVersion)"
+    />
+    <PackageReference
         Update="SkiaSharp.Views.Uno.WinUI"
         Version="$(SkiaSharpViewsUnoWinUIPackageVersion)"
     />

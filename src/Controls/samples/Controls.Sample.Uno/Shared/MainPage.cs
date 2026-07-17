@@ -44,8 +44,8 @@ public sealed class MainPage : ContentPage
 			HorizontalOptions = LayoutOptions.Start,
 			Source = new FontImageSource
 			{
-				Glyph = "★",
-				FontFamily = "Segoe UI Symbol",
+				Glyph = "A",
+				FontFamily = "sans-serif",
 				Size = 32,
 				Color = Microsoft.Maui.Graphics.Colors.DarkBlue,
 			},

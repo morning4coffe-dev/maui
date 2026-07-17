@@ -1,41 +1,38 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
+<Project>
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <OutputType>Exe</OutputType>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <MauiUnoTarget>true</MauiUnoTarget>
+    <RuntimeIdentifier Condition="'$(UnoSampleRuntimeIdentifier)' != ''">$(UnoSampleRuntimeIdentifier)</RuntimeIdentifier>
+    <_MauiUnoBuildProperties>MauiUnoTarget=true;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false;RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false</_MauiUnoBuildProperties>
     <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
-    <RollForward>Major</RollForward>
+    <UnoDisableHotRestartHelperGeneration>true</UnoDisableHotRestartHelperGeneration>
+    <NoWarn>$(NoWarn);Uno0001;IL2072;IL2111;RS0030</NoWarn>
   </PropertyGroup>
 
-  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
-
-  <PropertyGroup>
-    <_MauiUnoBuildProperties>MauiUnoTarget=true;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false</_MauiUnoBuildProperties>
-  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ProjectReference>
+      <GlobalPropertiesToRemove>RuntimeIdentifiers;SelfContained</GlobalPropertiesToRemove>
+    </ProjectReference>
+  </ItemDefinitionGroup>
 
   <ItemGroup>
     <PackageReference Include="Uno.WinUI" />
-    <PackageReference Include="Uno.WinUI.Runtime.Skia.Win32" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference
-      Include="..\..\..\Core\src\Core.csproj"
+      Include="$(MSBuildThisFileDirectory)..\..\..\Core\src\Core.csproj"
       SkipGetTargetFrameworkProperties="true"
       SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
     <ProjectReference
-      Include="..\..\..\Graphics\src\Graphics\Graphics.csproj"
+      Include="$(MSBuildThisFileDirectory)..\..\..\Graphics\src\Graphics\Graphics.csproj"
       SkipGetTargetFrameworkProperties="true"
       SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
     <ProjectReference
-      Include="..\..\src\Core\Controls.Core.csproj"
+      Include="$(MSBuildThisFileDirectory)..\..\src\Core\Controls.Core.csproj"
       SkipGetTargetFrameworkProperties="true"
       SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
     <ProjectReference
-      Include="..\..\src\Xaml\Controls.Xaml.csproj"
+      Include="$(MSBuildThisFileDirectory)..\..\src\Xaml\Controls.Xaml.csproj"
       SkipGetTargetFrameworkProperties="true"
       SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
   </ItemGroup>
@@ -50,5 +47,4 @@
       </_GenerateRestoreGraphProjectEntryInputProperties>
     </PropertyGroup>
   </Target>
-
 </Project>

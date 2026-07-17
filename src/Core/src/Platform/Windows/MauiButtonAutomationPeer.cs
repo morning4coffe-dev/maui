@@ -10,10 +10,20 @@ namespace Microsoft.Maui.Platform
 		{
 		}
 
+#if UNO
+#pragma warning disable CS8764 // Uno 6.7 declares this override as non-nullable; WinUI and MAUI's shipped API remain nullable.
+#endif
 		protected override IList<AutomationPeer>? GetChildrenCore()
 		{
+#if UNO
+			return [];
+#else
 			return null;
+#endif
 		}
+#if UNO
+#pragma warning restore CS8764
+#endif
 
 		protected override AutomationPeer? GetLabeledByCore()
 		{
