@@ -10,6 +10,8 @@
     <RollForward>Major</RollForward>
   </PropertyGroup>
 
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
   <ItemGroup>
     <PackageReference Include="Uno.WinUI" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.Win32" />
