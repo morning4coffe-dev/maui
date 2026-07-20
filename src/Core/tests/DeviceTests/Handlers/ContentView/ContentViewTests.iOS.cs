@@ -15,6 +15,34 @@ namespace Microsoft.Maui.DeviceTests.Handlers.ContentView
 	public partial class ContentViewTests
 	{
 		[Fact, Category(TestCategory.FlowDirection)]
+		public async Task NativeViewPropertyBatcherPropagatesFlowDirectionToContent()
+		{
+			var contentView = new ContentViewStub { FlowDirection = FlowDirection.RightToLeft };
+			var label = new LabelStub { Text = "Test", FlowDirection = FlowDirection.MatchParent };
+			contentView.PresentedContent = label;
+			label.Parent = contentView;
+
+			var labelFlowDirection = await InvokeOnMainThreadAsync(() =>
+			{
+				var labelHandler = CreateHandler<LabelHandler>(label);
+				var contentViewHandler = CreateHandler<ContentViewHandler>(contentView);
+
+				// Ensure the native batch detects a change and exercises managed propagation.
+				contentViewHandler.PlatformView.SemanticContentAttribute = UISemanticContentAttribute.Unspecified;
+				labelHandler.PlatformView.SemanticContentAttribute = UISemanticContentAttribute.Unspecified;
+
+				contentViewHandler.PlatformView.InitializeNativeViewProperties(
+					contentViewHandler.PlatformView,
+					false,
+					contentView);
+
+				return labelHandler.PlatformView.EffectiveUserInterfaceLayoutDirection;
+			});
+
+			Assert.Equal(UIUserInterfaceLayoutDirection.RightToLeft, labelFlowDirection);
+		}
+
+		[Fact, Category(TestCategory.FlowDirection)]
 		public async Task FlowDirectionPropagatesToContent()
 		{
 			var contentView = new ContentViewStub();

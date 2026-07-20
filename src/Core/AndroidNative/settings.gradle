@@ -43,3 +43,9 @@ dependencyResolutionManagement {
 // NOTE: we can't use '.NET MAUI'
 rootProject.name = "DOTNET MAUI"
 include ':maui'
+
+def composeProbeRequested =
+    gradle.startParameter.taskNames.any { it.contains('maui-compose-probe') }
+if (composeProbeRequested) {
+    include ':maui-compose-probe'
+}

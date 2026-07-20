@@ -11,6 +11,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);RS0041;RS0026;RS0027</NoWarn>
     <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
+    <MauiEnableComposeButtonExperiment Condition="'$(MauiEnableComposeButtonExperiment)' == ''">false</MauiEnableComposeButtonExperiment>
   </PropertyGroup>
 
   <PropertyGroup Condition="!$(TargetFramework.StartsWith('netstandard'))">
@@ -56,6 +57,9 @@
   </ItemGroup>
   <ItemGroup Condition="$(TargetFramework.Contains('-android'))">
     <AndroidGradleProject Include="../AndroidNative/build.gradle" ModuleName="maui" />
+    <AndroidGradleProject Include="../AndroidNative/build.gradle"
+                          ModuleName="maui-compose-probe"
+                          Condition="'$(MauiEnableComposeButtonExperiment)' == 'true'" />
     <PackageReference Include="Xamarin.Android.Glide" />
     <PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData" />
     <PackageReference Include="Xamarin.Google.Android.Material" />
@@ -64,6 +68,18 @@
     <PackageReference Include="Xamarin.AndroidX.Navigation.Fragment" />
     <PackageReference Include="Xamarin.AndroidX.Navigation.Runtime" />
     <PackageReference Include="Xamarin.AndroidX.Navigation.Common" />
+  </ItemGroup>
+  <Target Name="_IncludeComposeProbeRuntimeDependencies"
+          AfterTargets="_BuildAndroidGradleProjects"
+          Condition="$(TargetFramework.Contains('-android')) and '$(MauiEnableComposeButtonExperiment)' == 'true'">
+    <ItemGroup>
+      <AndroidLibrary Include="../AndroidNative/maui-compose-probe/build/runtime-dependencies/*"
+                      Bind="false"
+                      Pack="true" />
+    </ItemGroup>
+  </Target>
+  <ItemGroup Condition="$(TargetFramework.Contains('-android')) and '$(MauiEnableComposeButtonExperiment)' != 'true'">
+    <Compile Remove="Handlers\Button\ExperimentalComposeButtonHandler.Android.cs" />
   </ItemGroup>
   <ItemGroup Condition="$(TargetFramework.Contains('-ios')) or $(TargetFramework.Contains('-maccatalyst'))">
     <XcodeProject Include="..\AppleNative\PlatformInterop\MauiPlatformInterop.xcodeproj">

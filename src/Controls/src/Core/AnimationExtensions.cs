@@ -344,30 +344,41 @@ namespace Microsoft.Maui.Controls
 				info.Owner.TryGetTarget(out IAnimatable owner);
 
 				owner?.BatchBegin();
-
-				info.Callback(tweenerValue);
-
 				var repeat = false;
 
-				// If the Ticker has been disabled (e.g., by power save mode), then don't repeat the animation
 				var animationsEnabled = info.AnimationManager.Ticker.SystemEnabled;
-
-				if (info.Repeat != null && animationsEnabled)
+				try
 				{
-					repeat = info.Repeat();
-				}
+					info.Callback(tweenerValue);
 
-				if (!repeat)
+					// If the Ticker has been disabled (e.g., by power save mode), then don't repeat the animation
+					if (info.Repeat != null && animationsEnabled)
+					{
+						repeat = info.Repeat();
+					}
+
+					if (!repeat)
+					{
+						s_animations.Remove(tweener.Handle);
+						tweener.ValueUpdated -= HandleTweenerUpdated;
+						tweener.Finished -= HandleTweenerFinished;
+						tweener.Stop();
+					}
+
+					info.Finished?.Invoke(tweenerValue, !animationsEnabled);
+				}
+				catch
 				{
 					s_animations.Remove(tweener.Handle);
 					tweener.ValueUpdated -= HandleTweenerUpdated;
 					tweener.Finished -= HandleTweenerFinished;
 					tweener.Stop();
+					throw;
 				}
-
-				info.Finished?.Invoke(tweenerValue, !animationsEnabled);
-
-				owner?.BatchCommit();
+				finally
+				{
+					owner?.BatchCommit();
+				}
 
 				if (repeat)
 				{
@@ -381,8 +392,14 @@ namespace Microsoft.Maui.Controls
 			if (o is Tweener tweener && s_animations.TryGetValue(tweener.Handle, out Info info) && info.Owner.TryGetTarget(out IAnimatable owner))
 			{
 				owner.BatchBegin();
-				info.Callback(info.Easing.Ease(tweener.Value));
-				owner.BatchCommit();
+				try
+				{
+					info.Callback(info.Easing.Ease(tweener.Value));
+				}
+				finally
+				{
+					owner.BatchCommit();
+				}
 			}
 		}
 

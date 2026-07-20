@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net$(_MauiDotNetVersion)-android</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('OSX'))">net$(_MauiDotNetVersion)-android;net$(_MauiDotNetVersion)-ios;net$(_MauiDotNetVersion)-maccatalyst</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <SingleProject>true</SingleProject>
+    <MauiTestProject>true</MauiTestProject>
+    <RootNamespace>Microsoft.Maui.DeviceBenchmarks</RootNamespace>
+    <AssemblyName>Microsoft.Maui.Core.DeviceBenchmarks</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsTestProject>true</IsTestProject>
+    <ExcludeMicrosoftNetTestSdk>true</ExcludeMicrosoftNetTestSdk>
+    <RuntimeIdentifiers Condition="$(TargetFramework.Contains('-android'))">android-arm64;android-x64</RuntimeIdentifiers>
+    <RuntimeIdentifier Condition="$(TargetFramework.Contains('-maccatalyst'))">maccatalyst-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="$(TargetFramework.Contains('-maccatalyst')) and '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'arm64'">maccatalyst-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <Import Project="$(MauiSrcDirectory)Microsoft.Maui.TestUtils.DeviceTests.Runners.props" />
+
+  <PropertyGroup>
+    <ApplicationTitle>Core Device Benchmarks</ApplicationTitle>
+    <ApplicationId>com.microsoft.maui.core.devicebenchmarks</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources\appicon.svg" ForegroundFile="Resources\appiconfg.svg" Color="#512BD4" />
+    <MauiSplashScreen Include="Resources\appiconfg.svg" Color="#512BD4" BaseSize="128,128" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\TestUtils\src\DeviceTests.Runners\TestUtils.DeviceTests.Runners.csproj" />
+    <ProjectReference Include="..\..\..\TestUtils\src\DeviceTests.Runners.SourceGen\TestUtils.DeviceTests.Runners.SourceGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\src\Core.csproj" />
+    <ProjectReference Include="..\..\..\Controls\src\Core\Controls.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="!$(TargetFramework.Contains('-android'))">
+    <Compile Remove="**\*.Android.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="!$(TargetFramework.Contains('-ios')) and !$(TargetFramework.Contains('-maccatalyst'))">
+    <Compile Remove="**\*.iOS.cs" />
+  </ItemGroup>
+
+  <Import Project="$(MauiSrcDirectory)Maui.InTree.props" Condition=" '$(UseMaui)' != 'true' " />
+
+</Project>

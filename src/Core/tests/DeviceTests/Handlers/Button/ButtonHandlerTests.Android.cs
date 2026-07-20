@@ -1,9 +1,13 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Android.Graphics.Drawables;
 using Android.Text;
+using Android.Views;
 using AndroidX.AppCompat.Widget;
 using AndroidX.Core.Widget;
 using Microsoft.Maui.DeviceTests.Stubs;
+using Microsoft.Maui.Handlers;
+using Microsoft.Maui.Platform;
 using Xunit;
 using static Microsoft.Maui.DeviceTests.AssertHelpers;
 using AColor = Android.Graphics.Color;
@@ -12,6 +16,9 @@ namespace Microsoft.Maui.DeviceTests
 {
 	public partial class ButtonHandlerTests
 	{
+		const string NativeButtonEventBridgeSwitch =
+			"Microsoft.Maui.RuntimeFeature.IsNativeButtonEventBridgeEnabled";
+
 		[Fact(DisplayName = "Button has Ripple Effect")]
 		public async Task ButtonRippleEffect()
 		{
@@ -43,6 +50,191 @@ namespace Microsoft.Maui.DeviceTests
 				var hasRipple = GetNativeHasRippleDrawable(handler);
 				Assert.True(hasRipple);
 			});
+		}
+
+		[Fact]
+		public async Task NativeEventBridgeRoutesEventsAndPreservesMapperExtensions()
+		{
+			AppContext.TryGetSwitch(NativeButtonEventBridgeSwitch, out bool originalSwitchValue);
+			AppContext.SetSwitch(NativeButtonEventBridgeSwitch, true);
+
+			try
+			{
+				await InvokeOnMainThreadAsync(() =>
+				{
+					var clicked = 0;
+					var pressed = 0;
+					var released = 0;
+					var mapperRuns = 0;
+					var button = new ButtonStub
+					{
+						Text = "Native bridge",
+					};
+					button.Clicked += (_, _) => clicked++;
+					button.Pressed += (_, _) => pressed++;
+					button.Released += (_, _) => released++;
+
+					var mapper = new PropertyMapper<IButton, IButtonHandler>(ButtonHandler.Mapper);
+					mapper.AppendToMapping(nameof(IText.Text), (_, _) => mapperRuns++);
+					var handler = new ButtonHandler(mapper);
+					handler.SetMauiContext(MauiContext);
+					handler.SetVirtualView(button);
+
+					try
+					{
+						Assert.True(handler.IsNativeEventBridgeConnected);
+						Assert.Equal(1, mapperRuns);
+
+						handler.PlatformView.PerformClick();
+
+						using var down = MotionEvent.Obtain(
+							0,
+							0,
+							MotionEventActions.Down,
+							0,
+							0,
+							0);
+						using var up = MotionEvent.Obtain(
+							0,
+							1,
+							MotionEventActions.Up,
+							0,
+							0,
+							0);
+						var bridge = Assert.IsType<MauiButtonEventBridge>(handler.NativeEventBridge);
+						Assert.False(bridge.OnTouch(handler.PlatformView, down));
+						Assert.False(bridge.OnTouch(handler.PlatformView, up));
+
+						Assert.Equal(1, clicked);
+						Assert.Equal(1, pressed);
+						Assert.Equal(1, released);
+					}
+					finally
+					{
+						((IElementHandler)handler).DisconnectHandler();
+					}
+				});
+			}
+			finally
+			{
+				AppContext.SetSwitch(NativeButtonEventBridgeSwitch, originalSwitchValue);
+			}
+		}
+
+		[Fact]
+		public async Task NativeEventBridgeReconnectsWithoutStaleCallbacks()
+		{
+			AppContext.TryGetSwitch(NativeButtonEventBridgeSwitch, out bool originalSwitchValue);
+			AppContext.SetSwitch(NativeButtonEventBridgeSwitch, true);
+
+			try
+			{
+				await InvokeOnMainThreadAsync(() =>
+				{
+					var firstClicks = 0;
+					var secondClicks = 0;
+					var firstButton = new ButtonStub();
+					var secondButton = new ButtonStub();
+					firstButton.Clicked += (_, _) => firstClicks++;
+					secondButton.Clicked += (_, _) => secondClicks++;
+
+					var handler = CreateHandler(firstButton);
+					try
+					{
+						var firstPlatformView = handler.PlatformView;
+						firstPlatformView.PerformClick();
+						((IElementHandler)handler).DisconnectHandler();
+
+						firstPlatformView.PerformClick();
+
+						handler.SetVirtualView(secondButton);
+						handler.PlatformView.PerformClick();
+
+						Assert.Equal(1, firstClicks);
+						Assert.Equal(1, secondClicks);
+						Assert.True(handler.IsNativeEventBridgeConnected);
+					}
+					finally
+					{
+						((IElementHandler)handler).DisconnectHandler();
+					}
+				});
+			}
+			finally
+			{
+				AppContext.SetSwitch(NativeButtonEventBridgeSwitch, originalSwitchValue);
+			}
+		}
+
+		[Fact]
+		public async Task NativeEventBridgeWorksWhenButtonHasContainer()
+		{
+			AppContext.TryGetSwitch(NativeButtonEventBridgeSwitch, out bool originalSwitchValue);
+			AppContext.SetSwitch(NativeButtonEventBridgeSwitch, true);
+
+			try
+			{
+				await InvokeOnMainThreadAsync(() =>
+				{
+					var clicks = 0;
+					var button = new ButtonStub
+					{
+						Shadow = new ShadowStub(),
+					};
+					button.Clicked += (_, _) => clicks++;
+					var handler = CreateHandler(button);
+
+					try
+					{
+						Assert.IsType<WrapperView>(handler.ContainerView);
+						handler.PlatformView.PerformClick();
+
+						Assert.Equal(1, clicks);
+						Assert.True(handler.IsNativeEventBridgeConnected);
+					}
+					finally
+					{
+						((IElementHandler)handler).DisconnectHandler();
+					}
+				});
+			}
+			finally
+			{
+				AppContext.SetSwitch(NativeButtonEventBridgeSwitch, originalSwitchValue);
+			}
+		}
+
+		[Fact]
+		public async Task ManagedButtonListenersRemainActiveWhenNativeBridgeIsDisabled()
+		{
+			AppContext.TryGetSwitch(NativeButtonEventBridgeSwitch, out bool originalSwitchValue);
+			AppContext.SetSwitch(NativeButtonEventBridgeSwitch, false);
+
+			try
+			{
+				await InvokeOnMainThreadAsync(() =>
+				{
+					var clicks = 0;
+					var button = new ButtonStub();
+					button.Clicked += (_, _) => clicks++;
+					var handler = CreateHandler(button);
+
+					try
+					{
+						Assert.False(handler.IsNativeEventBridgeConnected);
+						handler.PlatformView.PerformClick();
+						Assert.Equal(1, clicks);
+					}
+					finally
+					{
+						((IElementHandler)handler).DisconnectHandler();
+					}
+				});
+			}
+			finally
+			{
+				AppContext.SetSwitch(NativeButtonEventBridgeSwitch, originalSwitchValue);
+			}
 		}
 
 		[Fact(DisplayName = "IsVisible updates Correctly")]

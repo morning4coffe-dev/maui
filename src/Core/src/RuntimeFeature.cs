@@ -28,6 +28,8 @@ namespace Microsoft.Maui
 		const bool IsMeterSupportedByDefault = true;
 		const bool EnableAspireByDefault = true;
 		const bool IsMaterial3EnabledByDefault = false;
+		const bool IsNativeViewPropertyUpdateBatchingEnabledByDefault = false;
+		const bool IsNativeButtonEventBridgeEnabledByDefault = false;
 
 #pragma warning disable IL4000 // Return value does not match FeatureGuardAttribute 'System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute'. 
 #if NET9_0_OR_GREATER
@@ -155,6 +157,22 @@ namespace Microsoft.Maui
 			AppContext.TryGetSwitch($"{FeatureSwitchPrefix}.{nameof(IsMaterial3Enabled)}", out bool isEnabled)
 				? isEnabled
 				: IsMaterial3EnabledByDefault;
+
+#if NET9_0_OR_GREATER
+		[FeatureSwitchDefinition($"{FeatureSwitchPrefix}.{nameof(IsNativeViewPropertyUpdateBatchingEnabled)}")]
+#endif
+		public static bool IsNativeViewPropertyUpdateBatchingEnabled =>
+			AppContext.TryGetSwitch($"{FeatureSwitchPrefix}.{nameof(IsNativeViewPropertyUpdateBatchingEnabled)}", out bool isEnabled)
+				? isEnabled
+				: IsNativeViewPropertyUpdateBatchingEnabledByDefault;
+
+#if NET9_0_OR_GREATER
+		[FeatureSwitchDefinition($"{FeatureSwitchPrefix}.{nameof(IsNativeButtonEventBridgeEnabled)}")]
+#endif
+		public static bool IsNativeButtonEventBridgeEnabled =>
+			AppContext.TryGetSwitch($"{FeatureSwitchPrefix}.{nameof(IsNativeButtonEventBridgeEnabled)}", out bool isEnabled)
+				? isEnabled
+				: IsNativeButtonEventBridgeEnabledByDefault;
 
 #pragma warning restore IL4000
 	}

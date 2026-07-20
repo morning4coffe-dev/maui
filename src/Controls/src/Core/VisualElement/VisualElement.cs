@@ -1147,7 +1147,21 @@ namespace Microsoft.Maui.Controls
 		/// <para>Application authors will generally not need to batch updates manually as the animation framework will do this for them.</para>
 		/// <para>When the operation is done, <see cref="BatchCommit"/> should be called.</para>
 		/// </remarks>
-		public void BatchBegin() => _batched++;
+		public void BatchBegin()
+		{
+			if (_batched++ != 0)
+				return;
+
+			try
+			{
+				OnBatchBegin();
+			}
+			catch
+			{
+				_batched = 0;
+				throw;
+			}
+		}
 
 		/// <summary>
 		/// Signals the end of a batch of commands to the element and that those commands should now be committed.
@@ -1156,11 +1170,22 @@ namespace Microsoft.Maui.Controls
 		public void BatchCommit()
 		{
 			_batched = Math.Max(0, _batched - 1);
-			if (!Batched)
+			if (Batched)
+				return;
+
+			try
+			{
+				OnBatchCommit();
+			}
+			finally
 			{
 				BatchCommitted?.Invoke(this, new EventArg<VisualElement>(this));
 			}
 		}
+
+		partial void OnBatchBegin();
+
+		partial void OnBatchCommit();
 
 		ResourceDictionary _resources;
 		bool IResourcesProvider.IsResourcesCreated => _resources != null;
@@ -2460,8 +2485,7 @@ namespace Microsoft.Maui.Controls
 
 			if (_unloaded is null && _loaded is null)
 			{
-				if (newWindow is not null)
-					newWindow.HandlerChanged -= OnWindowHandlerChanged;
+				newWindow?.HandlerChanged -= OnWindowHandlerChanged;
 
 #if PLATFORM
 				_loadedUnloadedToken?.Dispose();
@@ -2486,8 +2510,7 @@ namespace Microsoft.Maui.Controls
 
 			if (!_watchingPlatformLoaded)
 			{
-				if (newWindow is not null)
-					newWindow.HandlerChanged += OnWindowHandlerChanged;
+				newWindow?.HandlerChanged += OnWindowHandlerChanged;
 
 				_watchingPlatformLoaded = true;
 			}

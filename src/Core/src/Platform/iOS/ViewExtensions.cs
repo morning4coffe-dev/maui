@@ -118,33 +118,33 @@ namespace Microsoft.Maui.Platform
 
 		public static void UpdateFlowDirection(this UIView platformView, IView view)
 		{
-			UISemanticContentAttribute updateValue = platformView.SemanticContentAttribute;
-
-			switch (view.FlowDirection)
-			{
-				case FlowDirection.MatchParent:
-					updateValue = GetParentMatchingSemanticContentAttribute(view);
-					break;
-				case FlowDirection.LeftToRight:
-					updateValue = UISemanticContentAttribute.ForceLeftToRight;
-					break;
-				case FlowDirection.RightToLeft:
-					updateValue = UISemanticContentAttribute.ForceRightToLeft;
-					break;
-			}
+			var updateValue = GetSemanticContentAttribute(platformView, view);
 
 			if (updateValue != platformView.SemanticContentAttribute)
 			{
 				platformView.SemanticContentAttribute = updateValue;
-
-				if (view is ITextAlignment)
-				{
-					// A change in flow direction may mean a change in text alignment
-					view.Handler?.UpdateValue(nameof(ITextAlignment.HorizontalTextAlignment));
-				}
-
-				PropagateFlowDirection(updateValue, view);
+				OnFlowDirectionChanged(updateValue, view);
 			}
+		}
+
+		static UISemanticContentAttribute GetSemanticContentAttribute(UIView platformView, IView view) =>
+			view.FlowDirection switch
+			{
+				FlowDirection.MatchParent => GetParentMatchingSemanticContentAttribute(view),
+				FlowDirection.LeftToRight => UISemanticContentAttribute.ForceLeftToRight,
+				FlowDirection.RightToLeft => UISemanticContentAttribute.ForceRightToLeft,
+				_ => platformView.SemanticContentAttribute,
+			};
+
+		static void OnFlowDirectionChanged(UISemanticContentAttribute semanticContentAttribute, IView view)
+		{
+			if (view is ITextAlignment)
+			{
+				// A change in flow direction may mean a change in text alignment
+				view.Handler?.UpdateValue(nameof(ITextAlignment.HorizontalTextAlignment));
+			}
+
+			PropagateFlowDirection(semanticContentAttribute, view);
 		}
 
 		static UISemanticContentAttribute GetParentMatchingSemanticContentAttribute(IView view)
@@ -204,6 +204,45 @@ namespace Microsoft.Maui.Platform
 		public static void UpdateOpacity(this UIView platformView, IView view) => platformView.UpdateOpacity(view.Opacity);
 
 		internal static void UpdateOpacity(this UIView platformView, double opacity) => platformView.Alpha = (float)opacity;
+
+		internal static void InitializeNativeViewProperties(
+			this UIView platformView,
+			UIView containerView,
+			bool hasContainer,
+			IView view)
+		{
+			var hidden = view.Visibility != Visibility.Visible;
+
+			if (view.Visibility == Visibility.Hidden)
+			{
+				platformView.Inflate();
+
+				if (hasContainer)
+					containerView.Inflate();
+			}
+
+			var semanticContentAttribute = GetSemanticContentAttribute(platformView, view);
+			var flowDirectionChanged = MauiViewPropertyBatcher.Apply(
+				platformView,
+				containerView,
+				hasContainer,
+				hidden,
+				semanticContentAttribute,
+				view.IsEnabled,
+				view.Opacity != 1,
+				view.Opacity);
+
+			if (view.Visibility == Visibility.Collapsed)
+			{
+				platformView.Collapse();
+
+				if (hasContainer)
+					containerView.Collapse();
+			}
+
+			if (flowDirectionChanged)
+				OnFlowDirectionChanged(semanticContentAttribute, view);
+		}
 
 		public static void UpdateAutomationId(this UIView platformView, IView view) =>
 			platformView.AccessibilityIdentifier = view.AutomationId;

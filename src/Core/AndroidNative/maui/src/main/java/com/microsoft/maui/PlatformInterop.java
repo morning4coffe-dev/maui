@@ -69,6 +69,16 @@ import java.util.List;
 
 public class PlatformInterop {
 
+    private static final int UPDATE_IS_ENABLED = 1 << 0;
+    private static final int UPDATE_OPACITY = 1 << 1;
+    private static final int UPDATE_TRANSLATION_X = 1 << 2;
+    private static final int UPDATE_TRANSLATION_Y = 1 << 3;
+    private static final int UPDATE_SCALE_X = 1 << 4;
+    private static final int UPDATE_SCALE_Y = 1 << 5;
+    private static final int UPDATE_ROTATION = 1 << 6;
+    private static final int UPDATE_ROTATION_X = 1 << 7;
+    private static final int UPDATE_ROTATION_Y = 1 << 8;
+
     public static void requestLayoutIfNeeded(View view) {
         
         // If the view isn't currently in the layout process, then we simply request
@@ -180,6 +190,52 @@ public class PlatformInterop {
         view.setRotationY(rotationY);
         setPivotXIfNeeded(view, pivotX);
         setPivotYIfNeeded(view, pivotY);
+    }
+
+    public static void updateViewProperties(
+        View platformView,
+        View targetView,
+        int updates,
+        boolean enabled,
+        float alpha,
+        float translationX,
+        float translationY,
+        float scaleX,
+        float scaleY,
+        float rotation,
+        float rotationX,
+        float rotationY) {
+
+        if ((updates & UPDATE_IS_ENABLED) != 0) {
+            platformView.setEnabled(enabled);
+        }
+        if ((updates & UPDATE_OPACITY) != 0) {
+            targetView.setAlpha(alpha);
+            if (targetView != platformView) {
+                platformView.setAlpha(1);
+            }
+        }
+        if ((updates & UPDATE_TRANSLATION_X) != 0) {
+            targetView.setTranslationX(translationX);
+        }
+        if ((updates & UPDATE_TRANSLATION_Y) != 0) {
+            targetView.setTranslationY(translationY);
+        }
+        if ((updates & UPDATE_SCALE_X) != 0) {
+            targetView.setScaleX(scaleX);
+        }
+        if ((updates & UPDATE_SCALE_Y) != 0) {
+            targetView.setScaleY(scaleY);
+        }
+        if ((updates & UPDATE_ROTATION) != 0) {
+            targetView.setRotation(rotation);
+        }
+        if ((updates & UPDATE_ROTATION_X) != 0) {
+            targetView.setRotationX(rotationX);
+        }
+        if ((updates & UPDATE_ROTATION_Y) != 0) {
+            targetView.setRotationY(rotationY);
+        }
     }
 
     @NonNull

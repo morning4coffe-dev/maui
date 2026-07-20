@@ -20,8 +20,17 @@ namespace Microsoft.Maui.Handlers
 
 		static ColorStateList TransparentColorStateList = Colors.Transparent.ToDefaultColorStateList();
 
-		ButtonClickListener ClickListener { get; } = new ButtonClickListener();
-		ButtonTouchListener TouchListener { get; } = new ButtonTouchListener();
+		ButtonClickListener? _clickListener;
+		ButtonTouchListener? _touchListener;
+		ButtonEventBridgeCallback? _eventBridgeCallback;
+		MauiButtonEventBridge? _eventBridge;
+
+		ButtonClickListener ClickListener => _clickListener ??= new ButtonClickListener();
+		ButtonTouchListener TouchListener => _touchListener ??= new ButtonTouchListener();
+		ButtonEventBridgeCallback EventBridgeCallback => _eventBridgeCallback ??= new ButtonEventBridgeCallback();
+
+		internal bool IsNativeEventBridgeConnected => _eventBridge is not null;
+		internal MauiButtonEventBridge? NativeEventBridge => _eventBridge;
 
 		// Cached default Material theme text colors, captured before any MAUI property mapping.
 		// Restored when TextColor is set to null (e.g. when a VisualState setter is unapplied).
@@ -42,13 +51,22 @@ namespace Microsoft.Maui.Handlers
 
 		protected override void ConnectHandler(MaterialButton platformView)
 		{
-			ClickListener.Handler = this;
-			platformView.SetOnClickListener(ClickListener);
+			if (RuntimeFeature.IsNativeButtonEventBridgeEnabled)
+			{
+				EventBridgeCallback.Handler = this;
+				_eventBridge = MauiButtonEventBridge.Attach(platformView, EventBridgeCallback);
+			}
+			else
+			{
+				ClickListener.Handler = this;
+				platformView.SetOnClickListener(ClickListener);
 
-			TouchListener.Handler = this;
-			platformView.SetOnTouchListener(TouchListener);
+				TouchListener.Handler = this;
+				platformView.SetOnTouchListener(TouchListener);
 
-			platformView.FocusChange += OnNativeViewFocusChange;
+				platformView.FocusChange += OnNativeViewFocusChange;
+			}
+
 			platformView.LayoutChange += OnPlatformViewLayoutChange;
 
 			// Capture Material theme defaults before MAUI property mapping is applied
@@ -59,13 +77,27 @@ namespace Microsoft.Maui.Handlers
 
 		protected override void DisconnectHandler(MaterialButton platformView)
 		{
-			ClickListener.Handler = null;
-			platformView.SetOnClickListener(null);
+			if (_eventBridge is not null)
+			{
+				_eventBridgeCallback?.Handler = null;
 
-			TouchListener.Handler = null;
-			platformView.SetOnTouchListener(null);
+				_eventBridge.Detach();
+				_eventBridge.Dispose();
+				_eventBridge = null;
+			}
+			else
+			{
+				_clickListener?.Handler = null;
 
-			platformView.FocusChange -= OnNativeViewFocusChange;
+				platformView.SetOnClickListener(null);
+
+				_touchListener?.Handler = null;
+
+				platformView.SetOnTouchListener(null);
+
+				platformView.FocusChange -= OnNativeViewFocusChange;
+			}
+
 			platformView.LayoutChange -= OnPlatformViewLayoutChange;
 
 			_defaultTextColors = null;
@@ -94,7 +126,7 @@ namespace Microsoft.Maui.Handlers
 		public static void MapCornerRadius(IButtonHandler handler, IButton button)
 		{
 			handler.PlatformView?.UpdateCornerRadius(button);
-			
+
 			if (button.Shadow is not null)
 			{
 				handler.UpdateValue(nameof(IButton.Shadow));
@@ -176,8 +208,7 @@ namespace Microsoft.Maui.Handlers
 
 		void OnNativeViewFocusChange(object? sender, AView.FocusChangeEventArgs e)
 		{
-			if (VirtualView != null)
-				VirtualView.IsFocused = e.HasFocus;
+			VirtualView?.IsFocused = e.HasFocus;
 		}
 
 		void OnPlatformViewLayoutChange(object? sender, AView.LayoutChangeEventArgs e)
@@ -202,6 +233,17 @@ namespace Microsoft.Maui.Handlers
 
 			public bool OnTouch(AView? v, global::Android.Views.MotionEvent? e) =>
 				ButtonHandler.OnTouch(Handler?.VirtualView, v, e);
+		}
+
+		class ButtonEventBridgeCallback : Java.Lang.Object, IButtonEventCallback
+		{
+			public ButtonHandler? Handler { get; set; }
+
+			public void OnClicked() => Handler?.VirtualView?.Clicked();
+
+			public void OnPressed() => Handler?.VirtualView?.Pressed();
+
+			public void OnReleased() => Handler?.VirtualView?.Released();
 		}
 
 		partial class ButtonImageSourcePartSetter

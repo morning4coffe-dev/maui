@@ -95,6 +95,10 @@ namespace Microsoft.Maui.Handlers
 			[nameof(IView.ZIndex)] = MapZIndex,
 			[nameof(IView.Focus)] = MapFocus,
 			[nameof(IView.Unfocus)] = MapUnfocus,
+#if ANDROID
+			[BeginNativePropertyUpdateBatchCommand] = MapBeginNativePropertyUpdateBatch,
+			[CommitNativePropertyUpdateBatchCommand] = MapCommitNativePropertyUpdateBatch,
+#endif
 		};
 
 		bool _hasContainer;
@@ -337,6 +341,15 @@ namespace Microsoft.Maui.Handlers
 				// Mapped through _InitializeBatchedProperties
 				return;
 			}
+#elif IOS || MACCATALYST
+			if (DidInitializeNativeViewProperties(handler))
+				return;
+#endif
+
+#if ANDROID
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.IsEnabled))
+				return;
 #endif
 
 			((PlatformView?)handler.PlatformView)?.UpdateIsEnabled(view);
@@ -350,6 +363,11 @@ namespace Microsoft.Maui.Handlers
 		public static void MapVisibility(IViewHandler handler, IView view)
 		{
 			var isConnectingHandler = handler.IsConnectingHandler();
+
+#if IOS || MACCATALYST
+			if (DidInitializeNativeViewProperties(handler))
+				return;
+#endif
 
 			if (isConnectingHandler && view.Visibility == Visibility.Visible)
 			{
@@ -403,7 +421,10 @@ namespace Microsoft.Maui.Handlers
 		/// <param name="view">The associated <see cref="IView"/> instance.</param>
 		public static void MapFlowDirection(IViewHandler handler, IView view)
 		{
-#if !(IOS || MACCATALYST)
+#if IOS || MACCATALYST
+			if (DidInitializeNativeViewProperties(handler))
+				return;
+#else
 			// All platforms match parent's flow direction by default, except for iOS/macOS where we have to manually set it.
 			if (handler.IsConnectingHandler() && view.FlowDirection == FlowDirection.MatchParent)
 			{
@@ -427,8 +448,20 @@ namespace Microsoft.Maui.Handlers
 				// Mapped through _InitializeBatchedProperties
 				return;
 			}
+#elif IOS || MACCATALYST
+			if (DidInitializeNativeViewProperties(handler))
+				return;
+
+			if (handler.IsConnectingHandler() && view.Opacity == 1)
+				return;
 #else
 			if (handler.IsConnectingHandler() && view.Opacity == 1)
+				return;
+#endif
+
+#if ANDROID
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.Opacity))
 				return;
 #endif
 
@@ -531,6 +564,10 @@ namespace Microsoft.Maui.Handlers
 			else
 				handler.HasContainer = view.NeedsContainer();
 
+#if IOS || MACCATALYST
+			TryInitializeNativeViewProperties(handler, view);
+#endif
+
 			if (hasContainerOldValue != handler.HasContainer)
 			{
 				handler.UpdateValue(nameof(IView.Visibility));
@@ -549,7 +586,8 @@ namespace Microsoft.Maui.Handlers
 		/// <param name="view">The associated <see cref="IView"/> instance.</param>
 		public static void MapBorderView(IViewHandler handler, IView view)
 		{
-			handler.UpdateValue(nameof(IViewHandler.ContainerView));
+			if (!handler.IsMappingProperties())
+				handler.UpdateValue(nameof(IViewHandler.ContainerView));
 
 			((PlatformView?)handler.ContainerView)?.UpdateBorder(view);
 		}

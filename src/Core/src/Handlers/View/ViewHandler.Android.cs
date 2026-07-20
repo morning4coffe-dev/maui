@@ -8,16 +8,39 @@ namespace Microsoft.Maui.Handlers
 {
 	public partial class ViewHandler
 	{
+		internal const string BeginNativePropertyUpdateBatchCommand = "BeginNativePropertyUpdateBatch";
+		internal const string CommitNativePropertyUpdateBatchCommand = "CommitNativePropertyUpdateBatch";
+
+		[Flags]
+		internal enum NativePropertyUpdate
+		{
+			None = 0,
+			IsEnabled = 1 << 0,
+			Opacity = 1 << 1,
+			TranslationX = 1 << 2,
+			TranslationY = 1 << 3,
+			ScaleX = 1 << 4,
+			ScaleY = 1 << 5,
+			Rotation = 1 << 6,
+			RotationX = 1 << 7,
+			RotationY = 1 << 8,
+		}
+
+		bool _isNativePropertyUpdateBatchActive;
+		NativePropertyUpdate _pendingNativePropertyUpdates;
+
+		internal int NativePropertyUpdateBatchFlushCount { get; private set; }
+
 		partial void ConnectingHandler(PlatformView? platformView)
 		{
-			if (platformView != null)
-			{
-				platformView.FocusChange += OnPlatformViewFocusChange;
-			}
+			platformView?.FocusChange += OnPlatformViewFocusChange;
 		}
 
 		partial void DisconnectingHandler(PlatformView platformView)
 		{
+			_isNativePropertyUpdateBatchActive = false;
+			_pendingNativePropertyUpdates = NativePropertyUpdate.None;
+
 			if (platformView.IsAlive())
 			{
 				platformView.FocusChange -= OnPlatformViewFocusChange;
@@ -32,6 +55,125 @@ namespace Microsoft.Maui.Handlers
 			if (VirtualView is IToolbarElement te)
 			{
 				te.Toolbar?.Handler?.DisconnectHandler();
+			}
+		}
+
+		static void MapBeginNativePropertyUpdateBatch(IViewHandler handler, IView view, object? args)
+		{
+			if (!RuntimeFeature.IsNativeViewPropertyUpdateBatchingEnabled ||
+				handler is not ViewHandler viewHandler ||
+				viewHandler._isNativePropertyUpdateBatchActive)
+				return;
+
+			viewHandler._isNativePropertyUpdateBatchActive = true;
+			viewHandler._pendingNativePropertyUpdates = NativePropertyUpdate.None;
+		}
+
+		static void MapCommitNativePropertyUpdateBatch(IViewHandler handler, IView view, object? args)
+		{
+			if (handler is ViewHandler viewHandler)
+				viewHandler.CommitNativePropertyUpdates(view);
+		}
+
+		internal bool TryQueueNativePropertyUpdate(NativePropertyUpdate property)
+		{
+			if (!_isNativePropertyUpdateBatchActive ||
+				!RuntimeFeature.IsNativeViewPropertyUpdateBatchingEnabled)
+				return false;
+
+			_pendingNativePropertyUpdates |= property;
+			return true;
+		}
+
+		void CommitNativePropertyUpdates(IView view)
+		{
+			if (!_isNativePropertyUpdateBatchActive)
+				return;
+
+			var updates = _pendingNativePropertyUpdates;
+			_isNativePropertyUpdateBatchActive = false;
+			_pendingNativePropertyUpdates = NativePropertyUpdate.None;
+
+			if (updates == NativePropertyUpdate.None || PlatformView is null)
+				return;
+
+			var enabled = false;
+			var opacity = 0f;
+			var translationX = 0f;
+			var translationY = 0f;
+			var scaleX = 0f;
+			var scaleY = 0f;
+			var rotation = 0f;
+			var rotationX = 0f;
+			var rotationY = 0f;
+
+			if ((updates & NativePropertyUpdate.IsEnabled) != 0)
+				enabled = view.IsEnabled;
+
+			if ((updates & NativePropertyUpdate.Opacity) != 0)
+				opacity = (float)view.Opacity;
+
+			var targetView = this.ToPlatform();
+			var context = targetView.Context;
+
+			if ((updates & NativePropertyUpdate.TranslationX) != 0)
+				translationX = (float)context.ToPixels(view.TranslationX);
+
+			if ((updates & NativePropertyUpdate.TranslationY) != 0)
+				translationY = (float)context.ToPixels(view.TranslationY);
+
+			if ((updates & (NativePropertyUpdate.ScaleX | NativePropertyUpdate.ScaleY)) != 0)
+			{
+				var scale = view.Scale;
+				if (double.IsNaN(scale))
+				{
+					// The immediate scale mappers also ignore ScaleX/ScaleY while the aggregate scale is NaN.
+					updates &= ~(NativePropertyUpdate.ScaleX | NativePropertyUpdate.ScaleY);
+				}
+				else
+				{
+					if ((updates & NativePropertyUpdate.ScaleX) != 0)
+						scaleX = (float)scale * (float)view.ScaleX;
+
+					if ((updates & NativePropertyUpdate.ScaleY) != 0)
+						scaleY = (float)scale * (float)view.ScaleY;
+				}
+			}
+
+			if ((updates & NativePropertyUpdate.Rotation) != 0)
+				rotation = (float)view.Rotation;
+
+			if ((updates & NativePropertyUpdate.RotationX) != 0)
+				rotationX = (float)view.RotationX;
+
+			if ((updates & NativePropertyUpdate.RotationY) != 0)
+				rotationY = (float)view.RotationY;
+
+			if (updates == NativePropertyUpdate.None)
+				return;
+
+			PlatformInterop.UpdateViewProperties(
+				PlatformView,
+				targetView,
+				(int)updates,
+				enabled,
+				opacity,
+				translationX,
+				translationY,
+				scaleX,
+				scaleY,
+				rotation,
+				rotationX,
+				rotationY);
+
+			NativePropertyUpdateBatchFlushCount++;
+
+			if ((updates & NativePropertyUpdate.Opacity) != 0 &&
+				targetView is WrapperView wrapperView &&
+				wrapperView.Shadow != null &&
+				wrapperView.IsLoaded())
+			{
+				wrapperView.ScheduleInvalidate();
 			}
 		}
 
@@ -54,6 +196,10 @@ namespace Microsoft.Maui.Handlers
 				return;
 			}
 
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.TranslationX))
+				return;
+
 			handler.ToPlatform().UpdateTranslationX(view);
 		}
 
@@ -64,6 +210,10 @@ namespace Microsoft.Maui.Handlers
 				// Mapped through _InitializeBatchedProperties
 				return;
 			}
+
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.TranslationY))
+				return;
 
 			handler.ToPlatform().UpdateTranslationY(view);
 		}
@@ -76,6 +226,10 @@ namespace Microsoft.Maui.Handlers
 				return;
 			}
 
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.ScaleX | NativePropertyUpdate.ScaleY))
+				return;
+
 			handler.ToPlatform().UpdateScale(view);
 		}
 
@@ -86,6 +240,10 @@ namespace Microsoft.Maui.Handlers
 				// Mapped through _InitializeBatchedProperties
 				return;
 			}
+
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.ScaleX))
+				return;
 
 			handler.ToPlatform().UpdateScaleX(view);
 		}
@@ -98,6 +256,10 @@ namespace Microsoft.Maui.Handlers
 				return;
 			}
 
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.ScaleY))
+				return;
+
 			handler.ToPlatform().UpdateScaleY(view);
 		}
 
@@ -108,6 +270,10 @@ namespace Microsoft.Maui.Handlers
 				// Mapped through _InitializeBatchedProperties
 				return;
 			}
+
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.Rotation))
+				return;
 
 			handler.ToPlatform().UpdateRotation(view);
 		}
@@ -120,6 +286,10 @@ namespace Microsoft.Maui.Handlers
 				return;
 			}
 
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.RotationX))
+				return;
+
 			handler.ToPlatform().UpdateRotationX(view);
 		}
 
@@ -130,6 +300,10 @@ namespace Microsoft.Maui.Handlers
 				// Mapped through _InitializeBatchedProperties
 				return;
 			}
+
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.RotationY))
+				return;
 
 			handler.ToPlatform().UpdateRotationY(view);
 		}

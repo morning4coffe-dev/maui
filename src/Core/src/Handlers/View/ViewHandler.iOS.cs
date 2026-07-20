@@ -11,6 +11,39 @@ namespace Microsoft.Maui.Handlers
 {
 	public partial class ViewHandler
 	{
+		internal const string NativeViewPropertyBatchingSwitch = "Microsoft.Maui.Experimental.NativeViewPropertyBatching";
+
+		bool _nativeViewPropertiesInitialized;
+
+		internal static void TryInitializeNativeViewProperties(IViewHandler handler, IView view)
+		{
+			if (!AppContext.TryGetSwitch(NativeViewPropertyBatchingSwitch, out bool isEnabled) ||
+				!isEnabled ||
+				!handler.IsConnectingHandler() ||
+				handler is not ViewHandler viewHandler ||
+				handler.PlatformView is not PlatformView platformView)
+			{
+				return;
+			}
+
+			var hasContainer = handler.HasContainer && handler.ContainerView is PlatformView;
+			var containerView = hasContainer
+				? (PlatformView)handler.ContainerView!
+				: platformView;
+
+			platformView.InitializeNativeViewProperties(containerView, hasContainer, view);
+			viewHandler._nativeViewPropertiesInitialized = true;
+		}
+
+		internal static bool DidInitializeNativeViewProperties(IViewHandler handler) =>
+			handler.IsConnectingHandler() &&
+			handler is ViewHandler viewHandler &&
+			viewHandler._nativeViewPropertiesInitialized;
+
+		partial void DisconnectingHandler(PlatformView platformView)
+		{
+			_nativeViewPropertiesInitialized = false;
+		}
 
 		[System.Runtime.Versioning.SupportedOSPlatform("ios13.0")]
 		public static void MapContextFlyout(IViewHandler handler, IView view)

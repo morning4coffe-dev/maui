@@ -1,0 +1,60 @@
+apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+
+android {
+    namespace 'com.microsoft.maui.composeprobe'
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 21
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlin {
+        jvmToolchain(17)
+    }
+}
+
+dependencies {
+    implementation 'androidx.compose.ui:ui:1.7.0'
+    implementation 'androidx.compose.material3:material3:1.3.2'
+}
+
+def runtimeDependenciesDirectory =
+    layout.projectDirectory.dir('build/runtime-dependencies')
+
+def composeRuntimeArtifacts = { configuration ->
+    configuration.resolvedConfiguration.resolvedArtifacts
+        .findAll {
+            def module = it.moduleVersion.id
+            module.group.startsWith('androidx.compose') ||
+                (module.group == 'androidx.activity' && module.name == 'activity-compose') ||
+                (module.group == 'androidx.lifecycle' &&
+                    module.name.startsWith('lifecycle-runtime-compose')) ||
+                module.group == 'androidx.autofill'
+        }
+        .collect { it.file }
+}
+
+tasks.register('syncDebugRuntimeDependencies', Sync) {
+    from { composeRuntimeArtifacts(configurations.debugRuntimeClasspath) }
+    into runtimeDependenciesDirectory
+}
+
+tasks.register('syncReleaseRuntimeDependencies', Sync) {
+    from { composeRuntimeArtifacts(configurations.releaseRuntimeClasspath) }
+    into runtimeDependenciesDirectory
+}
+
+tasks.matching { it.name == 'assembleDebug' }.configureEach {
+    finalizedBy tasks.named('syncDebugRuntimeDependencies')
+}
+
+tasks.matching { it.name == 'assembleRelease' }.configureEach {
+    finalizedBy tasks.named('syncReleaseRuntimeDependencies')
+}
