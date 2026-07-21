@@ -108,12 +108,13 @@
         "Warm image/data loading before timing layout and scrolling."
       ],
       "operations": [
-        "Repeat the affected ScrollTo or collection-update action at least ten times.",
+        "Reset to the top and repeat ScrollTo(MakeVisible, animated) to item 2 in section 1 at least ten times.",
         "Wait for animation and layout to settle after every operation.",
-        "Verify the final visible item and offset."
+        "Verify the target item is visible and record its viewport position spread against the first measured result."
       ],
       "metrics": [
         "operation-to-settled-position latency: median and p95",
+        "target viewport-position spread and count outside the 30px tolerance",
         "variance and worst-case latency",
         "layout invalidation and section-provider invocation counts",
         "frame time and jank count",

@@ -53,6 +53,7 @@ function New-Result(
             passed = $correctnessPassed
             accessibilityStatus = "not-assessed"
         }
+        warmupCount = 2
         measurementsMilliseconds = $measurements
         statistics = [PSCustomObject]@{}
         counters = [PSCustomObject]@{ layoutPasses = if ($variant -eq "base") { 10 } else { 5 } }
@@ -176,6 +177,63 @@ try
     & $script @comparisonArguments
     $summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
     Assert-Equal "inconclusive" $summary.verdict "Mixed build SDKs should be inconclusive"
+
+    $groupedResults = @(
+        (New-Result "base" @(500, 520) 1),
+        (New-Result "head" @(490, 510) 1),
+        (New-Result "head" @(495, 515) 2),
+        (New-Result "base" @(505, 525) 2)
+    )
+    foreach ($result in $groupedResults) {
+        $result.scenario = "collectionview-grouped-scrollto-makevisible"
+        $result.counters = [PSCustomObject]@{
+            targetPositionSpread = if ($result.variant -eq "base") { 80 } else { 5 }
+            positionsOutsideTolerance = if ($result.variant -eq "base") { 3 } else { 0 }
+        }
+    }
+    $groupedArguments = $comparisonArguments.Clone()
+    $groupedArguments.ExpectedScenario = "collectionview-grouped-scrollto-makevisible"
+    Write-Results $resultsPath $groupedResults
+    & $script @groupedArguments
+    $summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
+    Assert-Equal "neutral" $summary.verdict "Correct grouped ScrollTo head should compare"
+    Assert-Equal $true $summary.correctnessPassed "Grouped ScrollTo head correctness"
+
+    $groupedResults[1].counters.positionsOutsideTolerance = 1
+    Write-Results $resultsPath $groupedResults
+    & $script @groupedArguments
+    $summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
+    Assert-Equal "inconclusive" $summary.verdict "Inconsistent grouped ScrollTo head should be inconclusive"
+    Assert-Equal $true $summary.provenanceValidated "Grouped ScrollTo provenance remains valid"
+    Assert-Equal $false $summary.correctnessPassed "Grouped ScrollTo correctness failure"
+
+    $itemUpdateResults = @(
+        (New-Result "base" @(300, 320) 1),
+        (New-Result "head" @(390, 410) 1),
+        (New-Result "head" @(395, 415) 2),
+        (New-Result "base" @(305, 325) 2)
+    )
+    foreach ($result in $itemUpdateResults) {
+        $result.scenario = "collectionview-keepitemsinview-update"
+        $result.counters = [PSCustomObject]@{
+            lastFirstVisiblePosition = if ($result.variant -eq "base") { 51 } else { 0 }
+            updatesEndingAtFirstItem = if ($result.variant -eq "base") { 0 } else { 4 }
+        }
+    }
+    $itemUpdateArguments = $comparisonArguments.Clone()
+    $itemUpdateArguments.ExpectedScenario = "collectionview-keepitemsinview-update"
+    Write-Results $resultsPath $itemUpdateResults
+    & $script @itemUpdateArguments
+    $summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
+    Assert-Equal "time-regression-advisory" $summary.verdict "Correct item update head should compare"
+    Assert-Equal $true $summary.correctnessPassed "Item update head correctness"
+
+    $itemUpdateResults[1].counters.updatesEndingAtFirstItem = 3
+    Write-Results $resultsPath $itemUpdateResults
+    & $script @itemUpdateArguments
+    $summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
+    Assert-Equal "inconclusive" $summary.verdict "Incorrect item update head should be inconclusive"
+    Assert-Equal $false $summary.correctnessPassed "Item update correctness failure"
 
     Write-Host "All device performance comparator tests passed."
 }

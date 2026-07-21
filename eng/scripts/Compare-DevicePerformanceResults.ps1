@@ -121,6 +121,7 @@ foreach ($group in $grouped)
     $headResults = @($group.Group | Where-Object { $_.variant -eq "head" })
     $parts = $group.Name.Split('|', 2)
     $provenanceErrors = New-Object System.Collections.Generic.List[string]
+    $correctnessErrors = New-Object System.Collections.Generic.List[string]
 
     if ($baseResults.Count -ne $ExpectedVariantRuns) {
         $provenanceErrors.Add("Expected $ExpectedVariantRuns base results, found $($baseResults.Count).")
@@ -166,7 +167,47 @@ foreach ($group in $grouped)
     }
 
     if (@($allResults | Where-Object { $_.correctness.passed -ne $true }).Count -gt 0) {
-        $provenanceErrors.Add("One or more device results failed correctness validation.")
+        $correctnessErrors.Add("One or more device results failed operation-level correctness validation.")
+    }
+
+    if ($parts[0] -eq "collectionview-grouped-scrollto-makevisible") {
+        $positionCountersComplete = @(
+            $allResults | Where-Object {
+                $null -eq $_.counters.PSObject.Properties["targetPositionSpread"] -or
+                $null -eq $_.counters.PSObject.Properties["positionsOutsideTolerance"]
+            }
+        ).Count -eq 0
+
+        if (-not $positionCountersComplete) {
+            $correctnessErrors.Add("Grouped ScrollTo results are missing final-position consistency counters.")
+        } elseif (@(
+            $headResults | Where-Object {
+                [double]$_.counters.positionsOutsideTolerance -ne 0
+            }
+        ).Count -gt 0) {
+            $correctnessErrors.Add("The head did not produce a consistent grouped ScrollTo final position.")
+        }
+    }
+
+    if ($parts[0] -eq "collectionview-keepitemsinview-update") {
+        $itemUpdateCountersComplete = @(
+            $allResults | Where-Object {
+                $null -eq $_.counters.PSObject.Properties["lastFirstVisiblePosition"] -or
+                $null -eq $_.counters.PSObject.Properties["updatesEndingAtFirstItem"]
+            }
+        ).Count -eq 0
+
+        if (-not $itemUpdateCountersComplete) {
+            $correctnessErrors.Add("KeepItemsInView results are missing final-position counters.")
+        } elseif (@(
+            $headResults | Where-Object {
+                [double]$_.counters.lastFirstVisiblePosition -ne 0 -or
+                [double]$_.counters.updatesEndingAtFirstItem -ne
+                    ([double]$_.warmupCount + @($_.measurementsMilliseconds).Count)
+            }
+        ).Count -gt 0) {
+            $correctnessErrors.Add("The head did not keep every measured update at the first item.")
+        }
     }
 
     $environmentPaths = @(
@@ -189,15 +230,19 @@ foreach ($group in $grouped)
         }
     }
 
-    if ($provenanceErrors.Count -gt 0) {
+    if ($provenanceErrors.Count -gt 0 -or $correctnessErrors.Count -gt 0) {
+        $allErrors = @(
+            $provenanceErrors | ForEach-Object { $_ }
+            $correctnessErrors | ForEach-Object { $_ }
+        )
         $comparisons.Add([PSCustomObject]@{
             Scenario = $parts[0]
             Platform = $parts[1]
             Complete = $false
-            ProvenanceValidated = $false
-            CorrectnessPassed = @($allResults | Where-Object { $_.correctness.passed -ne $true }).Count -eq 0
+            ProvenanceValidated = $provenanceErrors.Count -eq 0
+            CorrectnessPassed = $correctnessErrors.Count -eq 0
             Flag = "inconclusive"
-            Reason = $provenanceErrors -join " "
+            Reason = $allErrors -join " "
         })
         continue
     }

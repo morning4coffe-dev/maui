@@ -260,10 +260,17 @@ For CollectionView layout/ScrollTo work, prefer:
 
 - operation-to-settled-position median and p95;
 - variance/worst case;
+- target viewport-position spread and count outside the scenario tolerance;
 - layout invalidation/section-provider counts;
 - frame time and jank;
 - allocation deltas where available;
 - final visible item/offset correctness.
+
+For `collectionview-grouped-scrollto-makevisible`, a buggy base may have inconsistent
+final positions. That is red-side correctness evidence, not a reason to abort before the
+head runs. Accept the scenario only when all four ABBA records exist, every target becomes
+visible, and every head run reports zero positions outside the 30px tolerance. Keep timing
+advisory because the base and head do not have equivalent final-position correctness.
 
 ---
 

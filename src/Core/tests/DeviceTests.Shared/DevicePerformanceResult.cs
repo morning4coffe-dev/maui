@@ -214,10 +214,10 @@ namespace Microsoft.Maui.DeviceTests
 			{
 #if ANDROID
 				return "android";
-#elif IOS
-				return "ios";
 #elif MACCATALYST
 				return "maccatalyst";
+#elif IOS
+				return "ios";
 #elif WINDOWS
 				return "windows";
 #else

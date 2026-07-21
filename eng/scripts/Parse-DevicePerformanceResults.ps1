@@ -91,6 +91,7 @@ foreach ($path in $InputPath)
             Assert-RequiredProperty $result "timestampUtc" $file.FullName
             Assert-RequiredProperty $result "measurementsMilliseconds" $file.FullName
             Assert-RequiredProperty $result "statistics" $file.FullName
+            Assert-RequiredProperty $result "counters" $file.FullName
 
             if ([int]$result.schemaVersion -ne 2)
             {

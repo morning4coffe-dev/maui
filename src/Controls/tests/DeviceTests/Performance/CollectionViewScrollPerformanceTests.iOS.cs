@@ -22,6 +22,9 @@ namespace Microsoft.Maui.DeviceTests
 		const int ItemsPerGroup = 20;
 		const int WarmupCount = 2;
 		const int IterationCount = 10;
+		const int TargetSection = 1;
+		const int TargetItem = 2;
+		const double PositionTolerance = 30;
 
 		[Fact(DisplayName = "Grouped CollectionView2 ScrollTo MakeVisible performance")]
 		public async Task GroupedScrollToMakeVisible()
@@ -70,41 +73,71 @@ namespace Microsoft.Maui.DeviceTests
 			await CreateHandlerAndAddToWindow<CollectionViewHandler2>(collectionView, async handler =>
 			{
 				UICollectionView platformView = handler.Controller.CollectionView;
+				var measuredTargetPositions = new List<double>(IterationCount);
+				int completedOperations = 0;
 
 				await AssertEventually(
 					() => platformView.NumberOfSections() == GroupCount
 						&& platformView.NumberOfItemsInSection(GroupCount - 1) == ItemsPerGroup);
 
+				PerformanceGroup targetGroup = groups[TargetSection];
+				PerformanceItem targetItem = targetGroup[TargetItem];
+				NSIndexPath targetIndexPath = NSIndexPath.FromItemSection(TargetItem, TargetSection);
+
 				DevicePerformanceResult result = await DevicePerformanceMeasurement.MeasureAsync(
 					"collectionview-grouped-scrollto-makevisible",
 					WarmupCount,
 					IterationCount,
-					async iteration =>
+					async _ =>
 					{
-						bool scrollToEnd = iteration % 2 == 0;
-						int section = scrollToEnd ? GroupCount - 1 : 0;
-						int itemIndex = scrollToEnd ? ItemsPerGroup - 1 : 0;
-						PerformanceGroup group = groups[section];
-						PerformanceItem item = group[itemIndex];
-						NSIndexPath expectedIndexPath = NSIndexPath.FromItemSection(itemIndex, section);
+						await InvokeOnMainThreadAsync(() =>
+						{
+							var topOffset = new CoreGraphics.CGPoint(
+								-platformView.AdjustedContentInset.Left,
+								-platformView.AdjustedContentInset.Top);
+							platformView.SetContentOffset(topOffset, animated: false);
+						});
+						await WaitForScrollToSettle(platformView);
 
 						await InvokeOnMainThreadAsync(() =>
-							collectionView.ScrollTo(item, group, ScrollToPosition.MakeVisible, animate: true));
+							collectionView.ScrollTo(
+								targetItem,
+								targetGroup,
+								ScrollToPosition.MakeVisible,
+								animate: true));
 
-						await WaitForScrollToSettle(platformView, expectedIndexPath);
+						double targetPosition = await WaitForScrollToSettle(platformView, targetIndexPath);
+						if (completedOperations >= WarmupCount)
+							measuredTargetPositions.Add(targetPosition);
+						completedOperations++;
 					},
 					new Dictionary<string, double>(StringComparer.Ordinal)
 					{
 						["groupCount"] = GroupCount,
 						["itemsPerGroup"] = ItemsPerGroup,
-						["itemHeight"] = 80
+						["itemHeight"] = 80,
+						["targetSection"] = TargetSection,
+						["targetItem"] = TargetItem
 					});
+
+				if (measuredTargetPositions.Count != IterationCount)
+					throw new XunitException($"Expected {IterationCount} target positions, found {measuredTargetPositions.Count}.");
+
+				double baselinePosition = measuredTargetPositions[0];
+				result.Counters["targetPositionMinimum"] = measuredTargetPositions.Min();
+				result.Counters["targetPositionMaximum"] = measuredTargetPositions.Max();
+				result.Counters["targetPositionSpread"] =
+					result.Counters["targetPositionMaximum"] - result.Counters["targetPositionMinimum"];
+				result.Counters["positionsOutsideTolerance"] = measuredTargetPositions.Count(
+					position => Math.Abs(position - baselinePosition) > PositionTolerance);
 
 				DevicePerformanceReporter.Write(result);
 			});
 		}
 
-		async Task WaitForScrollToSettle(UICollectionView collectionView, NSIndexPath expectedIndexPath)
+		async Task<double> WaitForScrollToSettle(
+			UICollectionView collectionView,
+			NSIndexPath expectedIndexPath = null)
 		{
 			var timeout = System.Diagnostics.Stopwatch.StartNew();
 			double previousX = double.NaN;
@@ -118,16 +151,24 @@ namespace Microsoft.Maui.DeviceTests
 				var state = await InvokeOnMainThreadAsync(() =>
 				{
 					var offset = collectionView.ContentOffset;
-					bool expectedItemVisible = collectionView.IndexPathsForVisibleItems.Any(indexPath =>
-						indexPath.Section == expectedIndexPath.Section
-						&& indexPath.Item == expectedIndexPath.Item);
+					var targetAttributes = expectedIndexPath is null
+						? null
+						: collectionView.GetLayoutAttributesForItem(expectedIndexPath);
+					bool expectedItemVisible = expectedIndexPath is null
+						|| targetAttributes is not null
+						&& collectionView.IndexPathsForVisibleItems.Any(indexPath =>
+							indexPath.Section == expectedIndexPath.Section
+							&& indexPath.Item == expectedIndexPath.Item);
 
 					return new
 					{
 						X = (double)offset.X,
 						Y = (double)offset.Y,
 						IsMoving = collectionView.Dragging || collectionView.Decelerating || collectionView.Tracking,
-						ExpectedItemVisible = expectedItemVisible
+						ExpectedItemVisible = expectedItemVisible,
+						TargetPosition = targetAttributes is null
+							? double.NaN
+							: (double)(targetAttributes.Frame.Y - offset.Y)
 					};
 				});
 
@@ -140,11 +181,13 @@ namespace Microsoft.Maui.DeviceTests
 				previousY = state.Y;
 
 				if (stableSamples >= 3 && state.ExpectedItemVisible)
-					return;
+					return state.TargetPosition;
 			}
 
 			throw new XunitException(
-				$"CollectionView did not settle with item {expectedIndexPath.Item} in section {expectedIndexPath.Section} visible.");
+				expectedIndexPath is null
+					? "CollectionView did not settle."
+					: $"CollectionView did not settle with item {expectedIndexPath.Item} in section {expectedIndexPath.Section} visible.");
 		}
 
 		static List<PerformanceGroup> CreateGroups()
