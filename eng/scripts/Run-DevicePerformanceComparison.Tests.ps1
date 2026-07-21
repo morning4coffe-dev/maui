@@ -56,6 +56,66 @@ try
     Assert-Equal $true ($plan[0].arguments -contains "--set-env=MAUI_PERF_SDK_VERSION=10.0.100") "iOS base SDK provenance"
     Assert-Equal $true ($plan[1].arguments -contains "--set-env=MAUI_PERF_SDK_VERSION=10.0.101") "iOS head SDK provenance"
 
+    $macCatalystOutput = Join-Path $testRoot "maccatalyst-output"
+    $macCatalystResultRoot = Join-Path $testRoot "maccatalyst-results"
+    & $script `
+        -Platform maccatalyst `
+        -BaseApp $baseApp `
+        -HeadApp $headApp `
+        -BaseCommitSha abc123 `
+        -HeadCommitSha def456 `
+        -ExpectedScenario collectionview-grouped-scrollto-makevisible `
+        -Repository dotnet/maui `
+        -PullRequestNumber 42 `
+        -HarnessSha harness123 `
+        -AzdoBuildId 100 `
+        -AzdoBuildUrl https://build/100 `
+        -BaseRuntimeVariant mono `
+        -HeadRuntimeVariant mono `
+        -BaseSdkVersion 10.0.100 `
+        -HeadSdkVersion 10.0.101 `
+        -OutputDirectory $macCatalystOutput `
+        -MacCatalystResultFileRoot $macCatalystResultRoot `
+        -DryRun
+
+    $macCatalystPlan = Get-Content (Join-Path $macCatalystOutput "run-plan.json") -Raw | ConvertFrom-Json
+    $resolvedResultRoot = (Resolve-Path $macCatalystResultRoot).Path
+    Assert-Equal 4 (@($macCatalystPlan.resultFile | Sort-Object -Unique).Count) "MacCatalyst result file count"
+    Assert-Equal $true ([string]$macCatalystPlan[0].resultFile).StartsWith(
+        $resolvedResultRoot,
+        [StringComparison]::Ordinal) "MacCatalyst result file root"
+    Assert-Equal $true ($macCatalystPlan[0].arguments -contains
+        "--set-env=MAUI_PERF_RESULT_FILE=$($macCatalystPlan[0].resultFile)") "MacCatalyst result file environment"
+
+    $invalidResultRootFailed = $false
+    try
+    {
+        & $script `
+            -Platform ios `
+            -BaseApp $baseApp `
+            -HeadApp $headApp `
+            -BaseCommitSha abc123 `
+            -HeadCommitSha def456 `
+            -ExpectedScenario collectionview-grouped-scrollto-makevisible `
+            -Repository dotnet/maui `
+            -PullRequestNumber 42 `
+            -HarnessSha harness123 `
+            -AzdoBuildId 100 `
+            -AzdoBuildUrl https://build/100 `
+            -BaseRuntimeVariant mono `
+            -HeadRuntimeVariant mono `
+            -BaseSdkVersion 10.0.100 `
+            -HeadSdkVersion 10.0.101 `
+            -OutputDirectory (Join-Path $testRoot "invalid-result-root") `
+            -MacCatalystResultFileRoot $macCatalystResultRoot `
+            -DryRun
+    }
+    catch
+    {
+        $invalidResultRootFailed = $true
+    }
+    Assert-Equal $true $invalidResultRootFailed "iOS should reject MacCatalystResultFileRoot"
+
     $androidOutput = Join-Path $testRoot "android-output"
     $baseApk = Join-Path $testRoot "base.apk"
     $headApk = Join-Path $testRoot "head.apk"

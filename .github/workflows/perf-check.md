@@ -1,6 +1,6 @@
 ---
 description: |
-  Manual, maintainer-gated performance-impact analysis for one suspicious PR.
+  Manual, maintainer-gated performance-impact analysis for one suspicious PR targeting main.
   It classifies every changed product file into managed-measured,
   managed-sampled, device-required, or static-only evidence; runs selected BenchmarkDotNet suites
   against merge-base and head with repeated ABBA ordering; and posts one
@@ -205,6 +205,9 @@ steps:
 
       BASE_REF=$(jq -r .baseRefName "$PERF/pr-resolved.json")
       HEAD_SHA=$(jq -r .headRefOid "$PERF/pr-resolved.json")
+      if [ "$BASE_REF" != "main" ]; then
+        finish "unsupported-base" "The initial rollout supports only PRs targeting main."
+      fi
       if ! git fetch --quiet --no-tags origin "$BASE_REF" "pull/$PR_NUMBER/head"; then
         finish "fetch-failed" "Could not fetch the pinned base/head commits."
       fi
@@ -457,6 +460,9 @@ safe-outputs:
                   --arg pr "$PR" --arg base "$BASE" --arg head "$HEAD" \
                   --arg harness "$HARNESS" --arg platform "$PLATFORM" --arg scenario "$SCENARIO" \
                   '(.sourceVersion == $harness) and
+                   ((.status != "completed") or
+                    (.result == "succeeded") or
+                    (.result == "partiallySucceeded")) and
                    ((.templateParameters.prNumber | tostring) == $pr) and
                    (.templateParameters.baseCommitSha == $base) and
                    (.templateParameters.headCommitSha == $head) and

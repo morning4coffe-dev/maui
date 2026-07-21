@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -179,6 +180,7 @@ namespace Microsoft.Maui.DeviceTests
 	public static class DevicePerformanceReporter
 	{
 		public const string ResultPrefix = "MAUI_PERF_RESULT:";
+		public const string ChunkPrefix = "MAUI_PERF_CHUNK:";
 
 		public static void Write(DevicePerformanceResult result)
 		{
@@ -187,8 +189,36 @@ namespace Microsoft.Maui.DeviceTests
 			if (result.SchemaVersion != DevicePerformanceResult.CurrentSchemaVersion)
 				throw new ArgumentException($"Unsupported schema version: {result.SchemaVersion}", nameof(result));
 
-			Console.WriteLine(
-				$"{ResultPrefix}{JsonSerializer.Serialize(result, DevicePerformanceJsonContext.Default.DevicePerformanceResult)}");
+			string serializedResult =
+				$"{ResultPrefix}{JsonSerializer.Serialize(result, DevicePerformanceJsonContext.Default.DevicePerformanceResult)}";
+#if ANDROID
+			const int chunkLength = 700;
+			if (serializedResult.Length > chunkLength)
+			{
+				string chunkId = $"{result.Variant}-{result.RunOrdinal}-{result.TimestampUtc.UtcTicks}";
+				int chunkCount = (serializedResult.Length + chunkLength - 1) / chunkLength;
+				for (int index = 0; index < chunkCount; index++)
+				{
+					int start = index * chunkLength;
+					int length = Math.Min(chunkLength, serializedResult.Length - start);
+					string chunk =
+						$"{ChunkPrefix}{chunkId}:{index + 1}/{chunkCount}:{serializedResult.Substring(start, length)}";
+					Console.WriteLine(chunk);
+					Console.Error.WriteLine(chunk);
+				}
+			}
+			else
+			{
+				Console.WriteLine(serializedResult);
+				Console.Error.WriteLine(serializedResult);
+			}
+#else
+			Console.WriteLine(serializedResult);
+#endif
+
+			string? resultFile = DevicePerformanceEnvironment.GetValue("MAUI_PERF_RESULT_FILE");
+			if (!string.IsNullOrWhiteSpace(resultFile))
+				File.WriteAllText(resultFile, serializedResult);
 		}
 	}
 

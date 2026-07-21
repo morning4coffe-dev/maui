@@ -69,6 +69,9 @@ param(
     [string]$OutputDirectory,
 
     [Parameter(Mandatory = $false)]
+    [string]$MacCatalystResultFileRoot,
+
+    [Parameter(Mandatory = $false)]
     [string]$DeviceId,
 
     [Parameter(Mandatory = $false)]
@@ -92,6 +95,7 @@ $ErrorActionPreference = "Stop"
 $scriptDirectory = $PSScriptRoot
 $parser = Join-Path $scriptDirectory "Parse-DevicePerformanceResults.ps1"
 $comparator = Join-Path $scriptDirectory "Compare-DevicePerformanceResults.ps1"
+$resultFileRunId = "maui-perf-$PID-$([Guid]::NewGuid().ToString("N"))"
 $effectiveTestFilter = switch ($ExpectedScenario) {
     "carouselview-swipe-disabled" { "Category=PerformanceCarouselViewSwipe" }
     "collectionview-keepitemsinview-update" { "Category=PerformanceCollectionViewItemsUpdate" }
@@ -209,6 +213,13 @@ function Get-XHarnessCommand([string]$variant, [string]$app, [string]$commitSha,
         MAUI_PERF_RUNTIME_VARIANT = $runtimeVariant
         MAUI_PERF_SDK_VERSION = $sdkVersion
     }
+    $resultFile = $null
+    if ($Platform -eq "maccatalyst") {
+        $resultFile = Join-Path `
+            $MacCatalystResultFileRoot `
+            "$resultFileRunId-$variant-run$($script:currentRunOrdinal).log"
+        $provenance.MAUI_PERF_RESULT_FILE = $resultFile
+    }
 
     foreach ($entry in $provenance.GetEnumerator()) {
         if ($Platform -eq "android") {
@@ -222,6 +233,7 @@ function Get-XHarnessCommand([string]$variant, [string]$app, [string]$commitSha,
     return [PSCustomObject]@{
         Executable = $executable
         Arguments = @($arguments)
+        ResultFile = $resultFile
     }
 }
 
@@ -231,6 +243,21 @@ Assert-AppExists $HeadApp "Head"
 if (-not (Test-Path $OutputDirectory))
 {
     New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
+}
+
+if ($Platform -eq "maccatalyst")
+{
+    if ([string]::IsNullOrWhiteSpace($MacCatalystResultFileRoot))
+    {
+        $MacCatalystResultFileRoot = if ($IsMacOS) { "/private/tmp" } else { [IO.Path]::GetTempPath() }
+    }
+
+    New-Item -ItemType Directory -Force -Path $MacCatalystResultFileRoot | Out-Null
+    $MacCatalystResultFileRoot = (Resolve-Path $MacCatalystResultFileRoot).Path
+}
+elseif (-not [string]::IsNullOrWhiteSpace($MacCatalystResultFileRoot))
+{
+    throw "MacCatalystResultFileRoot can only be used with Platform=maccatalyst."
 }
 
 $runs = @(
@@ -253,6 +280,7 @@ foreach ($run in $runs)
         RunDirectory = $runDirectory
         Executable = $command.Executable
         Arguments = @($command.Arguments)
+        ResultFile = $command.ResultFile
     })
 }
 
@@ -272,6 +300,10 @@ foreach ($run in $plan)
 {
     New-Item -ItemType Directory -Force -Path $run.RunDirectory | Out-Null
     $consoleLog = Join-Path $run.RunDirectory "xharness-console.log"
+    if (-not [string]::IsNullOrWhiteSpace([string]$run.ResultFile))
+    {
+        Remove-Item $run.ResultFile -Force -ErrorAction SilentlyContinue
+    }
 
     Write-Host "Running $($run.Variant) iteration $($run.Number) on $Platform..."
     $arguments = @($run.Arguments)
@@ -279,6 +311,19 @@ foreach ($run in $plan)
     if ($LASTEXITCODE -ne 0)
     {
         throw "XHarness failed for $($run.Variant) iteration $($run.Number) with exit code $LASTEXITCODE."
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace([string]$run.ResultFile))
+    {
+        if (-not (Test-Path $run.ResultFile))
+        {
+            throw "Performance result file was not created: $($run.ResultFile)"
+        }
+
+        Move-Item `
+            $run.ResultFile `
+            (Join-Path $run.RunDirectory "maui-perf-result.log") `
+            -Force
     }
 }
 

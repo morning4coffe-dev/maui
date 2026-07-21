@@ -160,6 +160,10 @@ The identity needs **"Queue builds"** permission on the target pipeline(s):
 The `/perf-check` safe-output job queues the pipeline registered from
 `eng/pipelines/ci-device-performance.yml`. Complete these one-time steps:
 
+The initial workflow rollout supports PRs targeting `main`. Release-branch PRs are rejected
+before benchmarks or device pipelines are queued because the trusted harness is sourced from
+the default branch.
+
 1. Register that YAML as a pipeline in `dnceng-public/public`.
 2. Grant the managed identity Basic access and **Queue builds** permission on that pipeline.
 3. Add repository Actions variable `MAUI_DEVICE_PERFORMANCE_PIPELINE_ID` with the resulting

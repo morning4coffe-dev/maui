@@ -82,7 +82,6 @@ namespace Microsoft.Maui.DeviceTests
 
 				PerformanceGroup targetGroup = groups[TargetSection];
 				PerformanceItem targetItem = targetGroup[TargetItem];
-				NSIndexPath targetIndexPath = NSIndexPath.FromItemSection(TargetItem, TargetSection);
 
 				DevicePerformanceResult result = await DevicePerformanceMeasurement.MeasureAsync(
 					"collectionview-grouped-scrollto-makevisible",
@@ -106,7 +105,10 @@ namespace Microsoft.Maui.DeviceTests
 								ScrollToPosition.MakeVisible,
 								animate: true));
 
-						double targetPosition = await WaitForScrollToSettle(platformView, targetIndexPath);
+						double targetPosition = await WaitForScrollToSettle(
+							platformView,
+							TargetItem,
+							TargetSection);
 						if (completedOperations >= WarmupCount)
 							measuredTargetPositions.Add(targetPosition);
 						completedOperations++;
@@ -137,7 +139,8 @@ namespace Microsoft.Maui.DeviceTests
 
 		async Task<double> WaitForScrollToSettle(
 			UICollectionView collectionView,
-			NSIndexPath expectedIndexPath = null)
+			int? expectedItem = null,
+			int? expectedSection = null)
 		{
 			var timeout = System.Diagnostics.Stopwatch.StartNew();
 			double previousX = double.NaN;
@@ -151,14 +154,17 @@ namespace Microsoft.Maui.DeviceTests
 				var state = await InvokeOnMainThreadAsync(() =>
 				{
 					var offset = collectionView.ContentOffset;
-					var targetAttributes = expectedIndexPath is null
+					using NSIndexPath targetIndexPath = expectedItem is null
 						? null
-						: collectionView.GetLayoutAttributesForItem(expectedIndexPath);
-					bool expectedItemVisible = expectedIndexPath is null
+						: NSIndexPath.FromItemSection(expectedItem.Value, expectedSection.Value);
+					var targetAttributes = targetIndexPath is null
+						? null
+						: collectionView.GetLayoutAttributesForItem(targetIndexPath);
+					bool expectedItemVisible = targetIndexPath is null
 						|| targetAttributes is not null
 						&& collectionView.IndexPathsForVisibleItems.Any(indexPath =>
-							indexPath.Section == expectedIndexPath.Section
-							&& indexPath.Item == expectedIndexPath.Item);
+							indexPath.Section == expectedSection.Value
+							&& indexPath.Item == expectedItem.Value);
 
 					return new
 					{
@@ -185,9 +191,9 @@ namespace Microsoft.Maui.DeviceTests
 			}
 
 			throw new XunitException(
-				expectedIndexPath is null
+				expectedItem is null
 					? "CollectionView did not settle."
-					: $"CollectionView did not settle with item {expectedIndexPath.Item} in section {expectedIndexPath.Section} visible.");
+					: $"CollectionView did not settle with item {expectedItem} in section {expectedSection} visible.");
 		}
 
 		static List<PerformanceGroup> CreateGroups()
