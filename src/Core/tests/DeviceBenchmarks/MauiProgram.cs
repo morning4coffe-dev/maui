@@ -18,7 +18,7 @@ public static class MauiProgram
 		if (TryGetEnvironmentSwitch(NativeViewPropertyBatchingEnvironmentVariable, out bool isEnabled))
 			AppContext.SetSwitch(NativeViewPropertyBatchingSwitch, isEnabled);
 #endif
-#if ANDROID
+#if ANDROID || IOS || MACCATALYST
 		if (TryGetEnvironmentSwitch(NativeViewPropertyUpdateBatchingEnvironmentVariable, out bool updateBatchingEnabled))
 			AppContext.SetSwitch(NativeViewPropertyUpdateBatchingSwitch, updateBatchingEnabled);
 #endif

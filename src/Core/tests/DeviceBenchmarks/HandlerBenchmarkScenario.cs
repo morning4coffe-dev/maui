@@ -15,3 +15,7 @@ internal readonly record struct RawHandlerBenchmarkSample(
 	double DurationMicroseconds,
 	long ManagedAllocatedBytes,
 	double? UiThreadCpuMicroseconds);
+
+internal sealed record HandlerTransformBenchmarkResult(
+	IReadOnlyList<HandlerBenchmarkSample> Samples,
+	int BatchFlushes);

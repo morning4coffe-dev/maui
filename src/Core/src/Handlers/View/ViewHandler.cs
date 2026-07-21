@@ -95,7 +95,7 @@ namespace Microsoft.Maui.Handlers
 			[nameof(IView.ZIndex)] = MapZIndex,
 			[nameof(IView.Focus)] = MapFocus,
 			[nameof(IView.Unfocus)] = MapUnfocus,
-#if ANDROID
+#if ANDROID || IOS || MACCATALYST
 			[BeginNativePropertyUpdateBatchCommand] = MapBeginNativePropertyUpdateBatch,
 			[CommitNativePropertyUpdateBatchCommand] = MapCommitNativePropertyUpdateBatch,
 #endif

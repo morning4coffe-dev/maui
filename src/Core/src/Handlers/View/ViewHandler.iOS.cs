@@ -12,8 +12,21 @@ namespace Microsoft.Maui.Handlers
 	public partial class ViewHandler
 	{
 		internal const string NativeViewPropertyBatchingSwitch = "Microsoft.Maui.Experimental.NativeViewPropertyBatching";
+		internal const string BeginNativePropertyUpdateBatchCommand = "BeginNativePropertyUpdateBatch";
+		internal const string CommitNativePropertyUpdateBatchCommand = "CommitNativePropertyUpdateBatch";
+
+		[Flags]
+		internal enum NativePropertyUpdate
+		{
+			None = 0,
+			Transformation = 1 << 0,
+		}
 
 		bool _nativeViewPropertiesInitialized;
+		bool _isNativePropertyUpdateBatchActive;
+		NativePropertyUpdate _pendingNativePropertyUpdates;
+
+		internal int NativePropertyUpdateBatchFlushCount { get; private set; }
 
 		internal static void TryInitializeNativeViewProperties(IViewHandler handler, IView view)
 		{
@@ -43,6 +56,60 @@ namespace Microsoft.Maui.Handlers
 		partial void DisconnectingHandler(PlatformView platformView)
 		{
 			_nativeViewPropertiesInitialized = false;
+			_isNativePropertyUpdateBatchActive = false;
+			_pendingNativePropertyUpdates = NativePropertyUpdate.None;
+		}
+
+		static void MapBeginNativePropertyUpdateBatch(IViewHandler handler, IView view, object? args)
+		{
+			if (!RuntimeFeature.IsNativeViewPropertyUpdateBatchingEnabled ||
+				handler is not ViewHandler viewHandler ||
+				viewHandler._isNativePropertyUpdateBatchActive)
+			{
+				return;
+			}
+
+			viewHandler._isNativePropertyUpdateBatchActive = true;
+			viewHandler._pendingNativePropertyUpdates = NativePropertyUpdate.None;
+		}
+
+		static void MapCommitNativePropertyUpdateBatch(IViewHandler handler, IView view, object? args)
+		{
+			if (handler is ViewHandler viewHandler)
+				viewHandler.CommitNativePropertyUpdates(view);
+		}
+
+		bool TryQueueNativePropertyUpdate(NativePropertyUpdate property)
+		{
+			if (!_isNativePropertyUpdateBatchActive ||
+				!RuntimeFeature.IsNativeViewPropertyUpdateBatchingEnabled)
+			{
+				return false;
+			}
+
+			_pendingNativePropertyUpdates |= property;
+			return true;
+		}
+
+		void CommitNativePropertyUpdates(IView view)
+		{
+			if (!_isNativePropertyUpdateBatchActive)
+				return;
+
+			var updates = _pendingNativePropertyUpdates;
+			_isNativePropertyUpdateBatchActive = false;
+			_pendingNativePropertyUpdates = NativePropertyUpdate.None;
+
+			if ((updates & NativePropertyUpdate.Transformation) == 0 || PlatformView is null)
+				return;
+
+			UpdateTransformation(this, view);
+			NativePropertyUpdateBatchFlushCount++;
+		}
+
+		internal void ResetNativePropertyUpdateDiagnostics()
+		{
+			NativePropertyUpdateBatchFlushCount = 0;
 		}
 
 		[System.Runtime.Versioning.SupportedOSPlatform("ios13.0")]
@@ -96,6 +163,12 @@ namespace Microsoft.Maui.Handlers
 			if (handler.IsConnectingHandler())
 				return;
 
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.Transformation))
+			{
+				return;
+			}
+
 			UpdateTransformation(handler, view);
 		}
 
@@ -104,6 +177,12 @@ namespace Microsoft.Maui.Handlers
 			// During the initial setup, MappingFrame will take care of everything
 			if (handler.IsConnectingHandler())
 				return;
+
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.Transformation))
+			{
+				return;
+			}
 
 			UpdateTransformation(handler, view);
 		}
@@ -114,6 +193,12 @@ namespace Microsoft.Maui.Handlers
 			if (handler.IsConnectingHandler())
 				return;
 
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.Transformation))
+			{
+				return;
+			}
+
 			UpdateTransformation(handler, view);
 		}
 
@@ -122,6 +207,12 @@ namespace Microsoft.Maui.Handlers
 			// During the initial setup, MappingFrame will take care of everything
 			if (handler.IsConnectingHandler())
 				return;
+
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.Transformation))
+			{
+				return;
+			}
 
 			UpdateTransformation(handler, view);
 		}
@@ -132,6 +223,12 @@ namespace Microsoft.Maui.Handlers
 			if (handler.IsConnectingHandler())
 				return;
 
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.Transformation))
+			{
+				return;
+			}
+
 			UpdateTransformation(handler, view);
 		}
 
@@ -140,6 +237,12 @@ namespace Microsoft.Maui.Handlers
 			// During the initial setup, MappingFrame will take care of everything
 			if (handler.IsConnectingHandler())
 				return;
+
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.Transformation))
+			{
+				return;
+			}
 
 			UpdateTransformation(handler, view);
 		}
@@ -150,6 +253,12 @@ namespace Microsoft.Maui.Handlers
 			if (handler.IsConnectingHandler())
 				return;
 
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.Transformation))
+			{
+				return;
+			}
+
 			UpdateTransformation(handler, view);
 		}
 
@@ -158,6 +267,12 @@ namespace Microsoft.Maui.Handlers
 			// During the initial setup, MappingFrame will take care of everything
 			if (handler.IsConnectingHandler())
 				return;
+
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.Transformation))
+			{
+				return;
+			}
 
 			UpdateTransformation(handler, view);
 		}
@@ -168,6 +283,12 @@ namespace Microsoft.Maui.Handlers
 			if (handler.IsConnectingHandler())
 				return;
 
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.Transformation))
+			{
+				return;
+			}
+
 			UpdateTransformation(handler, view);
 		}
 
@@ -176,6 +297,12 @@ namespace Microsoft.Maui.Handlers
 			// During the initial setup, MappingFrame will take care of everything
 			if (handler.IsConnectingHandler())
 				return;
+
+			if (handler is ViewHandler viewHandler &&
+				viewHandler.TryQueueNativePropertyUpdate(NativePropertyUpdate.Transformation))
+			{
+				return;
+			}
 
 			UpdateTransformation(handler, view);
 		}

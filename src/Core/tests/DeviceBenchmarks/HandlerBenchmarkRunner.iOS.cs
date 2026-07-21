@@ -1,8 +1,11 @@
 using System.Diagnostics;
 using CoreGraphics;
 using Microsoft.Maui.Dispatching;
+using Microsoft.Maui.Handlers;
 using Microsoft.Maui.TestUtils.DeviceTests.Runners;
 using UIKit;
+using ControlsGrid = Microsoft.Maui.Controls.Grid;
+using ControlsView = Microsoft.Maui.Controls.View;
 
 namespace Microsoft.Maui.DeviceBenchmarks;
 
@@ -16,6 +19,99 @@ internal static partial class HandlerBenchmarkRunner
 		int iterationCount) =>
 		TestDispatcher.Current.DispatchAsync(
 			() => RunOnUiThreadAsync(scenario, warmupCount, iterationCount));
+
+	public static Task<HandlerTransformBenchmarkResult> RunTransformSteadyStateAsync(
+		string scenarioName,
+		Func<ControlsView> createView,
+		Func<IViewHandler> createHandler,
+		Action<ControlsView, int> runTransaction,
+		int warmupCount,
+		int iterationCount,
+		int transactionsPerIteration) =>
+		TestDispatcher.Current.DispatchAsync(
+			() => RunSteadyStateOnUiThread(
+				scenarioName,
+				createView,
+				createHandler,
+				runTransaction,
+				warmupCount,
+				iterationCount,
+				transactionsPerIteration));
+
+	static HandlerTransformBenchmarkResult RunSteadyStateOnUiThread(
+		string scenarioName,
+		Func<ControlsView> createView,
+		Func<IViewHandler> createHandler,
+		Action<ControlsView, int> runTransaction,
+		int warmupCount,
+		int iterationCount,
+		int transactionsPerIteration)
+	{
+		var parent = new ControlsGrid();
+		var view = createView();
+		parent.Add(view);
+		view.Frame = new Rect(0, 0, 120, 80);
+
+		var handler = createHandler();
+		handler.SetMauiContext(new MauiContext(TestServices.Services));
+		handler.SetVirtualView(view);
+		handler.PlatformArrange(view.Frame);
+
+		var viewHandler = handler as ViewHandler
+			?? throw new InvalidOperationException(
+				$"Handler '{handler.GetType().Name}' was not a ViewHandler.");
+
+		try
+		{
+			for (var i = 0; i < warmupCount; i++)
+				_ = MeasureSteadyStateOnce(view, runTransaction, i, transactionsPerIteration);
+
+			viewHandler.ResetNativePropertyUpdateDiagnostics();
+
+			var samples = new List<HandlerBenchmarkSample>(iterationCount);
+			for (var i = 0; i < iterationCount; i++)
+			{
+				var sample = MeasureSteadyStateOnce(
+					view,
+					runTransaction,
+					warmupCount + i,
+					transactionsPerIteration);
+				var benchmarkSample = new HandlerBenchmarkSample(
+					i,
+					sample.DurationMicroseconds,
+					sample.ManagedAllocatedBytes,
+					sample.UiThreadCpuMicroseconds);
+				samples.Add(benchmarkSample);
+			}
+
+			return new(
+				samples,
+				viewHandler.NativePropertyUpdateBatchFlushCount);
+		}
+		finally
+		{
+			handler.DisconnectHandler();
+			parent.Remove(view);
+		}
+	}
+
+	static RawHandlerBenchmarkSample MeasureSteadyStateOnce(
+		ControlsView view,
+		Action<ControlsView, int> runTransaction,
+		int iteration,
+		int transactionsPerIteration)
+	{
+		var startAllocatedBytes = GC.GetAllocatedBytesForCurrentThread();
+		var startTimestamp = Stopwatch.GetTimestamp();
+
+		for (var transaction = 0; transaction < transactionsPerIteration; transaction++)
+			runTransaction(view, (iteration * transactionsPerIteration) + transaction);
+
+		return new(
+			Stopwatch.GetElapsedTime(startTimestamp).TotalMicroseconds,
+			GC.GetAllocatedBytesForCurrentThread() - startAllocatedBytes,
+			null);
+	}
 
 	static async Task<IReadOnlyList<HandlerBenchmarkSample>> RunOnUiThreadAsync(
 		HandlerBenchmarkScenario scenario,

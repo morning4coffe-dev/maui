@@ -83,12 +83,19 @@ internal static class HandlerBenchmarkOutput
 		int iterationCount,
 		int transactionsPerIteration)
 	{
+		var platform = OperatingSystem.IsAndroid()
+			? "android"
+			: OperatingSystem.IsIOS()
+				? "ios"
+				: OperatingSystem.IsMacCatalyst()
+					? "maccatalyst"
+					: "unknown";
 		var updateBatchingEnabled =
 			AppContext.TryGetSwitch(NativeViewPropertyUpdateBatchingSwitch, out bool isEnabled) &&
 			isEnabled;
 
 		WriteLine(
-			$"{Prefix} schema=1 kind=metadata platform=android " +
+			$"{Prefix} schema=1 kind=metadata platform={platform} " +
 			$"scope=explicit-steady-state-property-transactions warmups={warmupCount} " +
 			$"iterations={iterationCount} transactionsPerIteration={transactionsPerIteration} " +
 			"clock=stopwatch comparisonScope=within-platform-only " +
@@ -96,6 +103,12 @@ internal static class HandlerBenchmarkOutput
 			"harnessOverhead=not-subtracted javaAndNativeAllocations=not-measured " +
 			"exactInteropCrossings=not-measured appStartup=not-measured " +
 			$"nativeViewPropertyUpdateBatching={(updateBatchingEnabled ? "enabled" : "disabled")}");
+	}
+
+	public static void WriteDiagnostic(string scenario, string name, long value)
+	{
+		WriteLine(
+			$"{Prefix} schema=1 kind=diagnostic scenario={scenario} {name}={value}");
 	}
 
 	public static void WriteSummary(string scenario, IReadOnlyList<HandlerBenchmarkSample> samples)

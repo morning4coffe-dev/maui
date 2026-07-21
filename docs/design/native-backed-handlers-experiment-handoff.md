@@ -207,6 +207,47 @@ The distributions are noisy, but the central result is consistent: reducing thes
 property calls did not improve p50 wall time on either Apple platform. There was no managed-allocation
 benefit. **The Apple H1 gate is therefore NO-GO; do not productize this connect-time primitive batch.**
 
+### Apple follow-up: explicit transform transactions
+
+The connect-time NO-GO does not apply to recurring transform work. MAUI animations already wrap each
+tick in `VisualElement.BatchBegin` / `BatchCommit`, but the iOS handler previously ignored that
+boundary. Each translation, scale, rotation, or anchor mapper independently rebuilt and assigned the
+complete `CATransform3D`.
+
+Two follow-up changes were evaluated:
+
+1. The synchronous main-thread transformation path no longer creates the captured dispatch closure
+   that is only needed for off-main updates.
+2. A default-off Apple implementation of
+   `Microsoft.Maui.RuntimeFeature.IsNativeViewPropertyUpdateBatchingEnabled` queues the built-in
+   aggregate transformation update and flushes it once at the outer `BatchCommit`.
+
+The allocation refactor is independently useful. Before it, 100 single-transform transactions
+allocated 25,600 managed bytes; afterward they allocated 2,400 bytes, a 90.6% reduction. Batching no
+longer changes allocation because the per-transformation closure allocation is gone.
+
+The transform batching variant was measured on the iOS 26.0 arm64 simulator in Release, alternating
+three batching-off and three batching-on executions. Each sample contains 100 explicit transactions;
+the table reports the median run-level summary.
+
+| Transaction shape | p50 off | p50 on | Delta | Per-transaction change |
+|---|---:|---:|---:|---:|
+| One transform property | 769.6 us | 800.2 us | +3.98% | +0.31 us |
+| `TranslationX` + `TranslationY` (`TranslateTo` shape) | 1,711.7 us | 915.0 us | -46.54% | -7.97 us |
+| Translation + scale + rotation | 3,528.7 us | 964.8 us | -72.66% | -25.64 us |
+| All ten transform properties | 9,310.8 us | 1,200.0 us | -87.11% | -81.11 us |
+
+The result is deterministic in call shape: one transformation application per transaction when
+enabled, rather than one application per changed transform property. Custom appended mapper delegates
+still run for every property, replaced mappers bypass the batch, nested batches flush only at the
+outer commit, and behavior remains synchronous when the feature is disabled.
+
+**Verdict:** the allocation-free transformation path is a GO independently. Explicit Apple transform
+batching is a conditional GO behind the experiment switch for compound transform transactions. It is
+not ready to enable by default: common single-property animations pay a small command/batch overhead,
+and physical-device frame/hitch validation with multiple simultaneously animated views is still
+required.
+
 ## Phase 2: Android explicit steady-state batching
 
 Added default-off Android batching inside existing nested `VisualElement.BatchBegin` /
@@ -453,20 +494,25 @@ Other infrastructure findings:
      batch before extracting production work.
    - Continue SwiftUI only as an independent H3 hosting probe, not as evidence for Apple batching.
 
-2. **Repeat H1 on physical Android hardware in Release.**
+2. **Validate the positive Apple transform follow-up on physical hardware.**
+   - Use real `TranslateTo` and compound animations with one, ten, and one hundred simultaneous views.
+   - Record UI-thread CPU, frame hitches, Core Animation work, and GC activity.
+   - Keep the feature default-off unless a representative frame workload moves meaningfully.
+
+3. **Repeat H1 on physical Android hardware in Release.**
    - Use a representative animation/layout workload, not only the synthetic explicit transaction.
    - Record native allocation/invalidation/layout effects if practical.
 
-3. **Close Compose productization gates before broadening H3.**
+4. **Close Compose productization gates before broadening H3.**
    - Resolve focus, MAUI theme/style, accessibility, and full layout/property parity.
    - Validate R8, package size, dependency policy, and `dotnet-public-maven` ingestion.
    - Prefer a separate opt-in package over adding the payload to default Core.
 
-4. **Fix the remaining local warning and harden tests.**
+5. **Fix the remaining local warning and harden tests.**
    - Validate `MauiContext`/Android context with the normal descriptive failure pattern.
    - Keep eventual assertions rather than fixed delays.
 
-5. **If H2 expands, keep it bounded.**
+6. **If H2 expands, keep it bounded.**
    - Require explicit mapper replacement/append behavior.
    - Require disconnect/reconnect, container, stale-callback, and exception tests.
    - Consider code generation only after repeated native surfaces prove worthwhile.
@@ -517,7 +563,12 @@ Release physical-device result as if they were the same population.
 ## Final recommendation
 
 - Advance Android H1 behind an experiment flag and validate it on Release hardware.
-- Stop Apple H1: the completed iOS/Mac Catalyst gate showed no meaningful wall-time improvement.
+- Stop Apple connect-time primitive batching: the completed iOS/Mac Catalyst gate showed no
+  meaningful wall-time improvement.
+- Keep the allocation-free iOS transformation refactor; it removes the dominant managed allocation
+  from every transform update.
+- Continue explicit Apple transform batching only as a default-off compound-animation experiment
+  until physical-device frame evidence is available.
 - Use H2 for small native-owned behaviors with explicit lifecycle/extensibility contracts.
 - Do not propose a wholesale SwiftUI/Compose handler backend from this spike. Continue H3 only as an
   opt-in per-control/package experiment until focus, styling, accessibility, layout, packaging, and
