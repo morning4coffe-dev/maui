@@ -2,6 +2,7 @@ import Foundation
 import UIKit
 
 @objc(MauiViewPropertyBatcher)
+@MainActor
 public class MauiViewPropertyBatcher: NSObject {
 
     @objc(applyWithPlatformView:containerView:hasContainer:hidden:semanticContentAttribute:enabled:applyOpacity:opacity:)

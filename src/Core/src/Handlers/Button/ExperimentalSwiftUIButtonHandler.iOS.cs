@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using Microsoft.Maui.Platform;
 using UIKit;
 
@@ -42,8 +43,8 @@ namespace Microsoft.Maui.Handlers
 
 		protected override void DisconnectHandler(UIView platformView)
 		{
-			_callback.Handler = null;
 			Controller.Disconnect();
+			_callback.Handler = null;
 			base.DisconnectHandler(platformView);
 		}
 

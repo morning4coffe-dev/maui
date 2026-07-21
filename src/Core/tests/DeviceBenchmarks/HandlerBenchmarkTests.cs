@@ -1,6 +1,7 @@
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Handlers;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Maui.DeviceBenchmarks;
 
@@ -8,15 +9,30 @@ public class HandlerBenchmarkTests
 {
 	const int WarmupCount = 20;
 	const int IterationCount = 100;
+	readonly ITestOutputHelper _output;
+
+	public HandlerBenchmarkTests(ITestOutputHelper output)
+	{
+		_output = output;
+	}
 
 	[Fact]
 	[Trait("Category", "Performance")]
 	public async Task HandlerConnectToFirstLayout()
 	{
-		HandlerBenchmarkOutput.WriteMetadata(WarmupCount, IterationCount);
+		HandlerBenchmarkOutput.Writer = _output.WriteLine;
 
-		foreach (var scenario in CreateScenarios())
-			await HandlerBenchmarkRunner.RunAsync(scenario, WarmupCount, IterationCount);
+		try
+		{
+			HandlerBenchmarkOutput.WriteMetadata(WarmupCount, IterationCount);
+
+			foreach (var scenario in CreateScenarios())
+				await HandlerBenchmarkRunner.RunAsync(scenario, WarmupCount, IterationCount);
+		}
+		finally
+		{
+			HandlerBenchmarkOutput.Writer = null;
+		}
 	}
 
 	static IEnumerable<HandlerBenchmarkScenario> CreateScenarios()
@@ -30,6 +46,18 @@ public class HandlerBenchmarkTests
 			"BorderBaseProperties",
 			() => ConfigureBaseProperties(new Border()),
 			() => new BorderHandler());
+
+#if IOS || MACCATALYST
+		yield return new(
+			"ContentViewAppleBatchedProperties",
+			() => ConfigureAppleBatchedProperties(new ContentView()),
+			() => new ContentViewHandler());
+
+		yield return new(
+			"BorderAppleBatchedProperties",
+			() => ConfigureAppleBatchedProperties(new Border()),
+			() => new BorderHandler());
+#endif
 	}
 
 	static TView ConfigureBaseProperties<TView>(TView view)
@@ -53,4 +81,17 @@ public class HandlerBenchmarkTests
 
 		return view;
 	}
+
+#if IOS || MACCATALYST
+	static TView ConfigureAppleBatchedProperties<TView>(TView view)
+		where TView : View
+	{
+		view.FlowDirection = FlowDirection.RightToLeft;
+		view.IsEnabled = false;
+		view.IsVisible = false;
+		view.Opacity = 0.73;
+
+		return view;
+	}
+#endif
 }

@@ -22,41 +22,17 @@ private final class MauiSwiftUIButtonModel: ObservableObject {
 private struct MauiSwiftUIButtonContent: View {
     @ObservedObject var model: MauiSwiftUIButtonModel
     let onClick: () -> Void
-    let onPressed: () -> Void
-    let onReleased: () -> Void
-    @State private var isPressing = false
 
     var body: some View {
-        Button(action: onClick) {
-            Text(model.text)
-        }
+        Button(model.text, action: onClick)
         .disabled(!model.isEnabled)
-        .accessibilityLabel(
-            model.semanticsDescription.isEmpty
+        .accessibility(
+            label: model.semanticsDescription.isEmpty
                 ? Text(model.text)
                 : Text(model.semanticsDescription)
         )
         .accessibility(identifier: model.automationId)
-        .accessibilityHint(Text(model.semanticsHint))
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    guard model.isEnabled, !isPressing else {
-                        return
-                    }
-
-                    isPressing = true
-                    onPressed()
-                }
-                .onEnded { _ in
-                    guard isPressing else {
-                        return
-                    }
-
-                    isPressing = false
-                    onReleased()
-                }
-        )
+        .accessibility(hint: Text(model.semanticsHint))
     }
 }
 
@@ -83,16 +59,25 @@ private final class MauiSwiftUIButtonHostView: UIView {
         super.didMoveToWindow()
         controller?.updateParentController()
     }
+
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        controller?.updateParentController()
+    }
 }
 
 @available(iOS 13.0, macCatalyst 13.0, *)
 @objc(MauiSwiftUIButtonController)
 @MainActor
-public final class MauiSwiftUIButtonController: UIViewController {
+public final class MauiSwiftUIButtonController:
+    UIViewController,
+    UIGestureRecognizerDelegate
+{
     private let model = MauiSwiftUIButtonModel()
     private var hostingController: UIHostingController<MauiSwiftUIButtonContent>?
     private weak var callback: MauiSwiftUIButtonCallback?
     private var disconnected = false
+    private var isPressing = false
 
     @objc public var buttonText: String {
         get { model.text }
@@ -104,7 +89,13 @@ public final class MauiSwiftUIButtonController: UIViewController {
 
     @objc public var buttonEnabled: Bool {
         get { model.isEnabled }
-        set { model.isEnabled = newValue }
+        set {
+            if !newValue {
+                endPress()
+            }
+
+            model.isEnabled = newValue
+        }
     }
 
     @objc public var semanticsDescription: String {
@@ -131,6 +122,10 @@ public final class MauiSwiftUIButtonController: UIViewController {
         disconnected
     }
 
+    @objc public var pressingForDiagnostics: Bool {
+        isPressing
+    }
+
     public override func loadView() {
         let hostView = MauiSwiftUIButtonHostView()
         hostView.controller = self
@@ -138,19 +133,20 @@ public final class MauiSwiftUIButtonController: UIViewController {
 
         let content = MauiSwiftUIButtonContent(
             model: model,
-            onClick: { [weak self] in
-                self?.callback?.onClick()
-            },
-            onPressed: { [weak self] in
-                self?.callback?.onPressed()
-            },
-            onReleased: { [weak self] in
-                self?.callback?.onReleased()
-            }
+            onClick: { [weak self] in self?.performClick() }
         )
         let hostingController = UIHostingController(rootView: content)
         hostingController.view.backgroundColor = .clear
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+
+        let pressGestureRecognizer = UILongPressGestureRecognizer(
+            target: self,
+            action: #selector(handlePress(_:))
+        )
+        pressGestureRecognizer.minimumPressDuration = 0
+        pressGestureRecognizer.cancelsTouchesInView = false
+        pressGestureRecognizer.delegate = self
+        hostView.addGestureRecognizer(pressGestureRecognizer)
 
         addChild(hostingController)
         hostView.addSubview(hostingController.view)
@@ -178,21 +174,32 @@ public final class MauiSwiftUIButtonController: UIViewController {
     }
 
     @objc public func disconnect() {
+        endPress()
         callback = nil
         disconnected = true
         detachFromParent()
     }
 
     @objc public func performClickForDiagnostics() {
-        callback?.onClick()
+        performClick()
     }
 
     @objc public func performPressedForDiagnostics() {
-        callback?.onPressed()
+        beginPress()
     }
 
     @objc public func performReleasedForDiagnostics() {
-        callback?.onReleased()
+        endPress()
+    }
+
+    @objc public func performCancelledForDiagnostics() {
+        endPress()
+    }
+
+    @objc public func performPressGestureStateForDiagnostics(
+        _ state: UIGestureRecognizer.State
+    ) {
+        handlePressState(state)
     }
 
     @objc public func sizeThatFits(_ size: CGSize) -> CGSize {
@@ -244,6 +251,51 @@ public final class MauiSwiftUIButtonController: UIViewController {
         detachFromParent()
         candidate.addChild(self)
         didMove(toParent: candidate)
+    }
+
+    public func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        true
+    }
+
+    @objc private func handlePress(_ gestureRecognizer: UILongPressGestureRecognizer) {
+        handlePressState(gestureRecognizer.state)
+    }
+
+    private func handlePressState(_ state: UIGestureRecognizer.State) {
+        switch state {
+        case .began:
+            beginPress()
+        case .ended, .cancelled, .failed:
+            endPress()
+        default:
+            break
+        }
+    }
+
+    private func beginPress() {
+        guard !disconnected, model.isEnabled, !isPressing else {
+            return
+        }
+
+        isPressing = true
+        callback?.onPressed()
+    }
+
+    private func performClick() {
+        endPress()
+        callback?.onClick()
+    }
+
+    private func endPress() {
+        guard isPressing else {
+            return
+        }
+
+        isPressing = false
+        callback?.onReleased()
     }
 
     private func findParentController() -> UIViewController? {

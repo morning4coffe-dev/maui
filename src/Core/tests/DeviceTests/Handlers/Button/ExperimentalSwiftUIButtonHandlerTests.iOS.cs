@@ -1,6 +1,8 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.Maui.DeviceTests.Stubs;
 using Microsoft.Maui.Handlers;
+using UIKit;
 using Xunit;
 
 namespace Microsoft.Maui.DeviceTests
@@ -16,6 +18,7 @@ namespace Microsoft.Maui.DeviceTests
 				var clicks = 0;
 				var presses = 0;
 				var releases = 0;
+				var eventOrder = new System.Collections.Generic.List<string>();
 				var button = new ButtonStub
 				{
 					AutomationId = "swiftui-button",
@@ -27,9 +30,21 @@ namespace Microsoft.Maui.DeviceTests
 					},
 					Text = "SwiftUI text",
 				};
-				button.Clicked += (_, _) => clicks++;
-				button.Pressed += (_, _) => presses++;
-				button.Released += (_, _) => releases++;
+				button.Clicked += (_, _) =>
+				{
+					clicks++;
+					eventOrder.Add("clicked");
+				};
+				button.Pressed += (_, _) =>
+				{
+					presses++;
+					eventOrder.Add("pressed");
+				};
+				button.Released += (_, _) =>
+				{
+					releases++;
+					eventOrder.Add("released");
+				};
 
 				var handler = new ExperimentalSwiftUIButtonHandler();
 				handler.SetMauiContext(MauiContext);
@@ -44,13 +59,27 @@ namespace Microsoft.Maui.DeviceTests
 					Assert.Equal("SwiftUI hint", controller.SemanticsHint);
 					Assert.Equal("swiftui-button", controller.AutomationId);
 
+					button.IsEnabled = true;
+					handler.UpdateValue(nameof(IView.IsEnabled));
+					Assert.True(controller.ButtonEnabled);
+
+					controller.PerformPressGestureStateForDiagnostics(UIGestureRecognizerState.Began);
+					Assert.True(controller.PressingForDiagnostics);
 					controller.PerformClickForDiagnostics();
-					controller.PerformPressedForDiagnostics();
-					controller.PerformReleasedForDiagnostics();
+					Assert.False(controller.PressingForDiagnostics);
+					controller.PerformPressGestureStateForDiagnostics(UIGestureRecognizerState.Ended);
 
 					Assert.Equal(1, clicks);
 					Assert.Equal(1, presses);
 					Assert.Equal(1, releases);
+					Assert.Equal(new[] { "pressed", "released", "clicked" }, eventOrder);
+
+					controller.PerformPressGestureStateForDiagnostics(UIGestureRecognizerState.Began);
+					Assert.True(controller.PressingForDiagnostics);
+					controller.PerformPressGestureStateForDiagnostics(UIGestureRecognizerState.Cancelled);
+					Assert.False(controller.PressingForDiagnostics);
+					Assert.Equal(2, presses);
+					Assert.Equal(2, releases);
 				}
 				finally
 				{
@@ -58,12 +87,56 @@ namespace Microsoft.Maui.DeviceTests
 				}
 
 				Assert.True(controller.DisconnectedForDiagnostics);
+				Assert.False(controller.PressingForDiagnostics);
 				controller.PerformClickForDiagnostics();
 				controller.PerformPressedForDiagnostics();
 				controller.PerformReleasedForDiagnostics();
 				Assert.Equal(1, clicks);
-				Assert.Equal(1, presses);
-				Assert.Equal(1, releases);
+				Assert.Equal(2, presses);
+				Assert.Equal(2, releases);
+			});
+		}
+
+		[Fact]
+		public async Task DisconnectReleasesActivePress()
+		{
+			await InvokeOnMainThreadAsync(() =>
+			{
+				var presses = 0;
+				var releases = 0;
+				var button = new ButtonStub { IsEnabled = true, Text = "Disconnect pressed button" };
+				button.Pressed += (_, _) => presses++;
+				button.Released += (_, _) => releases++;
+
+				var handler = new ExperimentalSwiftUIButtonHandler();
+				handler.SetMauiContext(MauiContext);
+				handler.SetVirtualView(button);
+				var controller = handler.Controller;
+				var disconnected = false;
+
+				try
+				{
+					controller.PerformPressGestureStateForDiagnostics(UIGestureRecognizerState.Began);
+					Assert.True(controller.PressingForDiagnostics);
+					Assert.Equal(1, presses);
+					Assert.Equal(0, releases);
+
+					((IElementHandler)handler).DisconnectHandler();
+					disconnected = true;
+
+					Assert.True(controller.DisconnectedForDiagnostics);
+					Assert.False(controller.PressingForDiagnostics);
+					Assert.Equal(1, releases);
+
+					controller.PerformPressGestureStateForDiagnostics(UIGestureRecognizerState.Began);
+					Assert.Equal(1, presses);
+					Assert.Equal(1, releases);
+				}
+				finally
+				{
+					if (!disconnected)
+						((IElementHandler)handler).DisconnectHandler();
+				}
 			});
 		}
 
@@ -110,7 +183,11 @@ namespace Microsoft.Maui.DeviceTests
 			{
 				var handler = new ExperimentalSwiftUIButtonHandler();
 				handler.SetMauiContext(MauiContext);
-				handler.SetVirtualView(new ButtonStub { Text = "Measured SwiftUI button" });
+				handler.SetVirtualView(new ButtonStub
+				{
+					AutomationId = "measured-swiftui-button",
+					Text = "Measured SwiftUI button",
+				});
 				var controller = handler.Controller;
 
 				try
@@ -140,6 +217,68 @@ namespace Microsoft.Maui.DeviceTests
 					((IElementHandler)handler).DisconnectHandler();
 				}
 			});
+		}
+
+		[Fact]
+		public async Task ReparentsControllerWithinSameWindow()
+		{
+			await InvokeOnMainThreadAsync(async () =>
+			{
+				var handler = new ExperimentalSwiftUIButtonHandler();
+				handler.SetMauiContext(MauiContext);
+				handler.SetVirtualView(new ButtonStub { Text = "Reparented SwiftUI button" });
+				var controller = handler.Controller;
+
+				try
+				{
+					await handler.PlatformView.AttachAndRun(async () =>
+					{
+						var rootController = handler.PlatformView.Window?.RootViewController
+							?? throw new InvalidOperationException("The attached view did not provide a root view controller.");
+						using var firstController = new UIViewController();
+						using var secondController = new UIViewController();
+
+						rootController.AddChildViewController(firstController);
+						rootController.AddChildViewController(secondController);
+						rootController.View.AddSubview(firstController.View);
+						rootController.View.AddSubview(secondController.View);
+						firstController.DidMoveToParentViewController(rootController);
+						secondController.DidMoveToParentViewController(rootController);
+
+						try
+						{
+							firstController.View.AddSubview(handler.PlatformView);
+							await AssertHelpers.AssertEventually(
+								() => controller.ParentViewController == firstController,
+								message: "SwiftUI controller did not attach to the first parent controller.");
+
+							secondController.View.AddSubview(handler.PlatformView);
+							await AssertHelpers.AssertEventually(
+								() => controller.ParentViewController == secondController,
+								message: "SwiftUI controller did not follow a same-window reparent.");
+						}
+						finally
+						{
+							handler.PlatformView.RemoveFromSuperview();
+							RemoveChildController(firstController);
+							RemoveChildController(secondController);
+						}
+					});
+				}
+				finally
+				{
+					((IElementHandler)handler).DisconnectHandler();
+				}
+
+				Assert.Null(controller.ParentViewController);
+			});
+		}
+
+		static void RemoveChildController(UIViewController controller)
+		{
+			controller.WillMoveToParentViewController(null);
+			controller.View.RemoveFromSuperview();
+			controller.RemoveFromParentViewController();
 		}
 	}
 }

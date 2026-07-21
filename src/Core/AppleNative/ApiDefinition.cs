@@ -69,9 +69,6 @@ namespace Microsoft.Maui.Platform
 	[Internal]
 	interface MauiSwiftUIButtonController
 	{
-		[Export("init")]
-		NativeHandle Constructor();
-
 		[Export("buttonText")]
 		string ButtonText { get; set; }
 
@@ -93,8 +90,11 @@ namespace Microsoft.Maui.Platform
 		[Export("disconnectedForDiagnostics")]
 		bool DisconnectedForDiagnostics { get; }
 
+		[Export("pressingForDiagnostics")]
+		bool PressingForDiagnostics { get; }
+
 		[Export("connectWithCallback:")]
-		void Connect(IMauiSwiftUIButtonCallback callback);
+		void Connect(MauiSwiftUIButtonCallback callback);
 
 		[Export("disconnect")]
 		void Disconnect();
@@ -107,6 +107,12 @@ namespace Microsoft.Maui.Platform
 
 		[Export("performReleasedForDiagnostics")]
 		void PerformReleasedForDiagnostics();
+
+		[Export("performCancelledForDiagnostics")]
+		void PerformCancelledForDiagnostics();
+
+		[Export("performPressGestureStateForDiagnostics:")]
+		void PerformPressGestureStateForDiagnostics(UIGestureRecognizerState state);
 
 		[Export("sizeThatFits:")]
 		CGSize SizeThatFits(CGSize size);

@@ -30,6 +30,14 @@ internal static class HandlerBenchmarkOutput
 	const string NativeViewPropertyUpdateBatchingSwitch =
 		"Microsoft.Maui.RuntimeFeature.IsNativeViewPropertyUpdateBatchingEnabled";
 
+	static readonly System.Threading.AsyncLocal<Action<string>?> WriterScope = new();
+
+	internal static Action<string>? Writer
+	{
+		private get => WriterScope.Value;
+		set => WriterScope.Value = value;
+	}
+
 	public static void WriteMetadata(int warmupCount, int iterationCount)
 	{
 		var platform = OperatingSystem.IsAndroid()
@@ -51,7 +59,7 @@ internal static class HandlerBenchmarkOutput
 				: "disabled"
 			: "not-applicable";
 
-		Console.WriteLine(
+		WriteLine(
 			$"{Prefix} schema=1 kind=metadata platform={platform} " +
 			$"scope=handler-connect-to-first-layout warmups={warmupCount} iterations={iterationCount} " +
 			"clock=stopwatch comparisonScope=within-platform-only " +
@@ -65,7 +73,7 @@ internal static class HandlerBenchmarkOutput
 
 	public static void WriteSample(string scenario, HandlerBenchmarkSample sample)
 	{
-		Console.WriteLine(
+		WriteLine(
 			FormattableString.Invariant(
 				$"{Prefix} schema=1 kind=sample scenario={scenario} iteration={sample.Iteration} durationUs={sample.DurationMicroseconds:F3} managedAllocatedBytes={sample.ManagedAllocatedBytes} uiThreadCpuUs={FormatOptional(sample.UiThreadCpuMicroseconds)}"));
 	}
@@ -79,7 +87,7 @@ internal static class HandlerBenchmarkOutput
 			AppContext.TryGetSwitch(NativeViewPropertyUpdateBatchingSwitch, out bool isEnabled) &&
 			isEnabled;
 
-		Console.WriteLine(
+		WriteLine(
 			$"{Prefix} schema=1 kind=metadata platform=android " +
 			$"scope=explicit-steady-state-property-transactions warmups={warmupCount} " +
 			$"iterations={iterationCount} transactionsPerIteration={transactionsPerIteration} " +
@@ -104,7 +112,7 @@ internal static class HandlerBenchmarkOutput
 			.Select(sample => sample.UiThreadCpuMicroseconds!.Value)
 			.ToArray();
 
-		Console.WriteLine(
+		WriteLine(
 			FormattableString.Invariant(
 				$"{Prefix} schema=1 kind=summary scenario={scenario} count={samples.Count} meanDurationUs={durations.Average():F3} p50DurationUs={Percentile(durations, 0.50):F3} p95DurationUs={Percentile(durations, 0.95):F3} minDurationUs={durations[0]:F3} maxDurationUs={durations[^1]:F3} meanManagedAllocatedBytes={samples.Average(sample => sample.ManagedAllocatedBytes):F3} meanUiThreadCpuUs={FormatOptional(cpuSamples.Length == 0 ? null : cpuSamples.Average())} percentileMethod=nearest-rank"));
 	}
@@ -121,4 +129,10 @@ internal static class HandlerBenchmarkOutput
 
 	static string FormatOptional(double? value) =>
 		value?.ToString("F3", CultureInfo.InvariantCulture) ?? "na";
+
+	static void WriteLine(string message)
+	{
+		Console.WriteLine(message);
+		Writer?.Invoke(message);
+	}
 }

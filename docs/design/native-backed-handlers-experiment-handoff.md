@@ -1,7 +1,7 @@
 # Native-backed MAUI handlers experiment handoff
 
 - **Handoff date:** 2026-07-20
-- **Status:** Experimental implementation complete through the planned probes; Android evidence collected; Apple execution pending
+- **Status:** Planned probes executed on Android and Apple; Android batching remains a GO; Apple initial batching is a NO-GO
 - **Base commit:** `0395a53b66f85d7b6fd6732f9b2f8a50eb7d70cb`
 - **Original worktree:** `D:\Projects\maui-native-handler-experiment`
 - **Original branch:** `experiment/native-handler-batching-phase0`
@@ -37,7 +37,7 @@ success in the others.
 
 | Hypothesis | Question | Current verdict |
 |---|---|---|
-| H1: interop batching | Does reducing managed/native crossings measurably improve handler work? | **GO on Android explicit transactions. Apple undecided.** |
+| H1: interop batching | Does reducing managed/native crossings measurably improve handler work? | **GO on Android explicit transactions. NO-GO on Apple connect-time primitive batching.** |
 | H2: native-owned logic | Can native code own bounded behavior without breaking MAUI extensibility/lifecycle? | **GO as an incremental pattern.** |
 | H3: SwiftUI/Compose backing | Can declarative native controls replace MAUI platform controls with useful parity? | **Hosting is feasible; production replacement is NO-GO today.** |
 
@@ -130,7 +130,6 @@ Nonclaims:
 
 - It does not measure Java/native allocations.
 - It does not claim app-startup performance.
-- Apple timing is not validated until the project runs on macOS/Xcode.
 - Android and Apple values should only be compared within the same platform/harness variant.
 
 Key files:
@@ -169,8 +168,44 @@ Key files:
 - `src\Core\tests\DeviceTests\Handlers\View\ViewHandlerTests.iOS.cs`
 - `src\Core\tests\DeviceTests\Handlers\ContentView\ContentViewTests.iOS.cs`
 
-Source and selector parity were reviewed. The Swift framework, generated binding, device behavior, and
-performance have not been compiled or run on Apple in this work.
+### Apple gate evidence
+
+The gate was completed on an Apple Silicon Mac with Xcode 26.2, the iOS 26.3.1 simulator runtime,
+and the repository-pinned .NET 10.0.108 Apple workloads.
+
+Compilation found and fixed four branch defects before device execution:
+
+- The SwiftUI view used accessibility modifiers unavailable at its declared iOS 13 minimum.
+- The binding used the generated protocol interface before that interface existed in the API
+  definition compilation.
+- The binding explicitly declared an `init` constructor that the generator already supplied.
+- Apple-only handler and test files were missing `System` imports.
+
+The Swift framework and generated binding then compiled for both iOS Simulator and Mac Catalyst.
+Targeted behavior runs passed:
+
+| Platform | Category/scope | Result |
+|---|---|---:|
+| iOS 26.3 simulator | View | 68 passed, 0 failed, 1 skipped |
+| iOS 26.3 simulator | ContentView + FlowDirection | 62 passed, 0 failed, 1 skipped |
+| iOS 26.3 simulator | Button, including five SwiftUI-specific tests | 102 passed, 0 failed, 1 skipped |
+| Mac Catalyst | View | 63 passed, 0 failed, 6 skipped |
+| Mac Catalyst | ContentView + FlowDirection | 57 passed, 0 failed, 6 skipped |
+| Mac Catalyst | Button, including five SwiftUI-specific tests | 97 passed, 0 failed, 6 skipped |
+
+The benchmark was run in alternating off/on order with three executions per mode, 20 warmups, and
+100 measured iterations per scenario. The table reports the median run-level summary.
+
+| Platform/build | Scenario | Mean | p50 | p95 | Managed allocation |
+|---|---|---:|---:|---:|---:|
+| iOS simulator, Release | ContentView Apple-batched properties | +9.35% | +0.58% | +0.28% | 0.00% |
+| iOS simulator, Release | Border Apple-batched properties | +0.50% | +1.56% | +0.24% | 0.00% |
+| Mac Catalyst, Debug | ContentView Apple-batched properties | -2.16% | +1.48% | -3.23% | -0.11% |
+| Mac Catalyst, Debug | Border Apple-batched properties | +2.02% | +0.36% | +1.85% | 0.00% |
+
+The distributions are noisy, but the central result is consistent: reducing these few Objective-C
+property calls did not improve p50 wall time on either Apple platform. There was no managed-allocation
+benefit. **The Apple H1 gate is therefore NO-GO; do not productize this connect-time primitive batch.**
 
 ## Phase 2: Android explicit steady-state batching
 
@@ -360,11 +395,20 @@ The wrapper implements:
 
 Production blockers:
 
-- No Swift/Xcode compilation or Apple runtime execution has occurred.
-- The zero-distance `DragGesture` pressed/released path may miss cancellation/outside-touch cleanup.
-  Prefer `ButtonStyle.Configuration.isPressed` or resettable `GestureState`, then validate on device.
+- A generic `Button(action:label:)` construction caused a native SIGSEGV in the Release iOS simulator
+  build. Using SwiftUI's string-title initializer avoided the crash and passed the Button suite.
+- The zero-distance SwiftUI `DragGesture` was replaced with a simultaneous UIKit
+  `UILongPressGestureRecognizer`. It now handles ended, cancelled, and failed states through one
+  guarded press-state path without cancelling the SwiftUI Button's click gesture.
+- Recognizer state transitions, cancellation, Released-before-Clicked ordering, and disconnect while
+  pressed are covered through the same state handler used by the native recognizer. A real
+  XCUITest/Appium press-drag-scroll cancellation sequence has not been automated.
 - Programmatic MAUI focus and full Button styling/property parity are absent.
-- Text wrapping, containment, sizing, reconnect, and disposal need iOS and Mac Catalyst execution.
+- Automation ID state crosses the binding, but end-to-end XCUITest/Appium discovery of the SwiftUI
+  accessibility element is not proven.
+
+Containment, intrinsic sizing, reconnect, disconnect, callback staleness, cancellation state, and
+same-window controller reparenting now pass on iOS and Mac Catalyst.
 
 Key files:
 
@@ -391,14 +435,23 @@ Other infrastructure findings:
   builds are authoritative.
 - Do not restore the abandoned Kotlin lifecycle-owner fallback. The correct production model is a
   supported `ComponentActivity` host; the headless test fixture should initialize its view-tree owners.
+- The selected Xcode installation had iOS SDK files but had not registered an iOS platform
+  destination. `xcodebuild -downloadPlatform iOS -architectureVariant arm64` installed and registered
+  the matching simulator component.
+- Apple builds must use the repository-local `.dotnet` after the bootstrap installs the pinned
+  iOS/Mac Catalyst workload packs.
+- The Xcode project build is stamp-based. After Swift changes, rebuild the Core native reference and
+  relink the app before trusting runtime selector results.
+- Mac Catalyst GUI processes redact ordinary `Console.WriteLine` payloads in unified logs. The
+  benchmark now also writes through xUnit output so XHarness persists `MAUIBENCH` lines in its XML.
 
 ## Recommended continuation order
 
-1. **Run the Apple gate on a Mac.**
-   - Build the Swift framework and Objective-C binding.
-   - Run iOS and Mac Catalyst View/Border batching tests and benchmarks with batching off/on.
-   - Run SwiftUI containment, sizing, reconnect, disposal, and gesture-cancellation tests.
-   - Stop the Apple batching proposal if wall time does not move meaningfully.
+1. **Accept the Apple H1 NO-GO decision.**
+   - Do not advance the connect-time Swift/UIKit primitive batch toward production.
+   - Keep the evidence scenarios while this experiment branch is useful, or remove the default-off
+     batch before extracting production work.
+   - Continue SwiftUI only as an independent H3 hosting probe, not as evidence for Apple batching.
 
 2. **Repeat H1 on physical Android hardware in Release.**
    - Use a representative animation/layout workload, not only the synthetic explicit transaction.
@@ -464,7 +517,7 @@ Release physical-device result as if they were the same population.
 ## Final recommendation
 
 - Advance Android H1 behind an experiment flag and validate it on Release hardware.
-- Treat Apple H1 as unproven until its benchmark gate runs.
+- Stop Apple H1: the completed iOS/Mac Catalyst gate showed no meaningful wall-time improvement.
 - Use H2 for small native-owned behaviors with explicit lifecycle/extensibility contracts.
 - Do not propose a wholesale SwiftUI/Compose handler backend from this spike. Continue H3 only as an
   opt-in per-control/package experiment until focus, styling, accessibility, layout, packaging, and
