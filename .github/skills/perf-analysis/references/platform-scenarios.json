@@ -122,6 +122,52 @@
       ]
     },
     {
+      "id": "carouselview-swipe-disabled",
+      "title": "CarouselView disabled-swipe touch and layout handling",
+      "pathPatterns": [
+        "(^|/)src/Controls/src/Core/Handlers/Items/Android/MauiCarouselRecyclerView\\.cs$",
+        "(^|/)src/Controls/src/Core/Handlers/Items/iOS/MauiCollectionView\\.cs$",
+        "(^|/)src/Controls/src/Core/Handlers/Items2/CarouselViewHandler2\\.iOS\\.cs$",
+        "(^|/)src/Controls/src/Core/Handlers/Items2/CarouselViewHandler2\\.ios\\.cs$"
+      ],
+      "activationPathPatterns": [
+        "(^|/)src/Controls/src/Core/Handlers/Items/Android/MauiCarouselRecyclerView\\.cs$",
+        "(^|/)src/Controls/src/Core/Handlers/Items2/CarouselViewHandler2\\.(iOS|ios)\\.cs$"
+      ],
+      "platforms": [
+        "Android",
+        "iOS",
+        "MacCatalyst"
+      ],
+      "runner": "platform-matched-device",
+      "automationStatus": "manual-device-ci-ready",
+      "resultScenario": "carouselview-swipe-disabled",
+      "pipeline": {
+        "path": "eng/pipelines/ci-device-performance.yml",
+        "platforms": [
+          "android",
+          "ios",
+          "maccatalyst"
+        ]
+      },
+      "rationale": "Android direct touch dispatch and UIKit's embedded orthogonal scroller require native CarouselView handlers.",
+      "setup": [
+        "Create a non-looping CarouselView with swipe and bounce disabled from initial construction.",
+        "Use one fixed emulator/simulator/host and identical Release builds for base and head.",
+        "Warm native realization before recording measurements."
+      ],
+      "operations": [
+        "On Android, dispatch repeated down/move/up sequences directly to the native CarouselView touch handler.",
+        "On iOS and MacCatalyst, reset the embedded scroller to UIKit defaults and invoke repeated layout passes.",
+        "Verify the head handles no disabled-swipe touches on Android and reapplies disabled swipe/bounce state on every Apple layout pass."
+      ],
+      "metrics": [
+        "batched touch or layout-pass latency: median and p95",
+        "handled disabled-swipe touch count and final Android position",
+        "embedded Apple scroller count and state-reapplication failure count"
+      ]
+    },
+    {
       "id": "collectionview-items-windows",
       "title": "Windows CollectionView realization and scrolling",
       "pathPatterns": [

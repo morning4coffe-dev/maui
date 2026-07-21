@@ -182,11 +182,19 @@ try {
         "src/Controls/src/Core/PublicAPI/net-ios/PublicAPI.Unshipped.txt"
     )
     $carouselScenarioIds = @($carouselPlatform.deviceScenarios | ForEach-Object { $_.id })
-    Assert-Equal 1 $carouselScenarioIds.Count "CarouselView should select only the generic handler scenario"
-    Assert-Equal "collectionview-handler-device" $carouselScenarioIds[0] "CarouselView scenario selection"
-    Assert-Equal "required-not-yet-automated" $carouselPlatform.deviceScenarios[0].automationStatus "CarouselView remains unsupported"
+    Assert-Equal 1 $carouselScenarioIds.Count "CarouselView should select only its dedicated scenario"
+    Assert-Equal "carouselview-swipe-disabled" $carouselScenarioIds[0] "CarouselView scenario selection"
+    Assert-Equal "manual-device-ci-ready" $carouselPlatform.deviceScenarios[0].automationStatus "CarouselView pipeline status"
+    Assert-Equal 3 @($carouselPlatform.deviceScenarios[0].pipeline.platforms).Count "CarouselView platform count"
+    Assert-Equal "carouselview-swipe-disabled" $carouselPlatform.deviceScenarios[0].resultScenario "CarouselView result scenario"
     Assert-Equal 0 $carouselPlatform.coverage.staticOnlyFileCount "PublicAPI files must not create performance coverage gaps"
     Assert-Equal 3 $carouselPlatform.coverage.deviceRequiredFileCount "CarouselView device file count"
+
+    $sharedMauiCollectionView = Invoke-SelectorFixture "shared-maui-collection-view" @(
+        "src/Controls/src/Core/Handlers/Items/iOS/MauiCollectionView.cs"
+    )
+    Assert-Equal "collectionview-handler-device" $sharedMauiCollectionView.deviceScenarios[0].id "Shared MauiCollectionView changes need generic coverage without Carousel activation"
+    Assert-Equal "required-not-yet-automated" $sharedMauiCollectionView.deviceScenarios[0].automationStatus "Shared MauiCollectionView generic scenario status"
 
     $controlHandler = Invoke-SelectorFixture "control-handler" @(
         "src/Core/src/Handlers/Button/ButtonHandler.cs"

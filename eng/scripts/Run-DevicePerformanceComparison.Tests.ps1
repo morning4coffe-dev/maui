@@ -89,6 +89,30 @@ try
     Assert-Equal $true ($androidPlan[3].arguments -contains "MAUI_PERF_RUN_ORDINAL=2") "Android ABBA run ordinal"
     Assert-Equal $true ($androidPlan[0].arguments -contains "MAUI_PERF_AZDO_BUILD_ID=100") "Android build provenance"
 
+    $carouselOutput = Join-Path $testRoot "carousel-output"
+    & $script `
+        -Platform android `
+        -BaseApp $baseApk `
+        -HeadApp $headApk `
+        -BaseCommitSha abc123 `
+        -HeadCommitSha def456 `
+        -ExpectedScenario carouselview-swipe-disabled `
+        -Repository dotnet/maui `
+        -PullRequestNumber 42 `
+        -HarnessSha harness123 `
+        -AzdoBuildId 100 `
+        -AzdoBuildUrl https://build/100 `
+        -BaseRuntimeVariant mono `
+        -HeadRuntimeVariant mono `
+        -BaseSdkVersion 10.0.100 `
+        -HeadSdkVersion 10.0.101 `
+        -OutputDirectory $carouselOutput `
+        -DeviceId emulator-5554 `
+        -DryRun
+
+    $carouselPlan = Get-Content (Join-Path $carouselOutput "run-plan.json") -Raw | ConvertFrom-Json
+    Assert-Equal $true ($carouselPlan[0].arguments -contains "TestFilter=Category=PerformanceCarouselViewSwipe") "CarouselView performance filter"
+
     $helixOutput = Join-Path $testRoot "helix-output"
     $previousXHarnessCliPath = $env:XHARNESS_CLI_PATH
     $previousHelixCorrelationId = $env:HELIX_CORRELATION_ID

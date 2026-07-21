@@ -235,6 +235,64 @@ try
     Assert-Equal "inconclusive" $summary.verdict "Incorrect item update head should be inconclusive"
     Assert-Equal $false $summary.correctnessPassed "Item update correctness failure"
 
+    $appleCarouselResults = @(
+        (New-Result "base" @(100, 105) 1),
+        (New-Result "head" @(110, 115) 1),
+        (New-Result "head" @(111, 116) 2),
+        (New-Result "base" @(101, 106) 2)
+    )
+    foreach ($result in $appleCarouselResults) {
+        $result.scenario = "carouselview-swipe-disabled"
+        $result.counters = [PSCustomObject]@{
+            embeddedScrollViewCount = 1
+            stateReapplicationFailures = if ($result.variant -eq "base") { 50 } else { 0 }
+        }
+    }
+    $appleCarouselArguments = $comparisonArguments.Clone()
+    $appleCarouselArguments.ExpectedScenario = "carouselview-swipe-disabled"
+    Write-Results $resultsPath $appleCarouselResults
+    & $script @appleCarouselArguments
+    $summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
+    Assert-Equal "neutral" $summary.verdict "Correct Apple CarouselView head should compare"
+    Assert-Equal $true $summary.correctnessPassed "Apple CarouselView correctness"
+
+    $appleCarouselResults[1].counters.stateReapplicationFailures = 1
+    Write-Results $resultsPath $appleCarouselResults
+    & $script @appleCarouselArguments
+    $summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
+    Assert-Equal "inconclusive" $summary.verdict "Incorrect Apple CarouselView head should be inconclusive"
+    Assert-Equal $false $summary.correctnessPassed "Apple CarouselView correctness failure"
+
+    $androidCarouselResults = @(
+        (New-Result "base" @(100, 105) 1),
+        (New-Result "head" @(10, 15) 1),
+        (New-Result "head" @(11, 16) 2),
+        (New-Result "base" @(101, 106) 2)
+    )
+    foreach ($result in $androidCarouselResults) {
+        $result.scenario = "carouselview-swipe-disabled"
+        $result.platform = "android"
+        $result.counters = [PSCustomObject]@{
+            handledTouchEventCount = if ($result.variant -eq "base") { 300 } else { 0 }
+            finalPosition = if ($result.variant -eq "base") { 1 } else { 0 }
+        }
+    }
+    $androidCarouselArguments = $comparisonArguments.Clone()
+    $androidCarouselArguments.ExpectedScenario = "carouselview-swipe-disabled"
+    $androidCarouselArguments.ExpectedPlatform = "android"
+    Write-Results $resultsPath $androidCarouselResults
+    & $script @androidCarouselArguments
+    $summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
+    Assert-Equal "time-improvement-advisory" $summary.verdict "Correct Android CarouselView head should compare"
+    Assert-Equal $true $summary.correctnessPassed "Android CarouselView correctness"
+
+    $androidCarouselResults[1].counters.handledTouchEventCount = 1
+    Write-Results $resultsPath $androidCarouselResults
+    & $script @androidCarouselArguments
+    $summary = Get-Content $summaryPath -Raw | ConvertFrom-Json
+    Assert-Equal "inconclusive" $summary.verdict "Incorrect Android CarouselView head should be inconclusive"
+    Assert-Equal $false $summary.correctnessPassed "Android CarouselView correctness failure"
+
     Write-Host "All device performance comparator tests passed."
 }
 finally

@@ -93,6 +93,7 @@ $scriptDirectory = $PSScriptRoot
 $parser = Join-Path $scriptDirectory "Parse-DevicePerformanceResults.ps1"
 $comparator = Join-Path $scriptDirectory "Compare-DevicePerformanceResults.ps1"
 $effectiveTestFilter = switch ($ExpectedScenario) {
+    "carouselview-swipe-disabled" { "Category=PerformanceCarouselViewSwipe" }
     "collectionview-keepitemsinview-update" { "Category=PerformanceCollectionViewItemsUpdate" }
     "collectionview-grouped-scrollto-makevisible" { "Category=PerformanceCollectionViewScroll" }
     default { throw "No trusted test filter is registered for scenario '$ExpectedScenario'." }

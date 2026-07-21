@@ -272,6 +272,14 @@ head runs. Accept the scenario only when all four ABBA records exist, every targ
 visible, and every head run reports zero positions outside the 30px tolerance. Keep timing
 advisory because the base and head do not have equivalent final-position correctness.
 
+For `carouselview-swipe-disabled`, interpret platform counters separately:
+
+- Android head runs must report `handledTouchEventCount=0` and `finalPosition=0`.
+- iOS/MacCatalyst head runs must discover at least one embedded scroller and report
+  `stateReapplicationFailures=0`.
+- Base failures are expected red-side evidence. Compare the batched touch/layout timing
+  only as advisory context because the base and head do not have equivalent behavior.
+
 ---
 
 ## Phase 5 - Evidence verdict and recommendation

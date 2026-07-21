@@ -304,6 +304,19 @@ foreach ($file in $changed) {
 }
 
 $scenarioDefinitions = @(Read-ScenarioRegistry)
+$activeScenarioDefinitions = @(
+    foreach ($scenario in $scenarioDefinitions) {
+        $activationPatterns = @($scenario.activationPathPatterns | Where-Object { $_ })
+        if ($activationPatterns.Count -eq 0 -or @(
+            $changed | Where-Object {
+                $candidate = $_
+                @($activationPatterns | Where-Object { $candidate -imatch $_ }).Count -gt 0
+            }
+        ).Count -gt 0) {
+            $scenario
+        }
+    }
+)
 $suiteMap = @{}
 $scenarioMap = @{}
 $managedFiles = New-Object System.Collections.Generic.HashSet[string]
@@ -316,7 +329,7 @@ foreach ($file in $productFiles) {
 
     if ($requiresDevice) {
         $matchedScenario = $false
-        foreach ($scenario in $scenarioDefinitions) {
+        foreach ($scenario in $activeScenarioDefinitions) {
             foreach ($pattern in @($scenario.pathPatterns)) {
                 if ($file -imatch $pattern) {
                     $matchedScenario = $true

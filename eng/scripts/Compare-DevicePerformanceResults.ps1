@@ -210,6 +210,46 @@ foreach ($group in $grouped)
         }
     }
 
+    if ($parts[0] -eq "carouselview-swipe-disabled") {
+        if ($parts[1] -eq "android") {
+            $touchCountersComplete = @(
+                $allResults | Where-Object {
+                    $null -eq $_.counters.PSObject.Properties["handledTouchEventCount"] -or
+                    $null -eq $_.counters.PSObject.Properties["finalPosition"]
+                }
+            ).Count -eq 0
+
+            if (-not $touchCountersComplete) {
+                $correctnessErrors.Add("Android CarouselView results are missing touch-handling counters.")
+            } elseif (@(
+                $headResults | Where-Object {
+                    [double]$_.counters.handledTouchEventCount -ne 0 -or
+                    [double]$_.counters.finalPosition -ne 0
+                }
+            ).Count -gt 0) {
+                $correctnessErrors.Add("The Android head handled a disabled-swipe touch or changed position.")
+            }
+        } else {
+            $layoutCountersComplete = @(
+                $allResults | Where-Object {
+                    $null -eq $_.counters.PSObject.Properties["embeddedScrollViewCount"] -or
+                    $null -eq $_.counters.PSObject.Properties["stateReapplicationFailures"]
+                }
+            ).Count -eq 0
+
+            if (-not $layoutCountersComplete) {
+                $correctnessErrors.Add("Apple CarouselView results are missing layout-state counters.")
+            } elseif (@(
+                $headResults | Where-Object {
+                    [double]$_.counters.embeddedScrollViewCount -le 0 -or
+                    [double]$_.counters.stateReapplicationFailures -ne 0
+                }
+            ).Count -gt 0) {
+                $correctnessErrors.Add("The Apple head did not reapply disabled swipe/bounce state.")
+            }
+        }
+    }
+
     $environmentPaths = @(
         "environment.executionKind",
         "environment.deviceModel",
