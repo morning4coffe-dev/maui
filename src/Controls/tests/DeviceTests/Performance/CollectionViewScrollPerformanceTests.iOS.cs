@@ -132,7 +132,7 @@ namespace Microsoft.Maui.DeviceTests
 					position => Math.Abs(position - baselinePosition) > PositionTolerance);
 
 				DevicePerformanceReporter.Write(result);
-			});
+			}, MauiContext, TimeSpan.FromMinutes(2));
 		}
 
 		async Task<double> WaitForScrollToSettle(

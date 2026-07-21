@@ -94,7 +94,7 @@ namespace Microsoft.Maui.DeviceTests
 					counters);
 
 				DevicePerformanceReporter.Write(result);
-			});
+			}, MauiContext, TimeSpan.FromMinutes(2));
 		}
 
 		async Task<int> WaitForCollectionViewToSettle(

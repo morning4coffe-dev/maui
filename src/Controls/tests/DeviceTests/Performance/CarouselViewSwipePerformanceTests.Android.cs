@@ -87,7 +87,7 @@ namespace Microsoft.Maui.DeviceTests
 				result.Counters["finalPosition"] = counters["finalPosition"];
 
 				DevicePerformanceReporter.Write(result);
-			});
+			}, MauiContext, TimeSpan.FromMinutes(2));
 		}
 
 		static int DispatchDisabledSwipeEvents(MauiCarouselRecyclerView platformView)
