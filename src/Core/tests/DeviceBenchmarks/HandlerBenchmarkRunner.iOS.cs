@@ -20,6 +20,18 @@ internal static partial class HandlerBenchmarkRunner
 		TestDispatcher.Current.DispatchAsync(
 			() => RunOnUiThreadAsync(scenario, warmupCount, iterationCount));
 
+	private static partial Task<IReadOnlyList<HandlerBenchmarkSample>> RunConnectCpuCoreAsync(
+		HandlerBenchmarkScenario scenario,
+		int warmupCount,
+		int iterationCount,
+		int connectionsPerIteration) =>
+		TestDispatcher.Current.DispatchAsync(
+			() => RunConnectCpuOnUiThread(
+				scenario,
+				warmupCount,
+				iterationCount,
+				connectionsPerIteration));
+
 	public static Task<HandlerTransformBenchmarkResult> RunTransformSteadyStateAsync(
 		string scenarioName,
 		Func<ControlsView> createView,
@@ -67,6 +79,8 @@ internal static partial class HandlerBenchmarkRunner
 				_ = MeasureSteadyStateOnce(view, runTransaction, i, transactionsPerIteration);
 
 			viewHandler.ResetNativePropertyUpdateDiagnostics();
+			if (handler is ExperimentalConfigurationButtonHandler configurationHandler)
+				configurationHandler.ResetConfigurationDiagnostics();
 
 			var samples = new List<HandlerBenchmarkSample>(iterationCount);
 			for (var i = 0; i < iterationCount; i++)
@@ -86,7 +100,9 @@ internal static partial class HandlerBenchmarkRunner
 
 			return new(
 				samples,
-				viewHandler.NativePropertyUpdateBatchFlushCount);
+				viewHandler.NativePropertyUpdateBatchFlushCount,
+				(handler as ExperimentalConfigurationButtonHandler)?.ConfigurationApplyCount ?? 0,
+				(handler as ExperimentalConfigurationButtonHandler)?.ConfigurationBatchFlushCount ?? 0);
 		}
 		finally
 		{
@@ -106,6 +122,64 @@ internal static partial class HandlerBenchmarkRunner
 
 		for (var transaction = 0; transaction < transactionsPerIteration; transaction++)
 			runTransaction(view, (iteration * transactionsPerIteration) + transaction);
+
+		return new(
+			Stopwatch.GetElapsedTime(startTimestamp).TotalMicroseconds,
+			GC.GetAllocatedBytesForCurrentThread() - startAllocatedBytes,
+			null);
+	}
+
+	static IReadOnlyList<HandlerBenchmarkSample> RunConnectCpuOnUiThread(
+		HandlerBenchmarkScenario scenario,
+		int warmupCount,
+		int iterationCount,
+		int connectionsPerIteration)
+	{
+		for (var i = 0; i < warmupCount; i++)
+		{
+			_ = MeasureConnectCpuOnce(
+				scenario,
+				connectionsPerIteration);
+		}
+
+		var samples = new List<HandlerBenchmarkSample>(iterationCount);
+		for (var i = 0; i < iterationCount; i++)
+		{
+			var sample = MeasureConnectCpuOnce(
+				scenario,
+				connectionsPerIteration);
+			samples.Add(new(
+				i,
+				sample.DurationMicroseconds,
+				sample.ManagedAllocatedBytes,
+				sample.UiThreadCpuMicroseconds));
+		}
+
+		return samples;
+	}
+
+	static RawHandlerBenchmarkSample MeasureConnectCpuOnce(
+		HandlerBenchmarkScenario scenario,
+		int connectionsPerIteration)
+	{
+		var startAllocatedBytes = GC.GetAllocatedBytesForCurrentThread();
+		var startTimestamp = Stopwatch.GetTimestamp();
+
+		for (var connection = 0; connection < connectionsPerIteration; connection++)
+		{
+			var view = scenario.CreateView();
+			var handler = scenario.CreateHandler();
+			handler.SetMauiContext(new MauiContext(TestServices.Services));
+
+			try
+			{
+				handler.SetVirtualView(view);
+			}
+			finally
+			{
+				handler.DisconnectHandler();
+			}
+		}
 
 		return new(
 			Stopwatch.GetElapsedTime(startTimestamp).TotalMicroseconds,

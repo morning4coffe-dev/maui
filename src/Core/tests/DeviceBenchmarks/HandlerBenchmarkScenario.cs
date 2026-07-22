@@ -18,4 +18,6 @@ internal readonly record struct RawHandlerBenchmarkSample(
 
 internal sealed record HandlerTransformBenchmarkResult(
 	IReadOnlyList<HandlerBenchmarkSample> Samples,
-	int BatchFlushes);
+	int BatchFlushes,
+	long ConfigurationApplies,
+	long ConfigurationBatchFlushes);

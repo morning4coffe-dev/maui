@@ -47,6 +47,30 @@ namespace Microsoft.Maui.Platform
 			double opacity);
 	}
 
+	[BaseType(typeof(NSObject), Name = "MauiUIButtonConfigurationBatcher")]
+	[Internal]
+	interface MauiUIButtonConfigurationBatcher
+	{
+		[Static]
+		[Export("applyWithButton:text:font:characterSpacing:textColor:backgroundColor:image:paddingTop:paddingLeft:paddingBottom:paddingRight:rightToLeft:strokeColor:strokeThickness:cornerRadius:")]
+		void Apply(
+			UIButton button,
+			string text,
+			UIFont font,
+			double characterSpacing,
+			[NullAllowed] UIColor textColor,
+			[NullAllowed] UIColor backgroundColor,
+			[NullAllowed] UIImage image,
+			double paddingTop,
+			double paddingLeft,
+			double paddingBottom,
+			double paddingRight,
+			bool rightToLeft,
+			[NullAllowed] UIColor strokeColor,
+			double strokeThickness,
+			double cornerRadius);
+	}
+
 	[Protocol, Model]
 	[BaseType(typeof(NSObject))]
 	[Internal]

@@ -57,6 +57,16 @@ public class HandlerBenchmarkTests
 			"BorderAppleBatchedProperties",
 			() => ConfigureAppleBatchedProperties(new Border()),
 			() => new BorderHandler());
+
+		yield return new(
+			"ButtonLegacyConfigurationProperties",
+			() => ConfigureButtonProperties(new Button()),
+			() => new ButtonHandler());
+
+		yield return new(
+			"ButtonModernConfigurationProperties",
+			() => ConfigureButtonProperties(new Button()),
+			() => new ExperimentalConfigurationButtonHandler());
 #endif
 	}
 
@@ -92,6 +102,22 @@ public class HandlerBenchmarkTests
 		view.Opacity = 0.73;
 
 		return view;
+	}
+
+	static Button ConfigureButtonProperties(Button button)
+	{
+		button.BackgroundColor = Colors.Navy;
+		button.BorderColor = Colors.Lime;
+		button.BorderWidth = 3;
+		button.CharacterSpacing = 3;
+		button.CornerRadius = 9;
+		button.FlowDirection = FlowDirection.RightToLeft;
+		button.FontSize = 19;
+		button.Padding = new Thickness(20, 10, 40, 30);
+		button.Text = "Configured button";
+		button.TextColor = Colors.Orange;
+
+		return button;
 	}
 #endif
 }

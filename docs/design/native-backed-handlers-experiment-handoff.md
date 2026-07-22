@@ -458,6 +458,104 @@ Key files:
 - `src\Core\src\Handlers\Button\ExperimentalSwiftUIButtonHandler.iOS.cs`
 - `src\Core\tests\DeviceTests\Handlers\Button\ExperimentalSwiftUIButtonHandlerTests.iOS.cs`
 
+## Phase 5: `UIButton.Configuration` snapshot probe
+
+Added a nonregistered `ExperimentalConfigurationButtonHandler` that keeps the existing `UIButton`,
+`IButtonHandler`, event proxy, container, focus, accessibility, and responder behavior.
+
+The experiment uses one generated Objective-C binding call into
+`MauiUIButtonConfigurationBatcher`. Swift creates a complete `UIButton.Configuration` snapshot and
+assigns it once. It maps:
+
+- Text, font, character spacing, and text color through an attributed title.
+- Image.
+- Physical MAUI padding through directional UIKit insets, including RTL compensation.
+- Solid background color.
+- Stroke color/thickness and fixed corner radius.
+- Bordered Mac idiom defaults and plain iOS defaults.
+
+The handler inserts a synthetic mapper key before ordinary property keys so the complete initial
+state is available to mapper overrides. Ordinary updates remain synchronous. When
+`Microsoft.Maui.RuntimeFeature.IsNativeViewPropertyUpdateBatchingEnabled` is enabled, explicit
+`VisualElement.BatchBegin` / `BatchCommit` scopes defer repeated configuration rebuilds and apply the
+final state once at commit.
+
+Important limits:
+
+- The handler is internal and is not registered by default.
+- Initial image loading is a separate operation. A synchronously resolved file image produces one
+  initial snapshot plus one image-completion snapshot.
+- Only solid backgrounds are supported. A non-solid background throws rather than silently changing
+  behavior.
+- The initial full snapshot runs before property-specific mapper overrides. An override can replace
+  the final native state, but a no-op replacement cannot prevent that initial snapshot from mapping
+  the property. A production migration needs granular mapper-aware updates rather than this
+  performance-ceiling shortcut.
+- Legacy per-state `UIButton` title/background appearance APIs, configuration update handlers, and
+  arbitrary custom mapper code need a compatibility contract before production use.
+
+Release behavior evidence:
+
+- iOS: 113 run, 112 passed, 0 failed, 1 skipped.
+- Mac Catalyst: 113 run, 107 passed, 0 failed, 6 skipped.
+- Tests cover coherent state, native defaults and intrinsic size, synchronous updates, image load and
+  clear/cancellation, explicit batching on/off, mapper ordering, reconnect/event rebinding, and RTL
+  padding.
+
+### `UIButton.Configuration` benchmark evidence
+
+The Release benchmarks used three alternating batching-off and batching-on executions per platform.
+Each steady-state sample contains 100 explicit transactions. Connect CPU samples contain 100
+handler connections and intentionally exclude images so asynchronous image work is not hidden in the
+connect comparison.
+
+Median p50 connect/first-layout results from the batching-off runs:
+
+| Platform | Scope | Legacy | Configuration | Delta | Managed allocation delta |
+|---|---|---:|---:|---:|---:|
+| iOS | Handler connect CPU | 73,396.5 us | 68,664.2 us | -6.45% | -19.36% |
+| Mac Catalyst | Handler connect CPU | 88,467.2 us | 76,138.6 us | -13.94% | -16.92% |
+| iOS | Connect to first layout | 16,156.7 us | 16,033.6 us | -0.76% | -25.47% |
+| Mac Catalyst | Connect to first layout | 2,236.3 us | 2,382.5 us | +6.54% | -28.44% |
+
+The Catalyst first-layout samples were much noisier than connect CPU. The useful signal is that the
+connect CPU reduction did not become a meaningful first-layout reduction on either platform.
+
+Median p50 steady-state results, in microseconds per 100 transactions:
+
+| Platform | Properties changed | Legacy off | Configuration off | Delta off | Legacy on | Configuration on | Delta on |
+|---|---|---:|---:|---:|---:|---:|---:|
+| iOS | One | 2,716.6 | 7,587.4 | +179.30% | 2,745.5 | 8,257.3 | +200.76% |
+| iOS | Four | 9,154.6 | 30,531.0 | +233.50% | 9,099.4 | 10,091.0 | +10.90% |
+| iOS | Nine | 22,970.6 | 65,309.6 | +184.32% | 24,279.3 | 14,146.6 | -41.73% |
+| Mac Catalyst | One | 3,661.9 | 9,260.7 | +152.89% | 4,087.1 | 10,372.5 | +153.79% |
+| Mac Catalyst | Four | 12,674.7 | 35,299.6 | +178.50% | 12,538.0 | 12,867.5 | +2.63% |
+| Mac Catalyst | Nine | 34,993.5 | 82,378.4 | +135.41% | 32,193.7 | 16,268.9 | -49.47% |
+
+The diagnostics confirmed the intended call shape:
+
+- Batching off: 10,000, 40,000, and 90,000 configuration assignments for the one-, four-, and
+  nine-property matrices.
+- Batching on: 10,000 assignments for every matrix, one per explicit transaction.
+
+Managed allocation remains a major constraint. With batching enabled, 100 one-property transactions
+allocate 153,600 bytes for the configuration path versus zero for the legacy path. Four-property
+transactions allocate 160,800 bytes versus about 13,600 bytes. Only the nine-property transaction
+crosses over: iOS configuration allocation is 168,000 bytes versus about 233,848 bytes for legacy
+(-28.2%), and Mac Catalyst is 168,000 bytes versus about 217,616 bytes (-22.8%).
+
+**Verdict:** NO-GO for the current full-snapshot handler as a production Button replacement.
+Configuration snapshots reduce connect CPU and managed allocation, but the gain disappears in
+first-layout timing. Common isolated updates are 2.5x to 3x slower and allocate substantially more.
+Explicit batching reaches near parity at four changed properties and wins decisively only for the
+synthetic nine-property transaction. That niche crossover does not justify the mapper compatibility,
+background, appearance, image, and allocation costs of an all-or-nothing migration.
+
+If `UIButton.Configuration` is pursued for API correctness or modernization, the next valid shape is
+a granular dirty-mask implementation that updates only the affected configuration fields, preserves
+property replacement semantics, and measures native allocations. Do not advance this complete
+snapshot implementation.
+
 ## Known build warnings and infrastructure findings
 
 The last opt-in Android package build completed with warnings but no errors:
@@ -483,6 +581,12 @@ Other infrastructure findings:
   iOS/Mac Catalyst workload packs.
 - The Xcode project build is stamp-based. After Swift changes, rebuild the Core native reference and
   relink the app before trusting runtime selector results.
+- Switching Apple TFMs/configurations can leave incompatible AOT outputs in the device-test app.
+  XHarness may report success even when the app aborts before creating `test-results.xml`. Treat the
+  XML/application log as authoritative and run a target-specific clean rebuild after an
+  `out of date` AOT-module error. If `dotnet clean` fails because `project.assets.json` currently
+  targets another Apple TFM, it can leave stale AOT files behind; restore the intended TFM first or
+  remove only that app's resolved target-specific `bin` and `obj` directories before rebuilding.
 - Mac Catalyst GUI processes redact ordinary `Console.WriteLine` payloads in unified logs. The
   benchmark now also writes through xUnit output so XHarness persists `MAUIBENCH` lines in its XML.
 
@@ -494,25 +598,35 @@ Other infrastructure findings:
      batch before extracting production work.
    - Continue SwiftUI only as an independent H3 hosting probe, not as evidence for Apple batching.
 
-2. **Validate the positive Apple transform follow-up on physical hardware.**
+2. **Do not advance the complete `UIButton.Configuration` snapshot handler.**
+   - Treat the current implementation as a measured performance ceiling, not a production candidate.
+   - If Button modernization continues, prototype granular dirty-mask updates with mapper replacement,
+     UIAppearance/per-state, non-solid background, and native-allocation coverage.
+
+3. **Validate the positive Apple transform follow-up on physical hardware.**
    - Use real `TranslateTo` and compound animations with one, ten, and one hundred simultaneous views.
    - Record UI-thread CPU, frame hitches, Core Animation work, and GC activity.
    - Keep the feature default-off unless a representative frame workload moves meaningfully.
 
-3. **Repeat H1 on physical Android hardware in Release.**
+4. **Profile high-frequency Apple native-to-managed events.**
+   - Measure scroll, gesture-move, and text/IME callback volume before designing another bridge.
+   - Prefer bounded native aggregation only when callback traffic is material in a representative
+     frame workload.
+
+5. **Repeat H1 on physical Android hardware in Release.**
    - Use a representative animation/layout workload, not only the synthetic explicit transaction.
    - Record native allocation/invalidation/layout effects if practical.
 
-4. **Close Compose productization gates before broadening H3.**
+6. **Close Compose productization gates before broadening H3.**
    - Resolve focus, MAUI theme/style, accessibility, and full layout/property parity.
    - Validate R8, package size, dependency policy, and `dotnet-public-maven` ingestion.
    - Prefer a separate opt-in package over adding the payload to default Core.
 
-5. **Fix the remaining local warning and harden tests.**
+7. **Fix the remaining local warning and harden tests.**
    - Validate `MauiContext`/Android context with the normal descriptive failure pattern.
    - Keep eventual assertions rather than fixed delays.
 
-6. **If H2 expands, keep it bounded.**
+8. **If H2 expands, keep it bounded.**
    - Require explicit mapper replacement/append behavior.
    - Require disconnect/reconnect, container, stale-callback, and exception tests.
    - Consider code generation only after repeated native surfaces prove worthwhile.
@@ -560,6 +674,10 @@ For the Phase 2 benchmark, run the device benchmark once with
 `ContentViewSteadyStateProperties` `MAUIBENCH` summaries. Do not compare a Debug emulator result to a
 Release physical-device result as if they were the same population.
 
+For the Phase 5 Button probe, compare the `ButtonLegacy*` and `ButtonConfiguration*` summaries from
+at least three alternating off/on runs. Use the xUnit XML on Mac Catalyst because unified logging
+redacts ordinary benchmark payloads.
+
 ## Final recommendation
 
 - Advance Android H1 behind an experiment flag and validate it on Release hardware.
@@ -569,6 +687,8 @@ Release physical-device result as if they were the same population.
   from every transform update.
 - Continue explicit Apple transform batching only as a default-off compound-animation experiment
   until physical-device frame evidence is available.
+- Do not advance the complete `UIButton.Configuration` snapshot handler. A future modernization
+  attempt must use granular mapper-aware updates and remeasure ordinary property changes.
 - Use H2 for small native-owned behaviors with explicit lifecycle/extensibility contracts.
 - Do not propose a wholesale SwiftUI/Compose handler backend from this spike. Continue H3 only as an
   opt-in per-control/package experiment until focus, styling, accessibility, layout, packaging, and
