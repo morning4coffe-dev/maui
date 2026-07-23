@@ -725,6 +725,9 @@ The wrapper cost and compatibility surface remain even when the visual implement
 | `665f5f1032` | Remove iOS transform update allocations |
 | `037628b15f` | Coalesce Apple transform updates |
 | `d2b94b8d06` | Evaluate `UIButton.Configuration` snapshots |
+| `8a4815a098` | Summarize Android and Apple experiment results |
+| `da2670d18b` | Profile Apple callback hot paths |
+| `4f823bd10f` | Reduce iOS multi-range text validation allocations |
 
 ## Bottom line
 
