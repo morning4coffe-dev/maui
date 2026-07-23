@@ -193,12 +193,9 @@ namespace Microsoft.Maui.Controls.Platform
 							NativeElementRoles.DialogAction,
 							NativeElementDiscriminators.LogicalModel);
 				}
-				if (completion is not null)
-				{
-					completion.ContinueWith(
+				completion?.ContinueWith(
 						_ => platformView.BeginInvokeOnMainThread(registration.Dispose),
 						TaskScheduler.Default);
-				}
 
 				if (sender.Handler is IPlatformViewHandler pvh &&
 					pvh.PlatformView?.Window is UIWindow senderPageWindow &&
@@ -283,19 +280,24 @@ namespace Microsoft.Maui.Controls.Platform
 						return;
 
 					alert.View.LayoutIfNeeded();
-					var actionTitles = alert.Actions
+					var actionsByTitle = alert.Actions
 						.Select(action => action.Title)
 						.Where(title => !string.IsNullOrEmpty(title))
 						.GroupBy(title => title, StringComparer.Ordinal)
 						.Where(group => group.Count() == 1)
-						.Select(group => group.Key)
-						.ToHashSet(StringComparer.Ordinal);
-					var actionControls = FindAlertActionControls(alert.View, actionTitles)
+						.ToDictionary(
+							group => group.Key,
+							group => alert.Actions.Single(action =>
+								string.Equals(action.Title, group.Key, StringComparison.Ordinal)),
+							StringComparer.Ordinal);
+					var actionControls = FindAlertActionControls(alert.View, actionsByTitle.Keys)
 						.GroupBy(GetControlTitle, StringComparer.Ordinal)
 						.Where(group => group.Count() == 1)
 						.Select(group => group.Single());
 					foreach (var control in actionControls)
 					{
+						var title = GetControlTitle(control);
+						_registrations.Unregister(actionsByTitle[title]);
 						_registrations.Register(
 							owner,
 							control,
@@ -306,13 +308,16 @@ namespace Microsoft.Maui.Controls.Platform
 
 				static IEnumerable<UIControl> FindAlertActionControls(
 					UIView view,
-					HashSet<string> actionTitles)
+					ICollection<string> actionTitles)
 				{
-					if (view is UIControl control
-						&& actionTitles.Contains(GetControlTitle(control)))
+					if (view is UIControl control)
 					{
-						yield return control;
-						yield break;
+						var title = GetControlTitle(control);
+						if (!string.IsNullOrEmpty(title) && actionTitles.Contains(title))
+						{
+							yield return control;
+							yield break;
+						}
 					}
 
 					foreach (var subview in view.Subviews)
