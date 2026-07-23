@@ -267,33 +267,41 @@ namespace Microsoft.Maui.Handlers
 				// Handle null replacement string defensively
 				replacementString ??= string.Empty;
 
-				var currentText = textField.Text ?? string.Empty;
-
-				// Copy and sort ranges (existing code is correct)
+				long currentLength = (textField.Text ?? string.Empty).Length;
 				var count = ranges.Length;
-				var rangeArray = new NSRange[count];
-				for (int i = 0; i < count; i++)
-					rangeArray[i] = ranges[i].RangeValue;
-
-				Array.Sort(rangeArray, (a, b) => (int)(b.Location - a.Location));
-
-				// Simulate all range replacements (existing code is correct)
-				for (int i = 0; i < count; i++)
+				if (count == 1)
 				{
-					var range = rangeArray[i];
-					var start = (int)range.Location;
-					var length = (int)range.Length;
-
-					if (start < 0 || length < 0 || start > currentText.Length || start + length > currentText.Length)
+					if (!TryApplyReplacementLength(
+						ref currentLength,
+						ranges[0].RangeValue,
+						replacementString.Length))
+					{
 						return false;
+					}
+				}
+				else
+				{
+					var rangeArray = new NSRange[count];
+					for (int i = 0; i < count; i++)
+						rangeArray[i] = ranges[i].RangeValue;
 
-					var before = start > 0 ? currentText.Substring(0, start) : string.Empty;
-					var afterIndex = start + length;
-					var after = afterIndex < currentText.Length ? currentText.Substring(afterIndex) : string.Empty;
-					currentText = before + replacementString + after;
+					Array.Sort(
+						rangeArray,
+						static (a, b) => b.Location.CompareTo(a.Location));
+
+					for (int i = 0; i < count; i++)
+					{
+						if (!TryApplyReplacementLength(
+							ref currentLength,
+							rangeArray[i],
+							replacementString.Length))
+						{
+							return false;
+						}
+					}
 				}
 
-				var shouldChange = currentText.Length <= maxLength;
+				var shouldChange = currentLength <= maxLength;
 
 				// Paste truncation feature (matches pre-iOS 26 behavior)
 				if (VirtualView is not null && !shouldChange && !string.IsNullOrWhiteSpace(replacementString) &&
@@ -303,6 +311,26 @@ namespace Microsoft.Maui.Handlers
 				}
 
 				return shouldChange;
+			}
+
+			static bool TryApplyReplacementLength(
+				ref long currentLength,
+				NSRange range,
+				int replacementLength)
+			{
+				var start = (long)range.Location;
+				var length = (long)range.Length;
+
+				if (start < 0 ||
+					length < 0 ||
+					start > currentLength ||
+					length > currentLength - start)
+				{
+					return false;
+				}
+
+				currentLength += replacementLength - length;
+				return true;
 			}
 
 			bool OnShouldChangeCharacters(UITextField textField, NSRange range, string replacementString) =>

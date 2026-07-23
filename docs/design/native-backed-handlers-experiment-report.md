@@ -1,10 +1,10 @@
 # Native-backed MAUI handlers experiment report
 
-- **Report date:** 2026-07-22
+- **Report date:** 2026-07-23
 - **Repository:** `dotnet/maui`
 - **Experiment branch:** `temp/native-backed-handlers-handoff-20260720`
 - **Base commit:** `0395a53b66f85d7b6fd6732f9b2f8a50eb7d70cb`
-- **Latest experiment commit:** `d2b94b8d06775859aad997dc69e84f233357204c`
+- **Starting branch commit for this report update:** `8a4815a098dcbb83f5d9c6e503307fd841e03c45`
 
 ## Executive summary
 
@@ -21,6 +21,7 @@ The answer is platform- and workload-specific:
 | Bounded native-owned behavior | **GO as an incremental pattern** | Feasible, but not separately productized in this branch |
 | Compose/SwiftUI control replacement | Hosting works; production replacement is **NO-GO** | Hosting works; production replacement is **NO-GO** |
 | `UIButton.Configuration` replacement | Not applicable | Current full-snapshot design is **NO-GO** |
+| High-frequency callback coalescing | Not profiled in this follow-up | **NO-GO** broadly; local Entry validation optimization is **GO** |
 
 The most credible production extractions are:
 
@@ -512,6 +513,68 @@ If `UIButton.Configuration` is pursued for modernization or deprecated-API corre
 valid design is a granular dirty-mask mapper that updates only affected configuration fields and
 remeasures native allocations.
 
+### 6. High-frequency callback profiling
+
+The final Apple gate profiled callback bursts for ScrollView, Entry, Editor, pan, pinch, and pointer
+movement.
+
+Method:
+
+- Release builds.
+- 20 warmups and 100 measured iterations.
+- 100 callbacks per sample.
+- Three executions per platform.
+- UIKit delegate/event entry points for ScrollView, Entry, and Editor.
+- Managed dispatch lower bounds for pan, pinch, and pointer movement.
+
+No physical iPhone was connected, so iOS used the iOS 26 arm64 simulator. Mac Catalyst ran on the
+physical Mac.
+
+Median current-code results:
+
+| Callback path | iOS us/callback | iOS bytes/callback | Catalyst us/callback | Catalyst bytes/callback |
+|---|---:|---:|---:|---:|
+| ScrollView vertical delegate | 15.881 | 80 | 11.899 | 80 |
+| ScrollView diagonal delegate | 16.118 | 160 | 12.154 | 160 |
+| Entry stable-text `EditingChanged` | 57.034 | 480 | 25.518 | 176 |
+| Entry changed-text round trip | 305.150 | 2,217 | 164.995 | 1,080 |
+| Editor stable-text changed callback | 21.626 | 96 | 16.263 | 96 |
+| Entry one-range validation | 26.108 | 720 | 18.587 | 280 |
+| Entry three-range validation | 31.249 | 816 | 23.981 | 376 |
+| Pan managed dispatch | 0.010 | 40 | 0.014 | 40 |
+| Pinch managed dispatch | 0.013 | 48 | 0.018 | 48 |
+| Pointer-move managed dispatch | 0.049 | 224 | 0.043 | 224 |
+
+Findings:
+
+- Gesture dispatch time is negligible; broad coalescing would change observable gesture semantics for
+  little CPU benefit.
+- Pointer movement has the largest gesture allocation, but still only 224 bytes per event in the
+  measured managed path.
+- Entry text propagation is the dominant callback path and must retain per-change binding, cursor,
+  selection, MaxLength, and IME ordering.
+- A diagonal native ScrollView callback currently raises two `Scrolled` events because X and Y are
+  assigned separately. There is no clean non-breaking Core-to-Controls contract for an atomic pair.
+
+#### Multi-range Entry validation optimization
+
+iOS 26 multi-range MaxLength validation reconstructed the complete candidate string only to calculate
+its length. It now uses checked length arithmetic.
+
+| Platform | Shape | p50 delta | p95 delta | Allocation delta |
+|---|---|---:|---:|---:|
+| iOS simulator | One range | +19.80% | -6.84% | -34.31% |
+| iOS simulator | Three ranges | +23.17% | +4.17% | -55.26% |
+| Mac Catalyst | One range | -25.12% | -25.39% | -57.32% |
+| Mac Catalyst | Three ranges | -26.52% | -27.05% | -72.83% |
+
+iOS simulator timing was unstable after its storage reset, but allocation remained deterministic.
+Mac Catalyst supplied a stable timing win. Entry behavior suites passed on both platforms.
+
+**Verdict:** do not coalesce Apple scroll, gesture, text, selection, or IME callbacks. Keep the
+multi-range length optimization and continue looking for local allocation removal that preserves
+callback frequency.
+
 ### Apple overall verdict
 
 | Area | Verdict |
@@ -521,6 +584,8 @@ remeasures native allocations.
 | Compound explicit transform batching | **Conditional GO** |
 | SwiftUI-backed default Button | **NO-GO** |
 | Complete `UIButton.Configuration` snapshot | **NO-GO** |
+| General callback coalescing | **NO-GO** |
+| iOS 26 multi-range MaxLength allocation removal | **GO** |
 
 ## Cross-platform conclusions
 
@@ -644,12 +709,12 @@ The wrapper cost and compatibility surface remain even when the visual implement
 
 ### Investigate next
 
-1. Profile high-frequency Apple native-to-managed scroll, gesture-move, and text/IME callbacks before
-   designing another bridge.
-2. If Button modernization is required for UIKit API correctness, prototype granular configuration
+1. If Button modernization is required for UIKit API correctness, prototype granular configuration
    dirty masks rather than complete snapshots.
-3. Measure Android Release behavior on physical hardware.
-4. Measure Apple compound animations with one, ten, and one hundred simultaneous views.
+2. Measure Android Release behavior on physical hardware.
+3. Measure Apple compound animations with one, ten, and one hundred simultaneous views when a
+   physical iPhone is available.
+4. Revisit pointer-event allocation only with evidence from a pointer-heavy application.
 
 ## Commit inventory
 
@@ -667,6 +732,8 @@ The experiment supports a selective strategy, not a framework rewrite:
 
 - Batch primitive state where crossing cost is proven and an explicit transaction exists.
 - Remove managed allocations from hot paths independently of batching.
+- Preserve native callback frequency when MAUI events, bindings, cursor state, or IME ordering expose
+  each update.
 - Move only bounded lifecycle/event logic into native code.
 - Keep MAUI's existing platform controls when focus, accessibility, styling, and mapper compatibility
   matter.

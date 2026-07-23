@@ -93,6 +93,86 @@ namespace Microsoft.Maui.DeviceTests
 			Assert.Equal(xplatCharacterSpacing, values.PlatformViewValue);
 		}
 
+		[Fact]
+		public async Task MultiRangeMaxLengthValidationUsesCombinedLength()
+		{
+			if (!OperatingSystem.IsIOSVersionAtLeast(26) &&
+				!OperatingSystem.IsMacCatalystVersionAtLeast(26))
+			{
+				return;
+			}
+
+			var entry = new EntryStub
+			{
+				MaxLength = 10,
+				Text = "abcdef",
+			};
+
+			await InvokeOnMainThreadAsync(() =>
+			{
+				var handler = CreateHandler(entry);
+				var textFieldDelegate = handler.PlatformView.Delegate
+					?? throw new InvalidOperationException(
+						"The Entry callback delegate was not installed.");
+
+				try
+				{
+					Assert.True(ShouldChange(
+						new[] { new NSRange(2, 0) },
+						"xy"));
+					Assert.True(ShouldChange(
+						new[] { new NSRange(1, 0), new NSRange(4, 0) },
+						"xy"));
+					Assert.False(ShouldChange(
+						new[]
+						{
+							new NSRange(1, 0),
+							new NSRange(3, 0),
+							new NSRange(5, 0),
+						},
+						"xy"));
+					Assert.True(ShouldChange(
+						new[] { new NSRange(1, 2), new NSRange(4, 1) },
+						string.Empty));
+					Assert.False(ShouldChange(
+						new[] { new NSRange(20, 1) },
+						"x"));
+
+					entry.MaxLength = 4;
+					Assert.False(ShouldChange(
+						new[] { new NSRange(0, 6) },
+						"123456"));
+					Assert.Equal("1234", entry.Text);
+				}
+				finally
+				{
+					((IElementHandler)handler).DisconnectHandler();
+				}
+
+				bool ShouldChange(
+					NSRange[] ranges,
+					string replacement)
+				{
+					var values = new NSValue[ranges.Length];
+					for (var i = 0; i < ranges.Length; i++)
+						values[i] = NSValue.FromRange(ranges[i]);
+
+					try
+					{
+						return textFieldDelegate.ShouldChangeCharacters(
+							handler.PlatformView,
+							values,
+							replacement);
+					}
+					finally
+					{
+						foreach (var value in values)
+							value.Dispose();
+					}
+				}
+			});
+		}
+
 		[Fact(DisplayName = "Clear button image resets when TextColor is null")]
 		public async Task ClearButtonImageResetsWhenTextColorIsNull()
 		{

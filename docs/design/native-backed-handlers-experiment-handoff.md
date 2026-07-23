@@ -556,6 +556,80 @@ a granular dirty-mask implementation that updates only the affected configuratio
 property replacement semantics, and measures native allocations. Do not advance this complete
 snapshot implementation.
 
+## Phase 6: Apple high-frequency callback profiling
+
+Profiled ScrollView, Entry, Editor, pan, pinch, and pointer-move callback bursts on iOS and Mac
+Catalyst.
+
+The Release benchmark uses:
+
+- 20 warmup iterations.
+- 100 measured iterations.
+- 100 callbacks per measured sample.
+- Three executions per platform.
+- Real UIKit delegate/event entry points for ScrollView, Entry, and Editor.
+- Managed dispatch lower bounds for pan, pinch, and pointer movement.
+
+No physical iPhone was connected. iOS measurements use the iOS 26.0 arm64 simulator. Mac Catalyst
+runs execute on the physical Apple Silicon Mac.
+
+Median current-code results:
+
+| Callback path | iOS us/callback | iOS bytes/callback | Catalyst us/callback | Catalyst bytes/callback |
+|---|---:|---:|---:|---:|
+| ScrollView vertical delegate | 15.881 | 80 | 11.899 | 80 |
+| ScrollView diagonal delegate | 16.118 | 160 | 12.154 | 160 |
+| Entry `EditingChanged`, stable text | 57.034 | 480 | 25.518 | 176 |
+| Entry changed-text native/managed round trip | 305.150 | 2,217 | 164.995 | 1,080 |
+| Editor changed callback, stable text | 21.626 | 96 | 16.263 | 96 |
+| Entry one-range max-length validation | 26.108 | 720 | 18.587 | 280 |
+| Entry three-range max-length validation | 31.249 | 816 | 23.981 | 376 |
+| Pan managed dispatch | 0.010 | 40 | 0.014 | 40 |
+| Pinch managed dispatch | 0.013 | 48 | 0.018 | 48 |
+| Pointer-move managed dispatch | 0.049 | 224 | 0.043 | 224 |
+
+The ScrollView diagonal benchmark confirmed that one native callback currently raises two managed
+`Scrolled` events because the handler assigns horizontal and vertical offsets separately. Fixing that
+atomically would require a cross-assembly scroll-position contract; reflection, deferred dispatch, or
+implicit coalescing would be worse than the measured cost.
+
+Broad callback coalescing is unsafe:
+
+- Scroll offsets and `Scrolled` handlers are synchronously observable and can drive scroll-linked UI.
+- Entry/Editor text changes must preserve `TextChanged`, cursor, selection, MaxLength, and IME
+  composition ordering.
+- Pan, pinch, and pointer handlers intentionally expose every running-state event to user code.
+- Gesture managed dispatch is already tiny; only its per-event object allocation is visible.
+
+### iOS 26 multi-range Entry validation follow-up
+
+The iOS 26 `ShouldChangeCharactersInRanges` path rebuilt the complete candidate string for every
+range only to compare its final length to `MaxLength`. Replaced it with equivalent checked length
+arithmetic, retaining the existing descending range order and paste truncation behavior.
+
+Release before/after medians:
+
+| Platform | Shape | p50 delta | p95 delta | Managed allocation delta |
+|---|---|---:|---:|---:|
+| iOS simulator | One range | +19.80% | -6.84% | -34.31% |
+| iOS simulator | Three ranges | +23.17% | +4.17% | -55.26% |
+| Mac Catalyst | One range | -25.12% | -25.39% | -57.32% |
+| Mac Catalyst | Three ranges | -26.52% | -27.05% | -72.83% |
+
+The iOS simulator timing was noisy after a simulator reset: optimized one-range p50 varied from
+1,953.3 to 2,866.0 us per 100 callbacks, while allocation was deterministic. Catalyst provided a
+stable timing signal and confirmed the expected improvement.
+
+Behavior evidence:
+
+- iOS Entry Debug: 234 run, 233 passed, 0 failed, 1 ignored.
+- Mac Catalyst Entry Debug: 234 run, 228 passed, 0 failed, 6 ignored.
+- Release callback benchmarks passed in all six final executions.
+
+**Verdict:** NO-GO for general Apple event coalescing. GO for the allocation-free multi-range
+MaxLength calculation. The next event optimization should target a demonstrated source-level
+allocation or duplicate notification without changing callback frequency.
+
 ## Known build warnings and infrastructure findings
 
 The last opt-in Android package build completed with warnings but no errors:
@@ -608,10 +682,10 @@ Other infrastructure findings:
    - Record UI-thread CPU, frame hitches, Core Animation work, and GC activity.
    - Keep the feature default-off unless a representative frame workload moves meaningfully.
 
-4. **Profile high-frequency Apple native-to-managed events.**
-   - Measure scroll, gesture-move, and text/IME callback volume before designing another bridge.
-   - Prefer bounded native aggregation only when callback traffic is material in a representative
-     frame workload.
+4. **Do not add general Apple callback coalescing.**
+   - Keep per-event scroll, gesture, text, cursor, selection, and IME semantics.
+   - Prefer local allocation removal such as the multi-range MaxLength calculation.
+   - Revisit pointer-event allocation only if a representative pointer-heavy app shows GC pressure.
 
 5. **Repeat H1 on physical Android hardware in Release.**
    - Use a representative animation/layout workload, not only the synthetic explicit transaction.
@@ -689,6 +763,8 @@ redacts ordinary benchmark payloads.
   until physical-device frame evidence is available.
 - Do not advance the complete `UIButton.Configuration` snapshot handler. A future modernization
   attempt must use granular mapper-aware updates and remeasure ordinary property changes.
+- Keep the allocation-free iOS 26 multi-range Entry MaxLength calculation.
+- Do not add broad Apple scroll, gesture, or text callback coalescing.
 - Use H2 for small native-owned behaviors with explicit lifecycle/extensibility contracts.
 - Do not propose a wholesale SwiftUI/Compose handler backend from this spike. Continue H3 only as an
   opt-in per-control/package experiment until focus, styling, accessibility, layout, packaging, and
