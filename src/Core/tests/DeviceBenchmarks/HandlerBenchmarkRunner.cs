@@ -131,6 +131,22 @@ internal static class HandlerBenchmarkOutput
 			"exactInteropCrossings=not-measured appStartup=not-measured");
 	}
 
+	public static void WriteAppleCallbackMetadata(
+		int warmupCount,
+		int iterationCount,
+		int callbacksPerIteration)
+	{
+		var platform = GetPlatform();
+
+		WriteLine(
+			$"{Prefix} schema=1 kind=metadata platform={platform} " +
+			$"scope=apple-high-frequency-callback-bursts warmups={warmupCount} " +
+			$"iterations={iterationCount} callbacksPerIteration={callbacksPerIteration} " +
+			"clock=stopwatch comparisonScope=within-platform-only " +
+			"managedAllocationScope=dotnet-current-ui-thread uiThreadCpu=not-measured " +
+			"nativeAllocations=not-measured appStartup=not-measured");
+	}
+
 	public static void WriteDiagnostic(string scenario, string name, long value)
 	{
 		WriteLine(

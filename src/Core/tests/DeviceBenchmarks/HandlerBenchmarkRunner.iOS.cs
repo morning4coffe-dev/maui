@@ -50,6 +50,32 @@ internal static partial class HandlerBenchmarkRunner
 				iterationCount,
 				transactionsPerIteration));
 
+	public static Task<AppleCallbackBenchmarkResult> RunAppleCallbackSteadyStateAsync<TView, THandler>(
+		Func<TView> createView,
+		Func<THandler> createHandler,
+		Action<TView, THandler, int> runCallback,
+		Action<TView> resetDiagnostics,
+		Func<TView, long> getCallbackCount,
+		Action<TView, THandler>? initialize,
+		Action<TView, THandler>? cleanup,
+		int warmupCount,
+		int iterationCount,
+		int callbacksPerIteration)
+		where TView : ControlsView
+		where THandler : IViewHandler =>
+		TestDispatcher.Current.DispatchAsync(
+			() => RunAppleCallbackSteadyStateOnUiThread(
+				createView,
+				createHandler,
+				runCallback,
+				resetDiagnostics,
+				getCallbackCount,
+				initialize,
+				cleanup,
+				warmupCount,
+				iterationCount,
+				callbacksPerIteration));
+
 	static HandlerTransformBenchmarkResult RunSteadyStateOnUiThread(
 		string scenarioName,
 		Func<ControlsView> createView,
@@ -122,6 +148,93 @@ internal static partial class HandlerBenchmarkRunner
 
 		for (var transaction = 0; transaction < transactionsPerIteration; transaction++)
 			runTransaction(view, (iteration * transactionsPerIteration) + transaction);
+
+		return new(
+			Stopwatch.GetElapsedTime(startTimestamp).TotalMicroseconds,
+			GC.GetAllocatedBytesForCurrentThread() - startAllocatedBytes,
+			null);
+	}
+
+	static AppleCallbackBenchmarkResult RunAppleCallbackSteadyStateOnUiThread<TView, THandler>(
+		Func<TView> createView,
+		Func<THandler> createHandler,
+		Action<TView, THandler, int> runCallback,
+		Action<TView> resetDiagnostics,
+		Func<TView, long> getCallbackCount,
+		Action<TView, THandler>? initialize,
+		Action<TView, THandler>? cleanup,
+		int warmupCount,
+		int iterationCount,
+		int callbacksPerIteration)
+		where TView : ControlsView
+		where THandler : IViewHandler
+	{
+		var parent = new ControlsGrid();
+		var view = createView();
+		parent.Add(view);
+		view.Frame = new Rect(0, 0, 320, 240);
+
+		var handler = createHandler();
+		handler.SetMauiContext(new MauiContext(TestServices.Services));
+		handler.SetVirtualView(view);
+		handler.PlatformArrange(view.Frame);
+
+		try
+		{
+			initialize?.Invoke(view, handler);
+
+			for (var i = 0; i < warmupCount; i++)
+			{
+				_ = MeasureAppleCallbackOnce(
+					view,
+					handler,
+					runCallback,
+					i * callbacksPerIteration,
+					callbacksPerIteration);
+			}
+
+			resetDiagnostics(view);
+
+			var samples = new List<HandlerBenchmarkSample>(iterationCount);
+			for (var i = 0; i < iterationCount; i++)
+			{
+				var sample = MeasureAppleCallbackOnce(
+					view,
+					handler,
+					runCallback,
+					(warmupCount + i) * callbacksPerIteration,
+					callbacksPerIteration);
+				samples.Add(new(
+					i,
+					sample.DurationMicroseconds,
+					sample.ManagedAllocatedBytes,
+					sample.UiThreadCpuMicroseconds));
+			}
+
+			return new(samples, getCallbackCount(view));
+		}
+		finally
+		{
+			cleanup?.Invoke(view, handler);
+			handler.DisconnectHandler();
+			parent.Remove(view);
+		}
+	}
+
+	static RawHandlerBenchmarkSample MeasureAppleCallbackOnce<TView, THandler>(
+		TView view,
+		THandler handler,
+		Action<TView, THandler, int> runCallback,
+		int firstCallback,
+		int callbacksPerIteration)
+		where TView : ControlsView
+		where THandler : IViewHandler
+	{
+		var startAllocatedBytes = GC.GetAllocatedBytesForCurrentThread();
+		var startTimestamp = Stopwatch.GetTimestamp();
+
+		for (var callback = 0; callback < callbacksPerIteration; callback++)
+			runCallback(view, handler, firstCallback + callback);
 
 		return new(
 			Stopwatch.GetElapsedTime(startTimestamp).TotalMicroseconds,

@@ -21,3 +21,7 @@ internal sealed record HandlerTransformBenchmarkResult(
 	int BatchFlushes,
 	long ConfigurationApplies,
 	long ConfigurationBatchFlushes);
+
+internal sealed record AppleCallbackBenchmarkResult(
+	IReadOnlyList<HandlerBenchmarkSample> Samples,
+	long CallbackCount);
