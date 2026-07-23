@@ -3,8 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using Microsoft.Maui.Controls.Diagnostics;
 using Microsoft.Maui.Controls.Internals;
 using Microsoft.Maui.Controls.Platform;
 using Microsoft.Maui.Graphics;
@@ -28,6 +30,15 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 		IMauiContext _mauiContext;
 		UITabBarAppearance _tabBarAppearance;
 		WeakReference<VisualElement> _element;
+		readonly NativeElementRegistrationSet _nativeTabBarRegistrations = new NativeElementRegistrationSet();
+		readonly NativeElementRegistrationSet _nativeTabItemRegistrations = new NativeElementRegistrationSet();
+		readonly NativeElementRegistrationSet _nativeVisibleTabRegistrations = new NativeElementRegistrationSet();
+		readonly NativeElementRegistrationSet _nativeMoreRegistrations = new NativeElementRegistrationSet();
+		readonly Dictionary<Page, long> _tabRegistrationGenerations = new Dictionary<Page, long>();
+		long _nextTabRegistrationGeneration;
+		bool _disposed;
+		UITableView _moreTableView;
+		MoreNavigationDelegate _moreNavigationDelegate;
 
 		Brush _currentBarBackground;
 
@@ -54,8 +65,15 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 				// If the selected view controller is the "More" navigation controller, do not update the current page
 				// because it is a special case where the user is navigating to a different set of tabs
 				if (value == MoreNavigationController)
+				{
+					_moreNavigationDelegate ??= new MoreNavigationDelegate(this);
+					MoreNavigationController.WeakDelegate = _moreNavigationDelegate;
+					RegisterMoreRows();
 					return;
+				}
 
+				_nativeMoreRegistrations.Clear();
+				DetachMoreTableView();
 				UpdateCurrentPage();
 			}
 		}
@@ -79,12 +97,24 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 		public void SetElement(VisualElement element)
 		{
+			_nativeTabBarRegistrations.Clear();
+			_nativeTabItemRegistrations.Clear();
+			_nativeVisibleTabRegistrations.Clear();
+			_nativeMoreRegistrations.Clear();
+			DetachMoreTableView();
+			DetachMoreNavigationDelegate();
+			_tabRegistrationGenerations.Clear();
 			_viewHandlerWrapper.SetVirtualView(element, OnElementChanged, false);
 			_element = element is null ? null : new(element);
 
 			FinishedCustomizingViewControllers += HandleFinishedCustomizingViewControllers;
 			if (element is TabbedPage tabbed)
 			{
+				_nativeTabBarRegistrations.Register(
+					tabbed,
+					TabBar,
+					NativeElementRoles.ShellTab,
+					NativeElementDiscriminators.TabBar);
 				tabbed.PropertyChanged += OnPropertyChanged;
 				tabbed.PagesChanged += OnPagesChanged;
 			}
@@ -137,12 +167,27 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 			// in narrow viewports (< 667 points) before Element is set. Guard against this.
 			if (Element is IView view)
 				view.Arrange(View.Bounds.ToRectangle());
+
+			RegisterVisibleTabViews();
+			if (SelectedViewController == MoreNavigationController)
+				RegisterMoreRows();
 		}
 
 		protected override void Dispose(bool disposing)
 		{
+			if (_disposed)
+				return;
+
+			_disposed = true;
 			if (disposing)
 			{
+				_nativeTabBarRegistrations.Clear();
+				_nativeTabItemRegistrations.Clear();
+				_nativeVisibleTabRegistrations.Clear();
+				_nativeMoreRegistrations.Clear();
+				DetachMoreTableView();
+				DetachMoreNavigationDelegate();
+				_tabRegistrationGenerations.Clear();
 				_tabBarAppearance?.Dispose();
 				_tabBarAppearance = null;
 
@@ -225,6 +270,15 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 		void OnPagesChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
+			if (e.Action == NotifyCollectionChangedAction.Reset)
+			{
+				_nativeTabItemRegistrations.Clear();
+				_nativeVisibleTabRegistrations.Clear();
+				_nativeMoreRegistrations.Clear();
+				DetachMoreTableView();
+				_tabRegistrationGenerations.Clear();
+			}
+
 			e.Apply((o, i, c) => SetupPage((Page)o, i), (o, i) => TeardownPage((Page)o, i), Reset);
 
 			SetControllers();
@@ -388,6 +442,9 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 		void TeardownPage(Page page, int index)
 		{
+			_nativeTabItemRegistrations.UnregisterOwner(page);
+			_nativeVisibleTabRegistrations.UnregisterOwner(page);
+			_tabRegistrationGenerations.Remove(page);
 			page.PropertyChanged -= OnPagePropertyChanged;
 
 			page.Handler?.DisconnectHandler();
@@ -557,7 +614,19 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 			if (page == null)
 				throw new InvalidCastException($"{nameof(renderer)} must be a {nameof(Page)} renderer.");
 
+			var registrationGeneration = ++_nextTabRegistrationGeneration;
+			_tabRegistrationGenerations[page] = registrationGeneration;
 			var icons = await GetIcon(page);
+			if (!_tabRegistrationGenerations.TryGetValue(page, out var activeGeneration) ||
+				activeGeneration != registrationGeneration ||
+				renderer.VirtualView != page ||
+				Tabbed?.Children.Contains(page) != true)
+			{
+				icons?.Item1?.Dispose();
+				icons?.Item2?.Dispose();
+				return;
+			}
+
 			var resizedImage = TabbedViewExtensions.AutoResizeTabBarImage(TraitCollection, icons?.Item1);
 			var resizedSelectedImage = TabbedViewExtensions.AutoResizeTabBarImage(TraitCollection, icons?.Item2);
 			SetTabBarItem(resizedImage, resizedSelectedImage);
@@ -571,10 +640,146 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 					Tag = Tabbed?.Children.IndexOf(page) ?? -1,
 					AccessibilityIdentifier = page.AutomationId
 				};
+				_nativeTabItemRegistrations.RegisterExclusive(
+					page,
+					renderer.ViewController.TabBarItem,
+					NativeElementRoles.ShellTab,
+					NativeElementDiscriminators.TabBarItem);
 			}
 
 			icons?.Item1?.Dispose();
 			icons?.Item2?.Dispose();
+		}
+
+		void RegisterVisibleTabViews()
+		{
+			if (Tabbed is not TabbedPage tabbed)
+				return;
+
+			var controls = TabBar.Subviews
+				.OfType<UIControl>()
+				.OrderBy(control => control.Frame.X)
+				.ToList();
+			if (TabBar.EffectiveUserInterfaceLayoutDirection == UIUserInterfaceLayoutDirection.RightToLeft)
+				controls.Reverse();
+
+			var retainedElements = new List<object>(controls.Count + 1);
+			var hasMore = tabbed.Children.Count > controls.Count;
+			for (int index = 0; index < controls.Count; index++)
+			{
+				var isMore = hasMore && index == controls.Count - 1;
+				object owner = isMore ? tabbed : tabbed.Children[index];
+				var control = controls[index];
+				retainedElements.Add(control);
+				_nativeVisibleTabRegistrations.RegisterExclusive(
+					owner,
+					control,
+					isMore ? NativeElementRoles.ShellTabOverflow : NativeElementRoles.ShellTab,
+					NativeElementDiscriminators.RealizedView);
+			}
+
+			if (hasMore && TabBar.Items?.LastOrDefault() is UITabBarItem moreItem)
+			{
+				retainedElements.Add(moreItem);
+				_nativeVisibleTabRegistrations.Register(
+					tabbed,
+					moreItem,
+					NativeElementRoles.ShellTabOverflow,
+					NativeElementDiscriminators.TabBarItem);
+			}
+
+			_nativeVisibleTabRegistrations.Retain(retainedElements);
+		}
+
+		void RegisterMoreRows()
+		{
+			if (_disposed ||
+				Tabbed is not TabbedPage tabbed ||
+				MoreNavigationController.TopViewController.View is not UITableView tableView)
+			{
+				_nativeMoreRegistrations.Clear();
+				DetachMoreTableView();
+				return;
+			}
+
+			if (!ReferenceEquals(_moreTableView, tableView))
+			{
+				DetachMoreTableView();
+				_moreTableView = tableView;
+				_moreTableView.Scrolled += OnMoreTableScrolled;
+			}
+
+			if (tableView.Window is null)
+			{
+				_nativeMoreRegistrations.Clear();
+				return;
+			}
+
+			var retainedCells = new List<object>();
+			foreach (var cell in tableView.VisibleCells)
+			{
+				var indexPath = tableView.IndexPathForCell(cell);
+				if (indexPath is null)
+					continue;
+
+				var pageIndex = 4 + (int)indexPath.Row;
+				if (pageIndex < 4 || pageIndex >= tabbed.Children.Count)
+					continue;
+
+				retainedCells.Add(cell);
+				_nativeMoreRegistrations.Register(
+					tabbed.Children[pageIndex],
+					cell,
+					NativeElementRoles.ShellTabOverflow,
+					NativeElementDiscriminators.OverflowRow);
+			}
+
+			_nativeMoreRegistrations.Retain(retainedCells);
+		}
+
+		void OnMoreTableScrolled(object sender, EventArgs e)
+		{
+			if (_disposed)
+				return;
+
+			RegisterMoreRows();
+		}
+
+		void DetachMoreTableView()
+		{
+			if (_moreTableView is not null)
+				_moreTableView.Scrolled -= OnMoreTableScrolled;
+			_moreTableView = null;
+		}
+
+		void DetachMoreNavigationDelegate()
+		{
+			if (_moreNavigationDelegate is null)
+				return;
+
+			if (ReferenceEquals(MoreNavigationController.WeakDelegate, _moreNavigationDelegate))
+				MoreNavigationController.WeakDelegate = null;
+			_moreNavigationDelegate.Dispose();
+			_moreNavigationDelegate = null;
+		}
+
+		sealed class MoreNavigationDelegate : UINavigationControllerDelegate
+		{
+			readonly WeakReference<TabbedRenderer> _renderer;
+
+			public MoreNavigationDelegate(TabbedRenderer renderer)
+			{
+				_renderer = new WeakReference<TabbedRenderer>(renderer);
+			}
+
+			public override void DidShowViewController(
+				UINavigationController navigationController,
+				UIViewController viewController,
+				bool animated)
+			{
+				if (_renderer.TryGetTarget(out var renderer) && !renderer._disposed)
+					renderer.RegisterMoreRows();
+			}
 		}
 
 		void UpdateSelectedTabColors()

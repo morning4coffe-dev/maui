@@ -2,9 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CoreGraphics;
 using Foundation;
+using Microsoft.Maui.Controls.Diagnostics;
 using Microsoft.Maui.Controls.Internals;
 using Microsoft.Maui.Graphics;
 using UIKit;
@@ -86,7 +88,7 @@ namespace Microsoft.Maui.Controls.Platform
 						_ => arguments.SetResult(true)));
 				}
 
-				PresentPopUp(sender, VirtualView, PlatformView, alert);
+				PresentPopUp(sender, VirtualView, PlatformView, alert, completion: arguments.Result.Task);
 			}
 
 			void PresentPrompt(Page sender, PromptArguments arguments)
@@ -125,7 +127,7 @@ namespace Microsoft.Maui.Controls.Platform
 				alert.AddAction(UIAlertAction.Create(arguments.Cancel, UIAlertActionStyle.Cancel, _ => arguments.SetResult(null)));
 				alert.AddAction(UIAlertAction.Create(arguments.Accept, UIAlertActionStyle.Default, _ => arguments.SetResult(alert.TextFields[0].Text)));
 
-				PresentPopUp(sender, VirtualView, PlatformView, alert);
+				PresentPopUp(sender, VirtualView, PlatformView, alert, completion: arguments.Result.Task);
 			}
 
 
@@ -154,12 +156,49 @@ namespace Microsoft.Maui.Controls.Platform
 					alert.AddAction(UIAlertAction.Create(blabel, UIAlertActionStyle.Default, _ => arguments.SetResult(blabel)));
 				}
 
-				PresentPopUp(sender, VirtualView, PlatformView, alert, arguments);
+				PresentPopUp(sender, VirtualView, PlatformView, alert, arguments, arguments.Result.Task);
 			}
 
-			static void PresentPopUp(Page sender, Window virtualView, UIWindow platformView, UIAlertController alert, ActionSheetArguments arguments = null)
+			static void PresentPopUp(
+				Page sender,
+				Window virtualView,
+				UIWindow platformView,
+				UIAlertController alert,
+				ActionSheetArguments arguments = null,
+				Task completion = null)
 			{
 				UIWindow presentingWindow = platformView;
+				var registration = new AlertRegistration();
+				registration.Register(
+					sender,
+					alert.View,
+					NativeElementRoles.Dialog,
+					NativeElementDiscriminators.RealizedView);
+				if (alert.TextFields is not null)
+				{
+					foreach (var textField in alert.TextFields)
+					{
+						registration.Register(
+							sender,
+							textField,
+							NativeElementRoles.Dialog,
+							NativeElementDiscriminators.RealizedView);
+					}
+				}
+				foreach (var action in alert.Actions)
+				{
+					registration.Register(
+							sender,
+							action,
+							NativeElementRoles.DialogAction,
+							NativeElementDiscriminators.LogicalModel);
+				}
+				if (completion is not null)
+				{
+					completion.ContinueWith(
+						_ => platformView.BeginInvokeOnMainThread(registration.Dispose),
+						TaskScheduler.Default);
+				}
 
 				if (sender.Handler is IPlatformViewHandler pvh &&
 					pvh.PlatformView?.Window is UIWindow senderPageWindow &&
@@ -192,10 +231,149 @@ namespace Microsoft.Maui.Controls.Platform
 
 				presentingWindow.BeginInvokeOnMainThread(() =>
 				{
-					GetTopUIViewController(presentingWindow)
-						.PresentViewControllerAsync(alert, true)
-						.FireAndForget(virtualView?.Handler?.MauiContext?.CreateLogger<AlertManager>());
+					var presentation = GetTopUIViewController(presentingWindow)
+						.PresentViewControllerAsync(alert, true);
+					presentation.ContinueWith(
+						task =>
+						{
+							platformView.BeginInvokeOnMainThread(() =>
+							{
+								if (task.IsFaulted || task.IsCanceled)
+									registration.Dispose();
+								else
+								{
+									registration.RegisterAlertActionViews(sender, alert);
+									if (alert.PresentationController is not null)
+										registration.Attach(alert.PresentationController);
+								}
+							});
+						},
+						TaskScheduler.Default);
+					presentation.FireAndForget(virtualView?.Handler?.MauiContext?.CreateLogger<AlertManager>());
 				});
+			}
+
+			sealed class AlertRegistration : IDisposable
+			{
+				readonly NativeElementRegistrationSet _registrations = new NativeElementRegistrationSet();
+				readonly AlertDismissalObserver _dismissalObserver;
+				UIPresentationController _presentationController;
+				int _disposed;
+
+				public AlertRegistration()
+				{
+					_dismissalObserver = new AlertDismissalObserver(Dispose);
+				}
+
+				public void Register(
+					object owner,
+					object nativeElement,
+					string role,
+					string discriminator)
+				{
+					if (Volatile.Read(ref _disposed) != 0)
+						return;
+
+					_registrations.Register(owner, nativeElement, role, discriminator);
+				}
+
+				public void RegisterAlertActionViews(object owner, UIAlertController alert)
+				{
+					if (Volatile.Read(ref _disposed) != 0)
+						return;
+
+					alert.View.LayoutIfNeeded();
+					var actionTitles = alert.Actions
+						.Select(action => action.Title)
+						.Where(title => !string.IsNullOrEmpty(title))
+						.GroupBy(title => title, StringComparer.Ordinal)
+						.Where(group => group.Count() == 1)
+						.Select(group => group.Key)
+						.ToHashSet(StringComparer.Ordinal);
+					var actionControls = FindAlertActionControls(alert.View, actionTitles)
+						.GroupBy(GetControlTitle, StringComparer.Ordinal)
+						.Where(group => group.Count() == 1)
+						.Select(group => group.Single());
+					foreach (var control in actionControls)
+					{
+						_registrations.Register(
+							owner,
+							control,
+							NativeElementRoles.DialogAction,
+							NativeElementDiscriminators.RealizedView);
+					}
+				}
+
+				static IEnumerable<UIControl> FindAlertActionControls(
+					UIView view,
+					HashSet<string> actionTitles)
+				{
+					if (view is UIControl control
+						&& actionTitles.Contains(GetControlTitle(control)))
+					{
+						yield return control;
+						yield break;
+					}
+
+					foreach (var subview in view.Subviews)
+					{
+						foreach (var actionControl in FindAlertActionControls(subview, actionTitles))
+							yield return actionControl;
+					}
+				}
+
+				static string GetControlTitle(UIControl control)
+				{
+					if (!string.IsNullOrEmpty(control.AccessibilityLabel))
+						return control.AccessibilityLabel;
+					if (control is UIButton button
+						&& !string.IsNullOrEmpty(button.Title(UIControlState.Normal)))
+					{
+						return button.Title(UIControlState.Normal);
+					}
+
+					return control.Subviews
+						.OfType<UILabel>()
+						.Select(label => label.Text)
+						.FirstOrDefault(text => !string.IsNullOrEmpty(text));
+				}
+
+				public void Attach(UIPresentationController presentationController)
+				{
+					if (Volatile.Read(ref _disposed) != 0)
+						return;
+
+					_presentationController = presentationController;
+					if (presentationController.Delegate is null)
+						presentationController.Delegate = _dismissalObserver;
+				}
+
+				public void Dispose()
+				{
+					if (Interlocked.Exchange(ref _disposed, 1) != 0)
+						return;
+
+					if (_presentationController?.Delegate == _dismissalObserver)
+						_presentationController.Delegate = null;
+					_presentationController = null;
+					_registrations.Dispose();
+				}
+			}
+
+			sealed class AlertDismissalObserver : UIAdaptivePresentationControllerDelegate
+			{
+				Action _dismissed;
+
+				public AlertDismissalObserver(Action dismissed)
+				{
+					_dismissed = dismissed;
+				}
+
+				public override void DidDismiss(UIPresentationController presentationController)
+				{
+					_dismissed?.Invoke();
+					_dismissed = null;
+				}
 			}
 
 			static UIViewController GetTopUIViewController(UIWindow platformWindow)
