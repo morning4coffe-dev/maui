@@ -29,7 +29,7 @@ namespace Microsoft.Maui.Controls.Platform
 	{
 		static ColorStateList? _defaultTitleTextColor;
 		static int? _defaultNavigationIconColor;
-		
+
 		// Track which ToolbarItem should currently be associated with each MenuItem ID to prevent race conditions
 		// This prevents stale async icon loading callbacks from updating the wrong toolbar items during navigation
 		static readonly ConcurrentDictionary<int, WeakReference<ToolbarItem>> _menuItemToolbarItemMap = new();
@@ -260,7 +260,7 @@ namespace Microsoft.Maui.Controls.Platform
 			List<ToolbarItem> previousToolBarItems,
 			Action<Context, IMenuItem, ToolbarItem>? updateMenuItemIcon = null,
 			NativeElementRegistrationSet? nativeElementRegistrations = null,
-			Toolbar? nativeToolbarOwner = null)
+			object? nativeToolbarOwner = null)
 		{
 			if (previousMenuItems == null)
 				return;
@@ -296,7 +296,7 @@ namespace Microsoft.Maui.Controls.Platform
 
 						// Clean up the mapping for disposed MenuItems
 						_menuItemToolbarItemMap.TryRemove(previousMenuItem.ItemId, out _);
-						
+
 						previousMenuItem.Dispose();
 						previousMenuItems.RemoveAt(j);
 					}
@@ -329,10 +329,10 @@ namespace Microsoft.Maui.Controls.Platform
 				var menuItemToRemove = previousMenuItems[toolBarItemCount];
 				nativeElementRegistrations?.Unregister(menuItemToRemove);
 				menu?.RemoveItem(menuItemToRemove.ItemId);
-				
+
 				// Clean up the mapping for disposed MenuItems
 				_menuItemToolbarItemMap.TryRemove(menuItemToRemove.ItemId, out _);
-				
+
 				menuItemToRemove.Dispose();
 				previousMenuItems.RemoveAt(toolBarItemCount);
 			}
@@ -409,7 +409,7 @@ namespace Microsoft.Maui.Controls.Platform
 
 			// Track which ToolbarItem should be associated with this MenuItem to prevent race conditions
 			_menuItemToolbarItemMap[menuitem.ItemId] = new WeakReference<ToolbarItem>(item);
-			
+
 			// NOTE: Custom updateMenuItemIcon callbacks are responsible for their own
 			// race condition handling. The _menuItemToolbarItemMap guard only applies
 			// to the default UpdateMenuItemIcon path.
@@ -493,7 +493,7 @@ namespace Microsoft.Maui.Controls.Platform
 
 		static void RegisterToolbarChrome(
 			AToolbar toolbar,
-			Toolbar owner,
+			object owner,
 			NativeElementRegistrationSet nativeElementRegistrations)
 		{
 			var lifecycleEpoch = nativeElementRegistrations.LifecycleEpoch;
@@ -523,19 +523,64 @@ namespace Microsoft.Maui.Controls.Platform
 					nativeElementRegistrations.UnregisterOwner(
 						owner,
 						NativeElementDiscriminators.TitleView);
-					return;
+				}
+				else
+				{
+					nativeElementRegistrations.RegisterExclusive(
+						owner,
+						titleView,
+						NativeElementRoles.ToolbarTitle,
+						NativeElementDiscriminators.TitleView);
 				}
 
-				nativeElementRegistrations.RegisterExclusive(
-					owner,
-					titleView,
-					NativeElementRoles.ToolbarTitle,
-					NativeElementDiscriminators.TitleView);
+				var overflowButton = FindToolbarOverflowButton(toolbar);
+				if (overflowButton is null)
+				{
+					nativeElementRegistrations.UnregisterOwner(
+						owner,
+						NativeElementDiscriminators.RealizedView);
+				}
+				else
+				{
+					nativeElementRegistrations.RegisterExclusive(
+						owner,
+						overflowButton,
+						NativeElementRoles.ToolbarOverflow,
+						NativeElementDiscriminators.RealizedView);
+				}
 			}
 
 			RegisterCurrentViews();
 			toolbar.Post(RegisterCurrentViews);
 			toolbar.PostDelayed(RegisterCurrentViews, 100);
+			toolbar.PostDelayed(RegisterCurrentViews, 500);
+		}
+
+		static AView? FindToolbarOverflowButton(AView view)
+		{
+			var typeName = view.GetType().Name;
+			if (view.Parent is ActionMenuView
+				&& view.Clickable
+				&& (typeName.Contains("Overflow", StringComparison.Ordinal)
+					|| (!string.IsNullOrWhiteSpace(view.ContentDescription)
+						&& typeName.Contains("Image", StringComparison.OrdinalIgnoreCase))))
+			{
+				return view;
+			}
+
+			if (view is not ViewGroup group)
+				return null;
+
+			for (var index = 0; index < group.ChildCount; index++)
+			{
+				if (group.GetChildAt(index) is AView child
+					&& FindToolbarOverflowButton(child) is { } overflowButton)
+				{
+					return overflowButton;
+				}
+			}
+
+			return null;
 		}
 
 		static void SetSemanticProperties(ToolbarItem menuItem, AView? view)
@@ -642,7 +687,7 @@ namespace Microsoft.Maui.Controls.Platform
 			List<ToolbarItem> currentToolbarItems,
 			Action<Context, IMenuItem, ToolbarItem>? updateMenuItemIcon = null,
 			NativeElementRegistrationSet? nativeElementRegistrations = null,
-			Toolbar? nativeToolbarOwner = null)
+			object? nativeToolbarOwner = null)
 		{
 			if (toolbarItems == null)
 				return;

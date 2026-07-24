@@ -494,7 +494,13 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 				}
 
 				var menu = UIMenu.Create(string.Empty, null, UIMenuIdentifier.Edit, UIMenuOptions.DisplayInline, secondaries.ToArray());
-				var menuButton = new UIBarButtonItem(secondaryIcon, menu)
+				var menuControl = UIButton.FromType(UIButtonType.System);
+				menuControl.SetImage(secondaryIcon, UIControlState.Normal);
+				menuControl.Menu = menu;
+				menuControl.ShowsMenuAsPrimaryAction = true;
+				menuControl.AccessibilityIdentifier = "SecondaryToolbarMenuButton";
+				menuControl.SizeToFit();
+				var menuButton = new UIBarButtonItem(menuControl)
 				{
 					AccessibilityIdentifier = "SecondaryToolbarMenuButton"
 				};
@@ -511,9 +517,9 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 					NativeElementDiscriminators.LogicalModel);
 				_nativeRightToolbarRegistrations.Register(
 					Page,
-					menuButton,
+					menuControl,
 					NativeElementRoles.ToolbarOverflow,
-					NativeElementDiscriminators.LogicalModel);
+					NativeElementDiscriminators.RealizedView);
 			}
 
 			NavigationItem.SetRightBarButtonItems(primaries is null ? Array.Empty<UIBarButtonItem>() : primaries.ToArray(), false);
@@ -645,7 +651,7 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 				{
 					NavigationItem.LeftBarButtonItem =
 						new UIBarButtonItem(icon, UIBarButtonItemStyle.Plain, (s, e) => LeftBarButtonItemHandler(ViewController, IsRootPage)) { Enabled = enabled };
-						
+
 					// For iOS 26+, explicitly set the tint color on the bar button item
 					// because the navigation bar's tint color is not automatically inherited
 					if (OperatingSystem.IsIOSVersionAtLeast(26) || OperatingSystem.IsMacCatalystVersionAtLeast(26))
@@ -818,13 +824,11 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 			if (BackButtonBehavior == value)
 				return;
 
-			if (BackButtonBehavior != null)
-				BackButtonBehavior.PropertyChanged -= OnBackButtonBehaviorPropertyChanged;
+			BackButtonBehavior?.PropertyChanged -= OnBackButtonBehaviorPropertyChanged;
 
 			BackButtonBehavior = value;
 
-			if (BackButtonBehavior != null)
-				BackButtonBehavior.PropertyChanged += OnBackButtonBehaviorPropertyChanged;
+			BackButtonBehavior?.PropertyChanged += OnBackButtonBehaviorPropertyChanged;
 
 			UpdateToolbarItemsInternal();
 		}
@@ -1139,10 +1143,7 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 
 		void OnSearchBarEditingStopped(object? sender, EventArgs e)
 		{
-			if (_searchController is not null)
-			{
-				_searchController.Active = false;
-			}
+			_searchController?.Active = false;
 		}
 
 		void BookmarkButtonClicked(object? sender, EventArgs e)
@@ -1399,13 +1400,11 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 				{
 					((IShellController)shell).RemoveFlyoutBehaviorObserver(this);
 
-					if (BackButtonBehavior is not null)
-						BackButtonBehavior.PropertyChanged -= OnBackButtonBehaviorPropertyChanged;
+					BackButtonBehavior?.PropertyChanged -= OnBackButtonBehaviorPropertyChanged;
 
 					shell.PropertyChanged -= HandleShellPropertyChanged;
 
-					if (shell.Toolbar is not null)
-						shell.Toolbar.PropertyChanged -= OnToolbarPropertyChanged;
+					shell.Toolbar?.PropertyChanged -= OnToolbarPropertyChanged;
 				}
 
 				if (NavigationItem?.TitleView is TitleViewContainer tvc)

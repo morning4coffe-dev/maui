@@ -38,8 +38,7 @@ namespace Microsoft.Maui.Controls
 
 			if (newHandler == null)
 			{
-				if (_platformTitleView != null)
-					_platformTitleView.Child = null;
+				_platformTitleView?.Child = null;
 
 				if (_currentBarBackground is GradientBrush currentGradientBrush)
 				{
@@ -83,7 +82,7 @@ namespace Microsoft.Maui.Controls
 					_currentToolbarItems,
 					updateMenuItemIcon: UpdateMenuItemIcon,
 					nativeElementRegistrations: _nativeMenuRegistrations,
-					nativeToolbarOwner: this);
+					nativeToolbarOwner: Parent);
 		}
 
 		void UpdateMenuItemIcon(Context context, IMenuItem menuItem, ToolbarItem toolBarItem)
@@ -108,7 +107,7 @@ namespace Microsoft.Maui.Controls
 				_currentToolbarItems,
 				updateMenuItemIcon: UpdateMenuItemIcon,
 				nativeElementRegistrations: _nativeMenuRegistrations,
-				nativeToolbarOwner: this);
+				nativeToolbarOwner: Parent);
 		}
 
 		void UpdateTitleView()

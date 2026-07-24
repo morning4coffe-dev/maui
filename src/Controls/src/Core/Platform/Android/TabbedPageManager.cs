@@ -68,6 +68,7 @@ public class TabbedPageManager
 	readonly NativeElementRegistrationSet _nativeMoreRegistrations = new NativeElementRegistrationSet();
 	readonly List<IMenuItem> _registeredMenuItems = new List<IMenuItem>();
 	readonly List<AView> _moreItemViews = new List<AView>();
+	BottomSheetDialog _moreDialog;
 	int _tabRegistrationGeneration;
 
 	protected NavigationRootManager NavigationRootManager { get; }
@@ -128,7 +129,7 @@ public class TabbedPageManager
 		{
 			_tabRegistrationGeneration++;
 			_nativeTabRegistrations.Clear();
-			ClearMoreRegistrations();
+			CloseMoreDialog();
 			_registeredMenuItems.Clear();
 			Element.InternalChildren.ForEach(page => TeardownPage(page as Page));
 			((IPageController)Element).InternalChildren.CollectionChanged -= OnChildrenCollectionChanged;
@@ -136,7 +137,7 @@ public class TabbedPageManager
 			Element.Disappearing -= OnTabbedPageDisappearing;
 
 			RemoveTabs();
-			
+
 			_viewPager.LayoutChange -= OnLayoutChanged;
 			_viewPager.Adapter = null;
 
@@ -152,7 +153,7 @@ public class TabbedPageManager
 		}
 
 		Element = tabbedPage;
-		
+
 		if (Element is not null)
 		{
 			_viewPager.LayoutChange += OnLayoutChanged;
@@ -376,6 +377,7 @@ public class TabbedPageManager
 	protected virtual void OnChildrenCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 	{
 		_tabRegistrationGeneration++;
+		CloseMoreDialog();
 		if (e.Action == NotifyCollectionChangedAction.Reset)
 		{
 			_nativeTabRegistrations.Clear();
@@ -945,7 +947,12 @@ public class TabbedPageManager
 		}
 
 		if (sender is BottomSheetDialog bsd)
+		{
 			bsd.DismissEvent -= OnMoreSheetDismissed;
+			if (ReferenceEquals(_moreDialog, bsd))
+				_moreDialog = null;
+			bsd.Dispose();
+		}
 	}
 
 	protected virtual void OnMoreItemSelected(int selectedIndex, BottomSheetDialog dialog)
@@ -953,10 +960,7 @@ public class TabbedPageManager
 		if (selectedIndex >= 0 && _bottomNavigationView.SelectedItemId != selectedIndex && Element.Children.Count > selectedIndex)
 			Element.CurrentPage = Element.Children[selectedIndex];
 
-		dialog.Dismiss();
-		ClearMoreRegistrations();
-		dialog.DismissEvent -= OnMoreSheetDismissed;
-		dialog.Dispose();
+		CloseMoreDialog();
 	}
 
 	void PrepareMoreRegistrations()
@@ -998,6 +1002,20 @@ public class TabbedPageManager
 		foreach (var view in _moreItemViews)
 			view.Dispose();
 		_moreItemViews.Clear();
+	}
+
+	void CloseMoreDialog()
+	{
+		var dialog = _moreDialog;
+		_moreDialog = null;
+		ClearMoreRegistrations();
+		if (dialog is null)
+			return;
+
+		dialog.DismissEvent -= OnMoreSheetDismissed;
+		if (dialog.IsShowing)
+			dialog.Dismiss();
+		dialog.Dispose();
 	}
 
 	void UpdateItemIconColor()
@@ -1254,6 +1272,7 @@ public class TabbedPageManager
 			var id = item.ItemId;
 			if (id == BottomNavigationViewUtils.MoreTabId)
 			{
+				_tabbedPageManager.CloseMoreDialog();
 				_tabbedPageManager.PrepareMoreRegistrations();
 				var items = _tabbedPageManager.CreateTabList();
 				var bottomSheetDialog = BottomNavigationViewUtils.CreateMoreBottomSheet(
@@ -1262,6 +1281,7 @@ public class TabbedPageManager
 					items,
 					_tabbedPageManager._bottomNavigationView.MaxItemCount,
 					_tabbedPageManager.RegisterMoreRow);
+				_tabbedPageManager._moreDialog = bottomSheetDialog;
 				bottomSheetDialog.DismissEvent += _tabbedPageManager.OnMoreSheetDismissed;
 				bottomSheetDialog.Show();
 				_tabbedPageManager.RegisterMoreDialog(bottomSheetDialog);

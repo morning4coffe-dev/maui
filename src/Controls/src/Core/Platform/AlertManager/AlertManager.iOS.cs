@@ -241,7 +241,7 @@ namespace Microsoft.Maui.Controls.Platform
 								{
 									registration.RegisterAlertActionViews(sender, alert);
 									if (alert.PresentationController is not null)
-										registration.Attach(alert.PresentationController);
+										registration.Attach(alert.PresentationController, alert);
 								}
 							});
 						},
@@ -255,6 +255,7 @@ namespace Microsoft.Maui.Controls.Platform
 				readonly NativeElementRegistrationSet _registrations = new NativeElementRegistrationSet();
 				readonly AlertDismissalObserver _dismissalObserver;
 				UIPresentationController _presentationController;
+				NSTimer _lifecycleTimer;
 				int _disposed;
 
 				public AlertRegistration()
@@ -343,7 +344,9 @@ namespace Microsoft.Maui.Controls.Platform
 						.FirstOrDefault(text => !string.IsNullOrEmpty(text));
 				}
 
-				public void Attach(UIPresentationController presentationController)
+				public void Attach(
+					UIPresentationController presentationController,
+					UIViewController presentedController)
 				{
 					if (Volatile.Read(ref _disposed) != 0)
 						return;
@@ -351,6 +354,23 @@ namespace Microsoft.Maui.Controls.Platform
 					_presentationController = presentationController;
 					if (presentationController.Delegate is null)
 						presentationController.Delegate = _dismissalObserver;
+
+					var weakController = new WeakReference<UIViewController>(presentedController);
+					_lifecycleTimer?.Invalidate();
+					_lifecycleTimer?.Dispose();
+					_lifecycleTimer = NSTimer.CreateRepeatingScheduledTimer(
+						TimeSpan.FromMilliseconds(250),
+						_ =>
+						{
+							if (Volatile.Read(ref _disposed) != 0)
+								return;
+							if (!weakController.TryGetTarget(out var controller)
+								|| controller.PresentingViewController is null
+								|| controller.ViewIfLoaded?.Window is null)
+							{
+								Dispose();
+							}
+						});
 				}
 
 				public void Dispose()
@@ -361,6 +381,9 @@ namespace Microsoft.Maui.Controls.Platform
 					if (_presentationController?.Delegate == _dismissalObserver)
 						_presentationController.Delegate = null;
 					_presentationController = null;
+					_lifecycleTimer?.Invalidate();
+					_lifecycleTimer?.Dispose();
+					_lifecycleTimer = null;
 					_registrations.Dispose();
 				}
 			}

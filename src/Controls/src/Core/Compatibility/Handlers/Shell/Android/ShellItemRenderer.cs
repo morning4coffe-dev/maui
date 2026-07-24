@@ -317,11 +317,9 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 		{
 			base.OnDisplayedPageChanged(newPage, oldPage);
 
-			if (oldPage is not null)
-				oldPage.PropertyChanged -= OnDisplayedElementPropertyChanged;
+			oldPage?.PropertyChanged -= OnDisplayedElementPropertyChanged;
 
-			if (newPage is not null)
-				newPage.PropertyChanged += OnDisplayedElementPropertyChanged;
+			newPage?.PropertyChanged += OnDisplayedElementPropertyChanged;
 
 			if (newPage is not null && !_menuSetup)
 			{
@@ -426,6 +424,17 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 		protected override void OnShellItemsChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
 			_tabRegistrationGeneration++;
+			_nativeMoreRegistrations.Clear();
+			DisposeMoreItemViews();
+			if (_bottomSheetDialog is not null)
+			{
+				_bottomSheetDialog.DismissEvent -= OnMoreSheetDismissed;
+				if (_bottomSheetDialog.IsShowing)
+					_bottomSheetDialog.Dismiss();
+				_bottomSheetDialog.Dispose();
+				_bottomSheetDialog = null;
+			}
+
 			if (e.Action == NotifyCollectionChangedAction.Reset)
 			{
 				_nativeTabRegistrations.Clear();

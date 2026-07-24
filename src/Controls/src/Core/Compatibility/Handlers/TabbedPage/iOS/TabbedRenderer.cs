@@ -38,7 +38,6 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 		long _nextTabRegistrationGeneration;
 		bool _disposed;
 		UITableView _moreTableView;
-		MoreNavigationDelegate _moreNavigationDelegate;
 
 		Brush _currentBarBackground;
 
@@ -66,8 +65,6 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 				// because it is a special case where the user is navigating to a different set of tabs
 				if (value == MoreNavigationController)
 				{
-					_moreNavigationDelegate ??= new MoreNavigationDelegate(this);
-					MoreNavigationController.WeakDelegate = _moreNavigationDelegate;
 					RegisterMoreRows();
 					return;
 				}
@@ -102,7 +99,6 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 			_nativeVisibleTabRegistrations.Clear();
 			_nativeMoreRegistrations.Clear();
 			DetachMoreTableView();
-			DetachMoreNavigationDelegate();
 			_tabRegistrationGenerations.Clear();
 			_viewHandlerWrapper.SetVirtualView(element, OnElementChanged, false);
 			_element = element is null ? null : new(element);
@@ -186,7 +182,6 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 				_nativeVisibleTabRegistrations.Clear();
 				_nativeMoreRegistrations.Clear();
 				DetachMoreTableView();
-				DetachMoreNavigationDelegate();
 				_tabRegistrationGenerations.Clear();
 				_tabBarAppearance?.Dispose();
 				_tabBarAppearance = null;
@@ -270,12 +265,12 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 		void OnPagesChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
+			_nativeMoreRegistrations.Clear();
+			DetachMoreTableView();
 			if (e.Action == NotifyCollectionChangedAction.Reset)
 			{
 				_nativeTabItemRegistrations.Clear();
 				_nativeVisibleTabRegistrations.Clear();
-				_nativeMoreRegistrations.Clear();
-				DetachMoreTableView();
 				_tabRegistrationGenerations.Clear();
 			}
 
@@ -747,39 +742,8 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 		void DetachMoreTableView()
 		{
-			if (_moreTableView is not null)
-				_moreTableView.Scrolled -= OnMoreTableScrolled;
+			_moreTableView?.Scrolled -= OnMoreTableScrolled;
 			_moreTableView = null;
-		}
-
-		void DetachMoreNavigationDelegate()
-		{
-			if (_moreNavigationDelegate is null)
-				return;
-
-			if (ReferenceEquals(MoreNavigationController.WeakDelegate, _moreNavigationDelegate))
-				MoreNavigationController.WeakDelegate = null;
-			_moreNavigationDelegate.Dispose();
-			_moreNavigationDelegate = null;
-		}
-
-		sealed class MoreNavigationDelegate : UINavigationControllerDelegate
-		{
-			readonly WeakReference<TabbedRenderer> _renderer;
-
-			public MoreNavigationDelegate(TabbedRenderer renderer)
-			{
-				_renderer = new WeakReference<TabbedRenderer>(renderer);
-			}
-
-			public override void DidShowViewController(
-				UINavigationController navigationController,
-				UIViewController viewController,
-				bool animated)
-			{
-				if (_renderer.TryGetTarget(out var renderer) && !renderer._disposed)
-					renderer.RegisterMoreRows();
-			}
 		}
 
 		void UpdateSelectedTabColors()
