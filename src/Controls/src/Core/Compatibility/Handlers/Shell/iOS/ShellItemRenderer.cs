@@ -58,6 +58,7 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 		readonly NativeElementRegistrationSet _nativeVisibleTabRegistrations = new NativeElementRegistrationSet();
 		readonly NativeElementRegistrationSet _nativeMoreRegistrations = new NativeElementRegistrationSet();
 		UITableView _moreTableView;
+		IDisposable _moreContentOffsetObserver;
 
 		internal IShellSectionRenderer CurrentRenderer { get; private set; }
 
@@ -131,11 +132,7 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 		public override void ViewDidLoad()
 		{
 			base.ViewDidLoad();
-			_nativeTabBarRegistrations.Register(
-				ShellItem,
-				TabBar,
-				NativeElementRoles.ShellTab,
-				NativeElementDiscriminators.TabBar);
+			RegisterTabBar();
 
 			ShouldSelectViewController = (tabController, viewController) =>
 			{
@@ -157,9 +154,22 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 			};
 		}
 
+		void RegisterTabBar()
+		{
+			if (ShellItem is null || !IsViewLoaded)
+				return;
+
+			_nativeTabBarRegistrations.Register(
+				ShellItem,
+				TabBar,
+				NativeElementRoles.ShellTab,
+				NativeElementDiscriminators.TabBar);
+		}
+
 		public override void ViewDidAppear(bool animated)
 		{
 			base.ViewDidAppear(animated);
+			RegisterTabBar();
 			ApplyInitialDisabledState();
 		}
 
@@ -222,11 +232,9 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 			_nativeTabBarRegistrations.Clear();
 			_nativeVisibleTabRegistrations.Clear();
 			_nativeMoreRegistrations.Clear();
-			if (_moreTableView is not null)
-			{
-				_moreTableView.Scrolled -= OnMoreTableScrolled;
-				_moreTableView = null;
-			}
+			_moreContentOffsetObserver?.Dispose();
+			_moreContentOffsetObserver = null;
+			_moreTableView = null;
 			if (ReferenceEquals(MoreNavigationController.WeakDelegate, this))
 				MoreNavigationController.WeakDelegate = null;
 
@@ -480,11 +488,15 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 			var moreTableView = MoreNavigationController.TopViewController.View as UITableView;
 			if (!ReferenceEquals(_moreTableView, moreTableView))
 			{
-				if (_moreTableView is not null)
-					_moreTableView.Scrolled -= OnMoreTableScrolled;
+				_moreContentOffsetObserver?.Dispose();
 				_moreTableView = moreTableView;
 				if (_moreTableView is not null)
-					_moreTableView.Scrolled += OnMoreTableScrolled;
+				{
+					_moreContentOffsetObserver = _moreTableView.AddObserver(
+						"contentOffset",
+						NSKeyValueObservingOptions.New,
+						_ => OnMoreTableScrolled());
+				}
 			}
 
 			if (moreTableView?.Window is null)
@@ -536,7 +548,7 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 			_nativeMoreRegistrations.Retain(retainedCells);
 		}
 
-		void OnMoreTableScrolled(object sender, EventArgs e)
+		void OnMoreTableScrolled()
 		{
 			if (_disposed)
 				return;

@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using Foundation;
 using Microsoft.Maui.Controls.Diagnostics;
 using Microsoft.Maui.Controls.Internals;
 using Microsoft.Maui.Controls.Platform;
@@ -38,6 +39,7 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 		long _nextTabRegistrationGeneration;
 		bool _disposed;
 		UITableView _moreTableView;
+		IDisposable _moreContentOffsetObserver;
 
 		Brush _currentBarBackground;
 
@@ -701,7 +703,10 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 			{
 				DetachMoreTableView();
 				_moreTableView = tableView;
-				_moreTableView.Scrolled += OnMoreTableScrolled;
+				_moreContentOffsetObserver = _moreTableView.AddObserver(
+					"contentOffset",
+					NSKeyValueObservingOptions.New,
+					_ => OnMoreTableScrolled());
 			}
 
 			if (tableView.Window is null)
@@ -732,7 +737,7 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 			_nativeMoreRegistrations.Retain(retainedCells);
 		}
 
-		void OnMoreTableScrolled(object sender, EventArgs e)
+		void OnMoreTableScrolled()
 		{
 			if (_disposed)
 				return;
@@ -742,7 +747,8 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 		void DetachMoreTableView()
 		{
-			_moreTableView?.Scrolled -= OnMoreTableScrolled;
+			_moreContentOffsetObserver?.Dispose();
+			_moreContentOffsetObserver = null;
 			_moreTableView = null;
 		}
 
