@@ -241,7 +241,7 @@ namespace Microsoft.Maui.Controls.Platform
 								{
 									registration.RegisterAlertActionViews(sender, alert);
 									if (alert.PresentationController is not null)
-										registration.Attach(alert.PresentationController, alert);
+										registration.Attach(sender, alert);
 								}
 							});
 						},
@@ -253,15 +253,8 @@ namespace Microsoft.Maui.Controls.Platform
 			sealed class AlertRegistration : IDisposable
 			{
 				readonly NativeElementRegistrationSet _registrations = new NativeElementRegistrationSet();
-				readonly AlertDismissalObserver _dismissalObserver;
-				UIPresentationController _presentationController;
 				NSTimer _lifecycleTimer;
 				int _disposed;
-
-				public AlertRegistration()
-				{
-					_dismissalObserver = new AlertDismissalObserver(Dispose);
-				}
 
 				public void Register(
 					object owner,
@@ -291,71 +284,118 @@ namespace Microsoft.Maui.Controls.Platform
 							group => alert.Actions.Single(action =>
 								string.Equals(action.Title, group.Key, StringComparison.Ordinal)),
 							StringComparer.Ordinal);
-					var actionControls = FindAlertActionControls(alert.View, actionsByTitle.Keys)
-						.GroupBy(GetControlTitle, StringComparer.Ordinal)
+					var actionViews = FindAlertActionViews(alert.View, actionsByTitle.Keys)
+						.GroupBy(GetActionViewTitle, StringComparer.Ordinal)
 						.Where(group => group.Count() == 1)
-						.Select(group => group.Single());
-					foreach (var control in actionControls)
+						.Select(group => group.Single())
+						.ToList();
+					foreach (var actionView in actionViews)
 					{
-						var title = GetControlTitle(control);
-						_registrations.Unregister(actionsByTitle[title]);
+						var title = GetActionViewTitle(actionView);
+						if (!actionsByTitle.TryGetValue(title, out var action))
+							continue;
+
+						_registrations.Unregister(action);
 						_registrations.Register(
 							owner,
-							control,
+							actionView,
 							NativeElementRoles.DialogAction,
 							NativeElementDiscriminators.RealizedView);
 					}
 				}
 
-				static IEnumerable<UIControl> FindAlertActionControls(
+				static IEnumerable<UIView> FindAlertActionViews(
 					UIView view,
 					ICollection<string> actionTitles)
 				{
-					if (view is UIControl control)
+					var matchingTitles = GetActionTitles(view, actionTitles)
+						.Distinct(StringComparer.Ordinal)
+						.ToList();
+					if (matchingTitles.Count == 1)
 					{
-						var title = GetControlTitle(control);
-						if (!string.IsNullOrEmpty(title) && actionTitles.Contains(title))
-						{
-							yield return control;
-							yield break;
-						}
+						yield return FindDeepestInteractiveActionView(
+							view,
+							actionTitles,
+							matchingTitles[0]);
+						yield break;
 					}
+					if (matchingTitles.Count == 0)
+						yield break;
 
 					foreach (var subview in view.Subviews)
 					{
-						foreach (var actionControl in FindAlertActionControls(subview, actionTitles))
-							yield return actionControl;
+						foreach (var actionView in FindAlertActionViews(subview, actionTitles))
+							yield return actionView;
 					}
 				}
 
-				static string GetControlTitle(UIControl control)
+				static UIView FindDeepestInteractiveActionView(
+					UIView view,
+					ICollection<string> actionTitles,
+					string title)
 				{
-					if (!string.IsNullOrEmpty(control.AccessibilityLabel))
-						return control.AccessibilityLabel;
-					if (control is UIButton button
-						&& !string.IsNullOrEmpty(button.Title(UIControlState.Normal)))
+					foreach (var subview in view.Subviews)
 					{
-						return button.Title(UIControlState.Normal);
+						if (subview.UserInteractionEnabled
+							&& GetActionTitles(subview, actionTitles)
+							.Contains(title, StringComparer.Ordinal))
+						{
+							return FindDeepestInteractiveActionView(
+								subview,
+								actionTitles,
+								title);
+						}
 					}
 
-					return control.Subviews
-						.OfType<UILabel>()
-						.Select(label => label.Text)
+					return view;
+				}
+
+				static IEnumerable<string> GetActionTitles(
+					UIView view,
+					ICollection<string> actionTitles)
+				{
+					var title = GetDirectActionViewTitle(view);
+					if (!string.IsNullOrEmpty(title) && actionTitles.Contains(title))
+						yield return title;
+
+					foreach (var subview in view.Subviews)
+					{
+						foreach (var actionTitle in GetActionTitles(subview, actionTitles))
+							yield return actionTitle;
+					}
+				}
+
+				static string GetActionViewTitle(UIView view)
+				{
+					var title = GetDirectActionViewTitle(view);
+					if (!string.IsNullOrEmpty(title))
+						return title;
+
+					return view.Subviews
+						.Select(GetActionViewTitle)
 						.FirstOrDefault(text => !string.IsNullOrEmpty(text));
 				}
 
+				static string GetDirectActionViewTitle(UIView view)
+				{
+					if (!string.IsNullOrEmpty(view.AccessibilityLabel))
+						return view.AccessibilityLabel;
+					if (view is UIButton button)
+						return button.Title(UIControlState.Normal);
+					if (view is UILabel label)
+						return label.Text;
+
+					return null;
+				}
+
 				public void Attach(
-					UIPresentationController presentationController,
-					UIViewController presentedController)
+					object owner,
+					UIAlertController presentedController)
 				{
 					if (Volatile.Read(ref _disposed) != 0)
 						return;
 
-					_presentationController = presentationController;
-					if (presentationController.Delegate is null)
-						presentationController.Delegate = _dismissalObserver;
-
-					var weakController = new WeakReference<UIViewController>(presentedController);
+					var weakController = new WeakReference<UIAlertController>(presentedController);
 					_lifecycleTimer?.Invalidate();
 					_lifecycleTimer?.Dispose();
 					_lifecycleTimer = NSTimer.CreateRepeatingScheduledTimer(
@@ -364,9 +404,13 @@ namespace Microsoft.Maui.Controls.Platform
 						{
 							if (Volatile.Read(ref _disposed) != 0)
 								return;
-							if (!weakController.TryGetTarget(out var controller)
-								|| controller.PresentingViewController is null
-								|| controller.ViewIfLoaded?.Window is null)
+							if (weakController.TryGetTarget(out var controller)
+								&& controller.PresentingViewController is not null
+								&& controller.ViewIfLoaded?.Window is not null)
+							{
+								RegisterAlertActionViews(owner, controller);
+							}
+							else
 							{
 								Dispose();
 							}
@@ -378,29 +422,10 @@ namespace Microsoft.Maui.Controls.Platform
 					if (Interlocked.Exchange(ref _disposed, 1) != 0)
 						return;
 
-					if (_presentationController?.Delegate == _dismissalObserver)
-						_presentationController.Delegate = null;
-					_presentationController = null;
 					_lifecycleTimer?.Invalidate();
 					_lifecycleTimer?.Dispose();
 					_lifecycleTimer = null;
 					_registrations.Dispose();
-				}
-			}
-
-			sealed class AlertDismissalObserver : UIAdaptivePresentationControllerDelegate
-			{
-				Action _dismissed;
-
-				public AlertDismissalObserver(Action dismissed)
-				{
-					_dismissed = dismissed;
-				}
-
-				public override void DidDismiss(UIPresentationController presentationController)
-				{
-					_dismissed?.Invoke();
-					_dismissed = null;
 				}
 			}
 
