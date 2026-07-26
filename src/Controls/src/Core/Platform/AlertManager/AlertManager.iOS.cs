@@ -73,27 +73,57 @@ namespace Microsoft.Maui.Controls.Platform
 			void PresentAlert(Page sender, AlertArguments arguments)
 			{
 				var alert = UIAlertController.Create(arguments.Title, arguments.Message, UIAlertControllerStyle.Alert);
+				var logicalActions = new Dictionary<UIAlertAction, MenuItem>();
+				var completed = 0;
+				void Complete(Action setResult)
+				{
+					if (Interlocked.Exchange(ref completed, 1) == 0)
+						setResult();
+				}
+
 				var oldFrame = alert.View.Frame;
 				alert.View.Frame = new RectF((float)oldFrame.X, (float)oldFrame.Y, (float)oldFrame.Width, (float)oldFrame.Height - AlertPadding * 2);
 
 				if (arguments.Cancel != null)
 				{
-					alert.AddAction(UIAlertAction.Create(arguments.Cancel, UIAlertActionStyle.Cancel,
-						_ => arguments.SetResult(false)));
+					AddDialogAction(
+						alert,
+						logicalActions,
+						arguments.Cancel,
+						UIAlertActionStyle.Cancel,
+						() => Complete(() => arguments.SetResult(false)));
 				}
 
 				if (arguments.Accept != null)
 				{
-					alert.AddAction(UIAlertAction.Create(arguments.Accept, UIAlertActionStyle.Default,
-						_ => arguments.SetResult(true)));
+					AddDialogAction(
+						alert,
+						logicalActions,
+						arguments.Accept,
+						UIAlertActionStyle.Default,
+						() => Complete(() => arguments.SetResult(true)));
 				}
 
-				PresentPopUp(sender, VirtualView, PlatformView, alert, completion: arguments.Result.Task);
+				PresentPopUp(
+					sender,
+					VirtualView,
+					PlatformView,
+					alert,
+					logicalActions: logicalActions,
+					completion: arguments.Result.Task);
 			}
 
 			void PresentPrompt(Page sender, PromptArguments arguments)
 			{
 				var alert = UIAlertController.Create(arguments.Title, arguments.Message, UIAlertControllerStyle.Alert);
+				var logicalActions = new Dictionary<UIAlertAction, MenuItem>();
+				var completed = 0;
+				void Complete(Action setResult)
+				{
+					if (Interlocked.Exchange(ref completed, 1) == 0)
+						setResult();
+				}
+
 				alert.AddTextField(uiTextField =>
 				{
 					uiTextField.Placeholder = arguments.Placeholder;
@@ -124,26 +154,60 @@ namespace Microsoft.Maui.Controls.Platform
 				var oldFrame = alert.View.Frame;
 				alert.View.Frame = new RectF((float)oldFrame.X, (float)oldFrame.Y, (float)oldFrame.Width, (float)oldFrame.Height - AlertPadding * 2);
 
-				alert.AddAction(UIAlertAction.Create(arguments.Cancel, UIAlertActionStyle.Cancel, _ => arguments.SetResult(null)));
-				alert.AddAction(UIAlertAction.Create(arguments.Accept, UIAlertActionStyle.Default, _ => arguments.SetResult(alert.TextFields[0].Text)));
+				AddDialogAction(
+					alert,
+					logicalActions,
+					arguments.Cancel,
+					UIAlertActionStyle.Cancel,
+					() => Complete(() => arguments.SetResult(null)));
+				AddDialogAction(
+					alert,
+					logicalActions,
+					arguments.Accept,
+					UIAlertActionStyle.Default,
+					() => Complete(() => arguments.SetResult(alert.TextFields[0].Text)));
 
-				PresentPopUp(sender, VirtualView, PlatformView, alert, completion: arguments.Result.Task);
+				PresentPopUp(
+					sender,
+					VirtualView,
+					PlatformView,
+					alert,
+					logicalActions: logicalActions,
+					completion: arguments.Result.Task);
 			}
 
 
 			void PresentActionSheet(Page sender, ActionSheetArguments arguments)
 			{
 				var alert = UIAlertController.Create(arguments.Title, null, UIAlertControllerStyle.ActionSheet);
+				var logicalActions = new Dictionary<UIAlertAction, MenuItem>();
+				var completed = 0;
+				void Complete(string result)
+				{
+					if (Interlocked.Exchange(ref completed, 1) == 0)
+						arguments.SetResult(result);
+				}
 
 				// Clicking outside of an ActionSheet is an implicit cancel on iPads. If we don't handle it, it freezes the app.
 				if (arguments.Cancel != null || UIDevice.CurrentDevice.UserInterfaceIdiom == UIUserInterfaceIdiom.Pad)
 				{
-					alert.AddAction(UIAlertAction.Create(arguments.Cancel ?? "", UIAlertActionStyle.Cancel, _ => arguments.SetResult(arguments.Cancel)));
+					AddDialogAction(
+						alert,
+						logicalActions,
+						arguments.Cancel ?? "",
+						UIAlertActionStyle.Cancel,
+						() => Complete(arguments.Cancel),
+						logicalTitle: arguments.Cancel ?? "Cancel");
 				}
 
 				if (arguments.Destruction != null)
 				{
-					alert.AddAction(UIAlertAction.Create(arguments.Destruction, UIAlertActionStyle.Destructive, _ => arguments.SetResult(arguments.Destruction)));
+					AddDialogAction(
+						alert,
+						logicalActions,
+						arguments.Destruction,
+						UIAlertActionStyle.Destructive,
+						() => Complete(arguments.Destruction));
 				}
 
 				foreach (var label in arguments.Buttons)
@@ -153,10 +217,50 @@ namespace Microsoft.Maui.Controls.Platform
 
 					var blabel = label;
 
-					alert.AddAction(UIAlertAction.Create(blabel, UIAlertActionStyle.Default, _ => arguments.SetResult(blabel)));
+					AddDialogAction(
+						alert,
+						logicalActions,
+						blabel,
+						UIAlertActionStyle.Default,
+						() => Complete(blabel));
 				}
 
-				PresentPopUp(sender, VirtualView, PlatformView, alert, arguments, arguments.Result.Task);
+				PresentPopUp(
+					sender,
+					VirtualView,
+					PlatformView,
+					alert,
+					arguments,
+					logicalActions,
+					arguments.Result.Task);
+			}
+
+			static void AddDialogAction(
+				UIAlertController alert,
+				IDictionary<UIAlertAction, MenuItem> logicalActions,
+				string title,
+				UIAlertActionStyle style,
+				Action complete,
+				string logicalTitle = null)
+			{
+				var nativeAction = UIAlertAction.Create(title, style, _ => complete());
+				alert.AddAction(nativeAction);
+				logicalTitle ??= title;
+				if (string.IsNullOrEmpty(logicalTitle))
+					return;
+
+				logicalActions[nativeAction] = new MenuItem
+				{
+					Text = logicalTitle,
+					Command = new Command(() =>
+						alert.BeginInvokeOnMainThread(() =>
+						{
+							if (alert.PresentingViewController is null || alert.IsBeingDismissed)
+								complete();
+							else
+								alert.DismissViewController(true, complete);
+						}))
+				};
 			}
 
 			static void PresentPopUp(
@@ -165,6 +269,7 @@ namespace Microsoft.Maui.Controls.Platform
 				UIWindow platformView,
 				UIAlertController alert,
 				ActionSheetArguments arguments = null,
+				IReadOnlyDictionary<UIAlertAction, MenuItem> logicalActions = null,
 				Task completion = null)
 			{
 				UIWindow presentingWindow = platformView;
@@ -184,14 +289,6 @@ namespace Microsoft.Maui.Controls.Platform
 							NativeElementRoles.Dialog,
 							NativeElementDiscriminators.RealizedView);
 					}
-				}
-				foreach (var action in alert.Actions)
-				{
-					registration.Register(
-							sender,
-							action,
-							NativeElementRoles.DialogAction,
-							NativeElementDiscriminators.LogicalModel);
 				}
 				completion?.ContinueWith(
 						_ => platformView.BeginInvokeOnMainThread(registration.Dispose),
@@ -239,6 +336,9 @@ namespace Microsoft.Maui.Controls.Platform
 									registration.Dispose();
 								else
 								{
+									registration.RegisterLogicalActions(
+										sender,
+										logicalActions);
 									registration.RegisterAlertActionViews(sender, alert);
 									if (alert.PresentationController is not null)
 										registration.Attach(sender, alert);
@@ -292,15 +392,31 @@ namespace Microsoft.Maui.Controls.Platform
 					foreach (var actionView in actionViews)
 					{
 						var title = GetActionViewTitle(actionView);
-						if (!actionsByTitle.TryGetValue(title, out var action))
+						if (!actionsByTitle.ContainsKey(title))
 							continue;
 
-						_registrations.Unregister(action);
 						_registrations.Register(
 							owner,
 							actionView,
 							NativeElementRoles.DialogAction,
 							NativeElementDiscriminators.RealizedView);
+					}
+				}
+
+				public void RegisterLogicalActions(
+					object owner,
+					IReadOnlyDictionary<UIAlertAction, MenuItem> logicalActions)
+				{
+					if (Volatile.Read(ref _disposed) != 0 || logicalActions is null)
+						return;
+
+					foreach (var logicalAction in logicalActions.Values)
+					{
+						_registrations.Register(
+							owner,
+							logicalAction,
+							NativeElementRoles.DialogAction,
+							NativeElementDiscriminators.LogicalModel);
 					}
 				}
 
