@@ -75,10 +75,13 @@ namespace Microsoft.Maui.Controls.Platform
 				var alert = UIAlertController.Create(arguments.Title, arguments.Message, UIAlertControllerStyle.Alert);
 				var logicalActions = new Dictionary<UIAlertAction, MenuItem>();
 				var completed = 0;
-				void Complete(Action setResult)
+				bool Complete(Action setResult)
 				{
-					if (Interlocked.Exchange(ref completed, 1) == 0)
-						setResult();
+					if (Interlocked.CompareExchange(ref completed, 1, 0) != 0)
+						return false;
+
+					setResult();
+					return true;
 				}
 
 				var oldFrame = alert.View.Frame;
@@ -118,10 +121,13 @@ namespace Microsoft.Maui.Controls.Platform
 				var alert = UIAlertController.Create(arguments.Title, arguments.Message, UIAlertControllerStyle.Alert);
 				var logicalActions = new Dictionary<UIAlertAction, MenuItem>();
 				var completed = 0;
-				void Complete(Action setResult)
+				bool Complete(Action setResult)
 				{
-					if (Interlocked.Exchange(ref completed, 1) == 0)
-						setResult();
+					if (Interlocked.CompareExchange(ref completed, 1, 0) != 0)
+						return false;
+
+					setResult();
+					return true;
 				}
 
 				alert.AddTextField(uiTextField =>
@@ -182,10 +188,13 @@ namespace Microsoft.Maui.Controls.Platform
 				var alert = UIAlertController.Create(arguments.Title, null, UIAlertControllerStyle.ActionSheet);
 				var logicalActions = new Dictionary<UIAlertAction, MenuItem>();
 				var completed = 0;
-				void Complete(string result)
+				bool Complete(string result)
 				{
-					if (Interlocked.Exchange(ref completed, 1) == 0)
-						arguments.SetResult(result);
+					if (Interlocked.CompareExchange(ref completed, 1, 0) != 0)
+						return false;
+
+					arguments.SetResult(result);
+					return true;
 				}
 
 				// Clicking outside of an ActionSheet is an implicit cancel on iPads. If we don't handle it, it freezes the app.
@@ -240,7 +249,7 @@ namespace Microsoft.Maui.Controls.Platform
 				IDictionary<UIAlertAction, MenuItem> logicalActions,
 				string title,
 				UIAlertActionStyle style,
-				Action complete,
+				Func<bool> complete,
 				string logicalTitle = null)
 			{
 				var nativeAction = UIAlertAction.Create(title, style, _ => complete());
@@ -255,10 +264,11 @@ namespace Microsoft.Maui.Controls.Platform
 					Command = new Command(() =>
 						alert.BeginInvokeOnMainThread(() =>
 						{
-							if (alert.PresentingViewController is null || alert.IsBeingDismissed)
-								complete();
-							else
-								alert.DismissViewController(true, complete);
+							if (!complete())
+								return;
+
+							if (alert.PresentingViewController is not null && !alert.IsBeingDismissed)
+								alert.DismissViewController(true, null);
 						}))
 				};
 			}
@@ -374,11 +384,14 @@ namespace Microsoft.Maui.Controls.Platform
 						return;
 
 					alert.View.LayoutIfNeeded();
+					var contentTitles = new[] { alert.Title, alert.Message }
+						.Where(title => !string.IsNullOrEmpty(title))
+						.ToHashSet(StringComparer.Ordinal);
 					var actionsByTitle = alert.Actions
 						.Select(action => action.Title)
 						.Where(title => !string.IsNullOrEmpty(title))
 						.GroupBy(title => title, StringComparer.Ordinal)
-						.Where(group => group.Count() == 1)
+						.Where(group => group.Count() == 1 && !contentTitles.Contains(group.Key))
 						.ToDictionary(
 							group => group.Key,
 							group => alert.Actions.Single(action =>
