@@ -56,11 +56,6 @@ namespace Microsoft.Maui.Controls.Platform
 			TextTransform defaultTextTransform,
 			double defaultCharacterSpacing)
 		{
-#if UNO
-			// Uno 6.5 does not support the WinUI inline/highlighter path reliably.
-			// Preserve transformed text without creating any Inline objects.
-			textBlock.Text = formattedString.ToPlainText(defaultTextTransform);
-#else
 			var runs = formattedString.ToRunAndColorsTuples(
 				fontManager,
 				defaultLineHeight,
@@ -72,6 +67,7 @@ namespace Microsoft.Maui.Controls.Platform
 
 			var textBlockInlines = textBlock.Inlines;
 			textBlockInlines.Clear();
+			textBlock.TextHighlighters.Clear();
 
 			// Have to implement a measure here, otherwise inline.ContentStart and ContentEnd will be null, when used in RecalculatePositions
 			textBlock.Measure(new global::Windows.Foundation.Size(double.MaxValue, double.MaxValue));
@@ -104,10 +100,8 @@ namespace Microsoft.Maui.Controls.Platform
 					run.Foreground = textColor?.ToPlatform();
 					textBlock.TextHighlighters.Add(textHighlighter);
 				}
-
 				currentTextIndex += runTextLength;
 			}
-#endif
 		}
 
 		internal static string ToPlainText(this FormattedString formattedString, TextTransform defaultTextTransform)

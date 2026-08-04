@@ -35,20 +35,14 @@ namespace Microsoft.Maui.Controls.Platform
 				default:
 					if (label.FormattedText != null)
 					{
-#if UNO
-						platformControl.Text = label.FormattedText.ToPlainText(label.TextTransform);
-#else
 						platformControl.UpdateInlines(label);
-#endif
 					}
 					else
 					{
-#if !UNO
 						if (!label.IsConnectingHandler() && platformControl.TextHighlighters.Count > 0)
 						{
 							platformControl.TextHighlighters.Clear();
 						}
-#endif
 
 						platformControl.Text = text;
 					}

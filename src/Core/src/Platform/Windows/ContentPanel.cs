@@ -261,29 +261,22 @@ namespace Microsoft.Maui.Platform
 			}
 			var compositor = visual.Compositor;
 
-			PathF? clipPath;
 			float strokeThickness = (float)(_borderPath?.StrokeThickness ?? 0);
 			// The path size should consider the space taken by the border (top and bottom, left and right)
 			var pathSize = new Rect(0, 0, width - strokeThickness * 2, height - strokeThickness * 2);
-
-			if (clipGeometry is IRoundRectangle roundedRectangle)
-			{
-				clipPath = roundedRectangle.InnerPathForBounds(pathSize, strokeThickness / 2);
-				IsInnerPath = true;
-			}
-			else
-			{
-				clipPath = clipGeometry.PathForBounds(pathSize);
-				IsInnerPath = false;
-			}
+			var roundedRectangle = clipGeometry as IRoundRectangle;
+			IsInnerPath = roundedRectangle is not null;
 
 #if UNO
-			var geometricClip = compositor.CreateRectangleClip(
-				0,
-				0,
+			var geometricClip = compositor.CreateMauiRectangleClip(
+				clipGeometry,
 				(float)Math.Max(0, pathSize.Width),
-				(float)Math.Max(0, pathSize.Height));
+				(float)Math.Max(0, pathSize.Height),
+				roundedRectangle is not null ? strokeThickness / 2 : 0);
 #else
+			var clipPath = roundedRectangle is not null
+				? roundedRectangle.InnerPathForBounds(pathSize, strokeThickness / 2)
+				: clipGeometry.PathForBounds(pathSize);
 			var device = CanvasDevice.GetSharedDevice();
 			var geometry = clipPath.AsPath(device);
 			var path = new CompositionPath(geometry);

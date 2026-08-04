@@ -150,6 +150,14 @@ namespace Microsoft.Maui.Platform
 			if (appWindow is null)
 				return;
 
+#if UNO
+			if (appWindow.Presenter is OverlappedPresenter presenter)
+			{
+				presenter.PreferredMinimumWidth = GetPresenterDimension(minWidth, density);
+				presenter.PreferredMinimumHeight = GetPresenterDimension(minHeight, density);
+			}
+#endif
+
 			var currentSize = appWindow.Size;
 			var temp = currentSize;
 			if (currentSize.Width < actualMinWidth)
@@ -190,6 +198,14 @@ namespace Microsoft.Maui.Platform
 			var appWindow = platformWindow.GetAppWindow();
 			if (appWindow is null)
 				return;
+
+#if UNO
+			if (appWindow.Presenter is OverlappedPresenter presenter)
+			{
+				presenter.PreferredMaximumWidth = GetPresenterDimension(maxWidth, density);
+				presenter.PreferredMaximumHeight = GetPresenterDimension(maxHeight, density);
+			}
+#endif
 
 			var currentSize = appWindow.Size;
 			var temp = currentSize;
@@ -273,7 +289,13 @@ namespace Microsoft.Maui.Platform
 
 		internal static void Minimize(this UI.Xaml.Window platformWindow)
 		{
-#if !UNO
+#if UNO
+			if (OperatingSystem.IsLinux())
+				return;
+
+			if (platformWindow.GetAppWindow()?.Presenter is OverlappedPresenter presenter)
+				presenter.Minimize();
+#else
 			PlatformMethods
 				.ShowWindow(platformWindow.GetWindowHandle(),
 							PlatformMethods.ShowWindowFlags.SW_MINIMIZE);
@@ -282,7 +304,13 @@ namespace Microsoft.Maui.Platform
 
 		internal static void Maximize(this UI.Xaml.Window platformWindow)
 		{
-#if !UNO
+#if UNO
+			if (OperatingSystem.IsLinux())
+				return;
+
+			if (platformWindow.GetAppWindow()?.Presenter is OverlappedPresenter presenter)
+				presenter.Maximize();
+#else
 			PlatformMethods
 				.ShowWindow(platformWindow.GetWindowHandle(),
 							PlatformMethods.ShowWindowFlags.SW_MAXIMIZE);
@@ -291,7 +319,13 @@ namespace Microsoft.Maui.Platform
 
 		internal static void Restore(this UI.Xaml.Window platformWindow)
 		{
-#if !UNO
+#if UNO
+			if (OperatingSystem.IsLinux())
+				return;
+
+			if (platformWindow.GetAppWindow()?.Presenter is OverlappedPresenter presenter)
+				presenter.Restore();
+#else
 			PlatformMethods
 				.ShowWindow(platformWindow.GetWindowHandle(),
 							PlatformMethods.ShowWindowFlags.SW_RESTORE);
@@ -330,6 +364,17 @@ namespace Microsoft.Maui.Platform
 			return new SizeInt32(width, height);
 #endif
 		}
+
+#if UNO
+		static int? GetPresenterDimension(double dimension, float density)
+		{
+			if (!double.IsFinite(dimension))
+				return null;
+
+			var scale = OperatingSystem.IsMacOS() ? 1 : density;
+			return (int)Math.Clamp(dimension * scale, 0, int.MaxValue);
+		}
+#endif
 
 		static bool AreEqual(PointInt32 left, PointInt32 right) =>
 			left.X == right.X && left.Y == right.Y;

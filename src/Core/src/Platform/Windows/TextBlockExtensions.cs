@@ -93,6 +93,7 @@ namespace Microsoft.Maui.Platform
 
 			// Reset the text because we will add to it.
 			platformControl.Inlines.Clear();
+			platformControl.TextHighlighters.Clear();
 
 			try
 			{

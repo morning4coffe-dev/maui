@@ -8,4 +8,16 @@
     <!-- Uno0001 tracks known API gaps in this experiment; the other diagnostics originate in generated XAML. -->
     <NoWarn>$(NoWarn);Uno0001;IL2072;IL2111;RS0030</NoWarn>
   </PropertyGroup>
+  <ItemGroup Condition="'$(MauiUnoTarget)' == 'true' and '$(ApplicationVersion)' != ''">
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>Microsoft.Maui.ApplicationModel.AppInfo.BuildString</_Parameter1>
+      <_Parameter2>$(ApplicationVersion)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <ItemGroup Condition="'$(MauiUnoTarget)' == 'true' and '$(ApplicationDisplayVersion)' != ''">
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>Microsoft.Maui.ApplicationModel.AppInfo.DisplayVersion</_Parameter1>
+      <_Parameter2>$(ApplicationDisplayVersion)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>

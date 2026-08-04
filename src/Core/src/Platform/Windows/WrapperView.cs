@@ -117,10 +117,13 @@ namespace Microsoft.Maui.Platform
 			var compositor = visual.Compositor;
 
 			var pathSize = new Graphics.Rect(0, 0, width, height);
-			var clipPath = clipGeometry.PathForBounds(pathSize);
 #if UNO
-			var geometricClip = compositor.CreateRectangleClip(0, 0, (float)width, (float)height);
+			var geometricClip = compositor.CreateMauiRectangleClip(
+				clipGeometry,
+				(float)pathSize.Width,
+				(float)pathSize.Height);
 #else
+			var clipPath = clipGeometry.PathForBounds(pathSize);
 			var device = CanvasDevice.GetSharedDevice();
 			var geometry = clipPath.AsPath(device);
 

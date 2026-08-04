@@ -1,6 +1,13 @@
 <Project>
   <PropertyGroup>
     <MauiUnoTarget>true</MauiUnoTarget>
+    <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">1.0</ApplicationDisplayVersion>
+    <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">1</ApplicationVersion>
+  </PropertyGroup>
+
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
+  <PropertyGroup>
     <RuntimeIdentifier Condition="'$(UnoSampleRuntimeIdentifier)' != ''">$(UnoSampleRuntimeIdentifier)</RuntimeIdentifier>
     <_MauiUnoBuildProperties>MauiUnoTarget=true;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false;RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false</_MauiUnoBuildProperties>
     <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>

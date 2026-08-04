@@ -9,12 +9,30 @@ namespace Microsoft.Maui.Handlers
 {
 	public partial class WindowHandler : ElementHandler<IWindow, UI.Xaml.Window>
 	{
+#if UNO
+		UI.Xaml.FrameworkElement? _constraintRoot;
+		UI.Xaml.XamlRoot? _constraintXamlRoot;
+		double _constraintRasterizationScale;
+#endif
+
 		protected override void ConnectHandler(UI.Xaml.Window platformView)
 		{
 			base.ConnectHandler(platformView);
 
 			if (platformView.Content is null)
 				platformView.Content = new WindowRootViewContainer();
+
+#if UNO
+			if (platformView.Content is UI.Xaml.FrameworkElement constraintRoot)
+			{
+				_constraintRoot = constraintRoot;
+				_constraintRoot.Loaded += OnConstraintRootLoaded;
+				_constraintRoot.Unloaded += OnConstraintRootUnloaded;
+
+				if (_constraintRoot.IsLoaded)
+					SubscribeToConstraintXamlRoot();
+			}
+#endif
 
 			// update the platform window with the user size/position
 			platformView.UpdatePosition(VirtualView);
@@ -46,6 +64,16 @@ namespace Microsoft.Maui.Handlers
 
 		protected override void DisconnectHandler(UI.Xaml.Window platformView)
 		{
+#if UNO
+			UnsubscribeFromConstraintXamlRoot();
+			if (_constraintRoot is not null)
+			{
+				_constraintRoot.Loaded -= OnConstraintRootLoaded;
+				_constraintRoot.Unloaded -= OnConstraintRootUnloaded;
+				_constraintRoot = null;
+			}
+#endif
+
 			var windowRootContentManager = MauiContext
 				?.GetNavigationRootManager();
 
@@ -70,6 +98,55 @@ namespace Microsoft.Maui.Handlers
 
 			base.DisconnectHandler(platformView);
 		}
+
+#if UNO
+		void OnConstraintRootLoaded(object sender, UI.Xaml.RoutedEventArgs e) =>
+			SubscribeToConstraintXamlRoot();
+
+		void OnConstraintRootUnloaded(object sender, UI.Xaml.RoutedEventArgs e) =>
+			UnsubscribeFromConstraintXamlRoot();
+
+		void SubscribeToConstraintXamlRoot()
+		{
+			var xamlRoot = _constraintRoot?.XamlRoot;
+			if (xamlRoot is null || ReferenceEquals(_constraintXamlRoot, xamlRoot))
+				return;
+
+			UnsubscribeFromConstraintXamlRoot();
+			_constraintXamlRoot = xamlRoot;
+			_constraintRasterizationScale = xamlRoot.RasterizationScale;
+			_constraintXamlRoot.Changed += OnConstraintXamlRootChanged;
+			UpdateWindowConstraints();
+		}
+
+		void OnConstraintXamlRootChanged(UI.Xaml.XamlRoot sender, UI.Xaml.XamlRootChangedEventArgs args)
+		{
+			var rasterizationScale = sender.RasterizationScale;
+			if (rasterizationScale <= 0 || rasterizationScale == _constraintRasterizationScale)
+				return;
+
+			_constraintRasterizationScale = rasterizationScale;
+			UpdateWindowConstraints();
+		}
+
+		void UpdateWindowConstraints()
+		{
+			if (VirtualView is not { } window)
+				return;
+
+			PlatformView.UpdateMinimumSize(window);
+			PlatformView.UpdateMaximumSize(window);
+		}
+
+		void UnsubscribeFromConstraintXamlRoot()
+		{
+			if (_constraintXamlRoot is not null)
+				_constraintXamlRoot.Changed -= OnConstraintXamlRootChanged;
+
+			_constraintXamlRoot = null;
+			_constraintRasterizationScale = 0;
+		}
+#endif
 
 		public static void MapTitle(IWindowHandler handler, IWindow window) =>
 			handler.PlatformView?.UpdateTitle(window);

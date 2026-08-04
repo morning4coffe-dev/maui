@@ -10,6 +10,9 @@ using Microsoft.Maui.LifecycleEvents;
 #if ANDROID
 using Android.App;
 #endif
+#if UNO
+using Microsoft.UI.Dispatching;
+#endif
 
 namespace Microsoft.Maui.Hosting
 {
@@ -135,9 +138,31 @@ namespace Microsoft.Maui.Hosting
 				if (dispatcher is null)
 					return;
 
+#if UNO
+				if (dispatcher is Dispatcher platformDispatcher)
+				{
+					var dispatcherQueue = platformDispatcher.PlatformDispatcherQueue;
+					MainThread.SetCustomImplementation(
+						isMainThread: () => dispatcherQueue.HasThreadAccess,
+						beginInvokeOnMainThread: action => DispatchOrThrow(dispatcher, action));
+				}
+				else
+				{
+					MainThread.SetCustomImplementation(
+						isMainThread: () => !dispatcher.IsDispatchRequired,
+						beginInvokeOnMainThread: action => DispatchOrThrow(dispatcher, action));
+				}
+#else
 				MainThread.SetCustomImplementation(
 					isMainThread: () => !dispatcher.IsDispatchRequired,
-					beginInvokeOnMainThread: action => dispatcher.Dispatch(action));
+					beginInvokeOnMainThread: action => DispatchOrThrow(dispatcher, action));
+#endif
+			}
+
+			static void DispatchOrThrow(IDispatcher dispatcher, Action action)
+			{
+				if (!dispatcher.Dispatch(action))
+					throw new InvalidOperationException("Unable to queue on the main thread.");
 			}
 		}
 #endif
