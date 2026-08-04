@@ -11,6 +11,7 @@
 
 	internal interface IRoundRectangle : IShape
 	{
+		Microsoft.Maui.CornerRadius CornerRadius { get; }
 		PathF InnerPathForBounds(Rect bounds, float strokeThickness);
 		PathF InnerPath();
 	}

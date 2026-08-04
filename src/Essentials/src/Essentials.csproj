@@ -36,6 +36,25 @@
     <Compile Include="**\*.netstandard.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
     <Compile Include="**\*.netstandard.*.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
   </ItemGroup>
+  <ItemGroup Condition="'$(MauiUnoTarget)' == 'true' and '$(TargetFramework)' == '$(_MauiDotNetTfm)'">
+    <Compile Remove="AppInfo\AppInfo.netstandard.cs" />
+    <Compile Remove="Clipboard\Clipboard.netstandard.tvos.watchos.tizen.cs" />
+    <Compile Remove="Connectivity\Connectivity.netstandard.watchos.cs" />
+    <Compile Remove="Preferences\Preferences.netstandard.cs" />
+    <Compile Include="AppInfo\AppInfo.uno.cs" />
+    <Compile Include="Clipboard\Clipboard.uno.cs" />
+    <Compile Include="Connectivity\Connectivity.uno.cs" />
+    <Compile Include="Preferences\Preferences.uno.cs" />
+    <PackageReference Include="Uno.WinUI" ExcludeAssets="analyzers;build;buildTransitive" />
+  </ItemGroup>
+  <Target Name="_RemoveUnoWinUIAnalyzersFromEssentials"
+          BeforeTargets="CoreCompile"
+          Condition="'$(MauiUnoTarget)' == 'true' and '$(TargetFramework)' == '$(_MauiDotNetTfm)'">
+    <ItemGroup>
+      <!-- Essentials consumes Uno's WinRT surface but has no XAML or generated resource dictionaries. -->
+      <Analyzer Remove="@(Analyzer)" Condition="'%(Analyzer.NuGetPackageId)' == 'Uno.WinUI'" />
+    </ItemGroup>
+  </Target>
   <ItemGroup Condition=" $(TargetFramework.Contains('-windows')) ">
     <Compile Include="**\*.windows.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
     <Compile Include="**\*.windows.*.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />

@@ -49,15 +49,29 @@ created its root window.
 
 `CommunityToolkit.Maui` is consumed through exact `PackageDownload` items and
 explicit `lib/net10.0` references. This keeps every head on the neutral
-composite-control implementation instead of letting Android or Apple select
-the Toolkit's native MAUI assets. The normal `UseMauiCommunityToolkit()`
-initializer is intentionally not called because it eagerly registers neutral
-platform-handler stubs.
+implementation instead of letting Android or Apple select the Toolkit's native
+MAUI assets. The normal `UseMauiCommunityToolkit()` initializer is
+intentionally not called because it eagerly registers neutral platform-handler
+stubs. The sample registers its own Uno-compatible `DrawingView` handler,
+which renders through MAUI's Skia-backed `PlatformTouchGraphicsView`.
 
-The sample exercises labels, formatted-text fallback, font images, entry input,
+The sample exercises labels, formatted text, font images, entry input,
 buttons, stack and scroll layouts, slider, progress bar, window creation,
 resources, focus, property mapper updates, and a package-only
-`CommunityToolkit.Maui` Expander.
+`CommunityToolkit.Maui` Expander and interactive `DrawingView`.
+
+The Essentials compatibility probe uses Uno-specific implementations for
+`AppInfo`, `Clipboard`, `Connectivity`, and `Preferences`. `MainThread` remains
+bridged to the MAUI dispatcher. The probe reports APIs that still use the
+portable unsupported implementation instead of hiding the gap.
+
+The window operations probe exercises MAUI minimum and maximum dimensions
+through Uno's `OverlappedPresenter` constraints and verifies maximize/restore
+without requiring a native HWND.
+
+Rounded rectangle clips preserve independent corner radii through Uno's public
+`RectangleClip` API. Other `IShape` clips continue to use their rectangular
+bounds until Uno exposes a public geometry source for `CompositionPath`.
 
 ## Validation status
 
@@ -72,12 +86,23 @@ resources, focus, property mapper updates, and a package-only
 
 ## Current limitations
 
-- MAUI Essentials uses its portable `net10.0` implementation.
-- HWND-specific window operations are no-ops on the Uno target.
-- Arbitrary MAUI clip paths fall back to rectangular composition clips because
-  Uno's path-geometry interop is internal.
-- Formatted label spans fall back to plain text because the current Uno Skia
-  inline/highlighter path is not reliable for this handler projection.
-- Third-party controls with custom handlers still need their Windows sources
-  rebuilt for `MauiUnoTarget`; neutral NuGet assets commonly contain
-  unsupported platform stubs.
+- MAUI Essentials remains partial. `AppInfo`, `Clipboard`, `Connectivity`,
+  `Preferences`, and `MainThread` have Uno implementations; `DeviceInfo`,
+  `FileSystem`, `SecureStorage`, permissions, and most sensors still use their
+  portable unsupported implementations.
+- Native window handles and Win32 message callbacks remain unavailable. Window
+  position, size, constraints, minimize, maximize, and restore use Uno's public
+  `AppWindow` APIs where the host supports them; mobile and WebAssembly hosts
+  may intentionally ignore desktop-only operations. X11 minimize, maximize,
+  and restore are disabled until Uno can reliably deiconify and reactivate the
+  window during restore.
+- Arbitrary non-rectangular MAUI paths still fall back to rectangular
+  composition clips because Uno's path-geometry interop is internal. Rounded
+  rectangles, including independent corner radii, are preserved.
+- Formatted label spans preserve per-span fonts, foreground colors, character
+  spacing, and text decorations. Span background colors render on Skia heads;
+  span gesture hit testing remains unavailable because Uno does not implement
+  the required `TextPointer` APIs.
+- Other third-party controls with custom handlers still need their Windows
+  sources rebuilt or adapted for `MauiUnoTarget`; neutral NuGet assets commonly
+  contain unsupported platform stubs.

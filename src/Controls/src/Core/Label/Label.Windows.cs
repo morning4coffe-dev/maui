@@ -32,6 +32,8 @@ namespace Microsoft.Maui.Controls
 
 #if !UNO
 			RecalculateSpanPositions();
+#else
+			// Uno TextPointer.ContentStart and ContentEnd are not implemented, so span hit regions cannot be calculated.
 #endif
 
 			return size;
