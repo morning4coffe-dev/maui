@@ -9,11 +9,4 @@
 
   <Import Project="..\MauiUnoSample.props" />
 
-  <ItemGroup>
-    <ProjectReference
-      Include="..\..\..\..\Essentials\src\Essentials.csproj"
-      SkipGetTargetFrameworkProperties="true"
-      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
-  </ItemGroup>
-
 </Project>

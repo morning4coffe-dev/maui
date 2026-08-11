@@ -338,6 +338,18 @@ public sealed class MainPage : ContentPage
 		{
 			return $"{name}: unsupported";
 		}
+		catch (InvalidOperationException ex)
+		{
+			return $"{name}: failed ({ex.Message})";
+		}
+		catch (PermissionException ex)
+		{
+			return $"{name}: failed ({ex.Message})";
+		}
+		catch (UnauthorizedAccessException ex)
+		{
+			return $"{name}: failed ({ex.Message})";
+		}
 	}
 
 	[DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties, typeof(Expander))]

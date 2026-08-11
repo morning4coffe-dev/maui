@@ -18,9 +18,9 @@ namespace Microsoft.Maui.Platform
 {
 	internal static class ShadowExtensions
 	{
-		public static async Task<CompositionBrush> GetAlphaMaskAsync(this UIElement element)
+		public static async Task<AlphaMaskResult> GetAlphaMaskAsync(this UIElement element)
 		{
-			CompositionBrush mask = null;
+			AlphaMaskResult mask = null;
 
 			try
 			{
@@ -28,15 +28,15 @@ namespace Microsoft.Maui.Platform
 				//generates a shadow with a size more smaller than the control size. 
 				if (element is TextBlock textElement)
 				{
-					return textElement.GetAlphaMask();
+					return new AlphaMaskResult(textElement.GetAlphaMask());
 				}
 				if (element is Image image)
 				{
-					return image.GetAlphaMask();
+					return new AlphaMaskResult(image.GetAlphaMask());
 				}
 				if (element is Shape shape)
 				{
-					return shape.GetAlphaMask();
+					return new AlphaMaskResult(shape.GetAlphaMask());
 				}
 				else if (element is FrameworkElement frameworkElement)
 				{
@@ -72,7 +72,7 @@ namespace Microsoft.Maui.Platform
 								visual.Compositor,
 								softwareBitmap,
 								new Size(bitmap.PixelWidth, bitmap.PixelHeight));
-							mask = brush.Brush;
+							mask = new AlphaMaskResult(brush.Brush, brush);
 						}
 					}
 				}
@@ -85,5 +85,20 @@ namespace Microsoft.Maui.Platform
 
 			return mask;
 		}
+	}
+
+	internal sealed class AlphaMaskResult : IDisposable
+	{
+		readonly IDisposable _owner;
+
+		public AlphaMaskResult(CompositionBrush brush, IDisposable owner = null)
+		{
+			Brush = brush;
+			_owner = owner;
+		}
+
+		public CompositionBrush Brush { get; }
+
+		public void Dispose() => _owner?.Dispose();
 	}
 }

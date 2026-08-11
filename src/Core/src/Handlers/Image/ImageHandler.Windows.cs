@@ -13,6 +13,7 @@ namespace Microsoft.Maui.Handlers
 		private Graphics.Size _cachedImageSize;
 #if UNO
 		private XamlRoot? _xamlRoot;
+		private bool _waitingForXamlRoot;
 #endif
 
 		/// <inheritdoc/>
@@ -28,6 +29,11 @@ namespace Microsoft.Maui.Handlers
 #endif
 
 			base.ConnectHandler(platformView);
+
+#if UNO
+			if (platformView.IsLoaded)
+				TrySubscribeToXamlRoot(platformView);
+#endif
 		}
 
 		/// <inheritdoc/>
@@ -38,6 +44,7 @@ namespace Microsoft.Maui.Handlers
 #if UNO
 			platformView.Loaded -= OnPlatformViewLoaded;
 			platformView.Unloaded -= OnPlatformViewUnloaded;
+			StopWaitingForXamlRoot(platformView);
 			UnsubscribeFromXamlRoot();
 #endif
 
@@ -48,23 +55,70 @@ namespace Microsoft.Maui.Handlers
 #if UNO
 		void OnPlatformViewLoaded(object sender, RoutedEventArgs e)
 		{
-			if (sender is WImage image && image.XamlRoot is { } xamlRoot && xamlRoot != _xamlRoot)
+			if (sender is WImage image)
+				TrySubscribeToXamlRoot(image);
+		}
+
+		void OnPlatformViewUnloaded(object sender, RoutedEventArgs e)
+		{
+			if (sender is WImage image)
+				StopWaitingForXamlRoot(image);
+
+			UnsubscribeFromXamlRoot();
+		}
+
+		void OnPlatformViewLayoutUpdated(object? sender, object e)
+		{
+			if (sender is WImage image)
+				TrySubscribeToXamlRoot(image);
+		}
+
+		void TrySubscribeToXamlRoot(WImage image)
+		{
+			if (image.XamlRoot is not { } xamlRoot)
+			{
+				if (!_waitingForXamlRoot)
+				{
+					_waitingForXamlRoot = true;
+					image.LayoutUpdated += OnPlatformViewLayoutUpdated;
+				}
+
+				return;
+			}
+
+			StopWaitingForXamlRoot(image);
+			if (!ReferenceEquals(_xamlRoot, xamlRoot))
 			{
 				UnsubscribeFromXamlRoot();
 				_xamlRoot = xamlRoot;
 				_xamlRoot.Changed += OnXamlRootChanged;
 			}
+
+			RefreshForCurrentXamlRoot();
 		}
 
-		void OnPlatformViewUnloaded(object sender, RoutedEventArgs e) => UnsubscribeFromXamlRoot();
-
 		void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
+			=> RefreshForCurrentXamlRoot();
+
+		void RefreshForCurrentXamlRoot()
 		{
+			PlatformView.InvalidateMeasure();
+			UpdatePlatformMaxConstraints();
+
 			if (!SourceLoader.SourceManager.IsLoading &&
 				SourceLoader.SourceManager.RequiresReload(PlatformView))
 			{
 				UpdateValue(nameof(IImage.Source));
 			}
+		}
+
+		void StopWaitingForXamlRoot(WImage image)
+		{
+			if (!_waitingForXamlRoot)
+				return;
+
+			image.LayoutUpdated -= OnPlatformViewLayoutUpdated;
+			_waitingForXamlRoot = false;
 		}
 
 		void UnsubscribeFromXamlRoot()

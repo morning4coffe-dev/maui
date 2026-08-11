@@ -40,13 +40,13 @@ namespace Microsoft.Maui.Platform
 				return dt.GetPosition(relativeTo);
 			else if (e is DragStartingEventArgs ds)
 #if UNO
-				return relativeTo is null ? null : ds.GetPosition(relativeTo);
+				return GetDragPosition(e, relativeTo, ds.GetPosition);
 #else
 				return ds.GetPosition(relativeTo);
 #endif
 			else if (e is DragEventArgs d)
 #if UNO
-				return relativeTo is null ? null : d.GetPosition(relativeTo);
+				return GetDragPosition(e, relativeTo, d.GetPosition);
 #else
 				return d.GetPosition(relativeTo);
 #endif
@@ -58,5 +58,18 @@ namespace Microsoft.Maui.Platform
 
 			return null;
 		}
+
+#if UNO
+		static WPoint? GetDragPosition(
+			RoutedEventArgs args,
+			UIElement? relativeTo,
+			Func<UIElement, WPoint> getPosition)
+		{
+			var coordinateSpace = relativeTo ??
+				(args.OriginalSource as FrameworkElement)?.XamlRoot?.Content as UIElement;
+
+			return coordinateSpace is null ? null : getPosition(coordinateSpace);
+		}
+#endif
 	}
 }

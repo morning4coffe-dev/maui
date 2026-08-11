@@ -26,6 +26,7 @@ namespace Microsoft.Maui.Platform
 
 		SpriteVisual? _shadowVisual;
 		DropShadow? _dropShadow;
+		AlphaMaskResult? _shadowMask;
 		Rectangle? _shadowHost;
 		WSize _shadowHostSize;
 		Path? _borderPath;
@@ -220,6 +221,8 @@ namespace Microsoft.Maui.Platform
 
 		void DisposeShadow()
 		{
+			DisposeShadowMask();
+
 			if (_shadowCanvas is null || _shadowCanvasCachedChildren is null)
 			{
 				return;
@@ -247,6 +250,14 @@ namespace Microsoft.Maui.Platform
 
 			_shadowCanvasCachedChildren = null;
 			_shadowCanvas = null;
+		}
+
+		void DisposeShadowMask()
+		{
+			_dropShadow?.Mask = null;
+
+			_shadowMask?.Dispose();
+			_shadowMask = null;
 		}
 
 		async Task CreateShadowAsync()
@@ -335,10 +346,7 @@ namespace Microsoft.Maui.Platform
 					height = (float)frameworkElement.ActualHeight;
 				}
 
-				if (_shadowVisual is not null)
-				{
-					_shadowVisual.Size = new Vector2(width, height);
-				}
+				_shadowVisual?.Size = new Vector2(width, height);
 
 				if (_shadowHost is not null)
 				{
@@ -376,7 +384,20 @@ namespace Microsoft.Maui.Platform
 			}
 
 			dropShadow.Offset = new Vector3((float)offset.X, (float)offset.Y, 0);
-			dropShadow.Mask = await Child.GetAlphaMaskAsync();
+			var child = Child;
+			if (child is null)
+				return;
+
+			var shadowMask = await child.GetAlphaMaskAsync();
+			if (!ReferenceEquals(_dropShadow, dropShadow))
+			{
+				shadowMask?.Dispose();
+				return;
+			}
+
+			DisposeShadowMask();
+			_shadowMask = shadowMask;
+			dropShadow.Mask = shadowMask?.Brush;
 		}
 	}
 }

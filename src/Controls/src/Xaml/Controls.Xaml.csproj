@@ -8,7 +8,7 @@
 		<AssemblyName>Microsoft.Maui.Controls.Xaml</AssemblyName>
 		<RootNamespace>Microsoft.Maui.Controls.Xaml</RootNamespace>
 		<IsTrimmable>false</IsTrimmable>
-		<_MauiDesignDllBuild Condition=" '$(OS)' != 'Unix' ">True</_MauiDesignDllBuild>
+		<_MauiDesignDllBuild Condition="'$(_MauiTargetPlatformIsUno)' != 'True' and '$(OS)' != 'Unix'">True</_MauiDesignDllBuild>
 		<NoWarn>$(NoWarn);CA2200;RS0041</NoWarn>
 		<WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -35,11 +35,11 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\Controls\src\Core\Controls.Core.csproj">
 			<SkipGetTargetFrameworkProperties Condition="'$(MauiUnoTarget)' == 'true'">true</SkipGetTargetFrameworkProperties>
-			<SetTargetFramework Condition="'$(MauiUnoTarget)' == 'true'">TargetFramework=$(TargetFramework);MauiUnoTarget=true</SetTargetFramework>
+			<SetTargetFramework Condition="'$(MauiUnoTarget)' == 'true'">TargetFramework=$(TargetFramework);$(_MauiUnoProjectReferenceProperties)</SetTargetFramework>
 		</ProjectReference>
 		<ProjectReference Include="..\..\..\Core\src\Core.csproj">
 			<SkipGetTargetFrameworkProperties Condition="'$(MauiUnoTarget)' == 'true'">true</SkipGetTargetFrameworkProperties>
-			<SetTargetFramework Condition="'$(MauiUnoTarget)' == 'true'">TargetFramework=$(TargetFramework);MauiUnoTarget=true</SetTargetFramework>
+			<SetTargetFramework Condition="'$(MauiUnoTarget)' == 'true'">TargetFramework=$(TargetFramework);$(_MauiUnoProjectReferenceProperties)</SetTargetFramework>
 		</ProjectReference>
 	</ItemGroup>
 

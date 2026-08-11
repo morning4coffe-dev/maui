@@ -19,13 +19,17 @@ namespace Microsoft.Maui.ApplicationModel
 
 		static readonly Assembly LaunchingAssembly =
 			Assembly.GetEntryAssembly() ?? typeof(AppInfoImplementation).Assembly;
+		static readonly Lazy<Package?> CurrentPackage = new(GetCurrentPackage);
 
-		public string PackageName => Package.Current.Id.Name;
+		public string PackageName =>
+			CurrentPackage.Value?.Id.Name ??
+			LaunchingAssembly.GetName().Name ??
+			string.Empty;
 
 		public string Name =>
-			string.IsNullOrWhiteSpace(Package.Current.DisplayName)
+			string.IsNullOrWhiteSpace(CurrentPackage.Value?.DisplayName)
 				? LaunchingAssembly.GetCustomAttribute<AssemblyTitleAttribute>()?.Title ?? LaunchingAssembly.GetName().Name ?? string.Empty
-				: Package.Current.DisplayName;
+				: CurrentPackage.Value.DisplayName;
 
 		public Version Version
 		{
@@ -37,8 +41,13 @@ namespace Microsoft.Maui.ApplicationModel
 					return Utils.ParseVersion(displayVersion);
 				}
 
-				var version = Package.Current.Id.Version;
-				return new Version(version.Major, version.Minor, version.Build, version.Revision);
+				if (CurrentPackage.Value is { } package)
+				{
+					var version = package.Id.Version;
+					return new Version(version.Major, version.Minor, version.Build, version.Revision);
+				}
+
+				return LaunchingAssembly.GetName().Version ?? new Version(1, 0);
 			}
 		}
 
@@ -48,7 +57,7 @@ namespace Microsoft.Maui.ApplicationModel
 
 		public string BuildString =>
 			GetMetadataValue(BuildStringMetadataKey) ??
-			Version.Revision.ToString(CultureInfo.InvariantCulture);
+			Math.Max(0, Version.Revision).ToString(CultureInfo.InvariantCulture);
 
 		public void ShowSettingsUI() =>
 			throw new FeatureNotSupportedException("Opening application settings is not supported by the Uno Essentials projection.");
@@ -62,7 +71,7 @@ namespace Microsoft.Maui.ApplicationModel
 			};
 
 		public AppPackagingModel PackagingModel =>
-			OperatingSystem.IsWindows() && !HasPackageIdentity()
+			CurrentPackage.Value is null
 				? AppPackagingModel.Unpackaged
 				: AppPackagingModel.Packaged;
 
@@ -82,6 +91,23 @@ namespace Microsoft.Maui.ApplicationModel
 			}
 
 			return null;
+		}
+
+		static Package? GetCurrentPackage()
+		{
+			if (OperatingSystem.IsWindows() && !HasPackageIdentity())
+			{
+				return null;
+			}
+
+			try
+			{
+				return Package.Current;
+			}
+			catch (InvalidOperationException)
+			{
+				return null;
+			}
 		}
 
 		static bool HasPackageIdentity()
