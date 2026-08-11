@@ -9,15 +9,16 @@
 
   <PropertyGroup>
     <RuntimeIdentifier Condition="'$(UnoSampleRuntimeIdentifier)' != ''">$(UnoSampleRuntimeIdentifier)</RuntimeIdentifier>
-    <_MauiUnoBuildProperties>MauiUnoTarget=true;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false;RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false</_MauiUnoBuildProperties>
+    <_MauiUnoBuildProperties>MauiUnoTarget=true;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false;RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false;BuildInParallel=false;RestoreAdditionalProjectSources=https://api.nuget.org/v3/index.json</_MauiUnoBuildProperties>
     <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+    <BuildInParallel>false</BuildInParallel>
     <UnoDisableHotRestartHelperGeneration>true</UnoDisableHotRestartHelperGeneration>
     <NoWarn>$(NoWarn);Uno0001;IL2072;IL2111;RS0030</NoWarn>
   </PropertyGroup>
 
   <ItemDefinitionGroup>
     <ProjectReference>
-      <GlobalPropertiesToRemove>RuntimeIdentifiers;SelfContained</GlobalPropertiesToRemove>
+      <GlobalPropertiesToRemove>TargetFrameworks;RuntimeIdentifiers;SelfContained</GlobalPropertiesToRemove>
     </ProjectReference>
   </ItemDefinitionGroup>
 
@@ -43,6 +44,10 @@
   <ItemGroup>
     <ProjectReference
       Include="$(MSBuildThisFileDirectory)..\..\..\Core\src\Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\Essentials\src\Essentials.csproj"
       SkipGetTargetFrameworkProperties="true"
       SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
     <ProjectReference

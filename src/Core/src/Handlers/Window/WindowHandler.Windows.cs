@@ -13,6 +13,9 @@ namespace Microsoft.Maui.Handlers
 		UI.Xaml.FrameworkElement? _constraintRoot;
 		UI.Xaml.XamlRoot? _constraintXamlRoot;
 		double _constraintRasterizationScale;
+		double _constraintWidth;
+		double _constraintHeight;
+		bool _waitingForConstraintXamlRoot;
 #endif
 
 		protected override void ConnectHandler(UI.Xaml.Window platformView)
@@ -70,6 +73,7 @@ namespace Microsoft.Maui.Handlers
 			{
 				_constraintRoot.Loaded -= OnConstraintRootLoaded;
 				_constraintRoot.Unloaded -= OnConstraintRootUnloaded;
+				StopWaitingForConstraintXamlRoot();
 				_constraintRoot = null;
 			}
 #endif
@@ -106,27 +110,59 @@ namespace Microsoft.Maui.Handlers
 		void OnConstraintRootUnloaded(object sender, UI.Xaml.RoutedEventArgs e) =>
 			UnsubscribeFromConstraintXamlRoot();
 
+		void OnConstraintRootLayoutUpdated(object? sender, object e) =>
+			SubscribeToConstraintXamlRoot();
+
 		void SubscribeToConstraintXamlRoot()
 		{
 			var xamlRoot = _constraintRoot?.XamlRoot;
-			if (xamlRoot is null || ReferenceEquals(_constraintXamlRoot, xamlRoot))
+			if (xamlRoot is null)
+			{
+				if (_constraintRoot is not null && !_waitingForConstraintXamlRoot)
+				{
+					_waitingForConstraintXamlRoot = true;
+					_constraintRoot.LayoutUpdated += OnConstraintRootLayoutUpdated;
+				}
+
+				return;
+			}
+
+			StopWaitingForConstraintXamlRoot();
+			if (ReferenceEquals(_constraintXamlRoot, xamlRoot))
 				return;
 
 			UnsubscribeFromConstraintXamlRoot();
 			_constraintXamlRoot = xamlRoot;
 			_constraintRasterizationScale = xamlRoot.RasterizationScale;
+			_constraintWidth = xamlRoot.Size.Width;
+			_constraintHeight = xamlRoot.Size.Height;
 			_constraintXamlRoot.Changed += OnConstraintXamlRootChanged;
 			UpdateWindowConstraints();
+			UpdateValue(nameof(IWindow.TitleBarDragRectangles));
 		}
 
 		void OnConstraintXamlRootChanged(UI.Xaml.XamlRoot sender, UI.Xaml.XamlRootChangedEventArgs args)
 		{
 			var rasterizationScale = sender.RasterizationScale;
-			if (rasterizationScale <= 0 || rasterizationScale == _constraintRasterizationScale)
+			var size = sender.Size;
+			var densityChanged = rasterizationScale > 0 && rasterizationScale != _constraintRasterizationScale;
+			var sizeChanged = size.Width != _constraintWidth || size.Height != _constraintHeight;
+			if (!densityChanged && !sizeChanged)
 				return;
 
-			_constraintRasterizationScale = rasterizationScale;
-			UpdateWindowConstraints();
+			if (densityChanged)
+			{
+				_constraintRasterizationScale = rasterizationScale;
+				UpdateWindowConstraints();
+				UpdateValue(nameof(IWindow.TitleBarDragRectangles));
+				VirtualView.DisplayDensityChanged((float)rasterizationScale);
+			}
+
+			_constraintWidth = size.Width;
+			_constraintHeight = size.Height;
+
+			if (PlatformView.GetAppWindow() is { } appWindow)
+				UpdateVirtualViewFrame(appWindow);
 		}
 
 		void UpdateWindowConstraints()
@@ -140,11 +176,24 @@ namespace Microsoft.Maui.Handlers
 
 		void UnsubscribeFromConstraintXamlRoot()
 		{
+			StopWaitingForConstraintXamlRoot();
+
 			if (_constraintXamlRoot is not null)
 				_constraintXamlRoot.Changed -= OnConstraintXamlRootChanged;
 
 			_constraintXamlRoot = null;
 			_constraintRasterizationScale = 0;
+			_constraintWidth = 0;
+			_constraintHeight = 0;
+		}
+
+		void StopWaitingForConstraintXamlRoot()
+		{
+			if (_constraintRoot is null || !_waitingForConstraintXamlRoot)
+				return;
+
+			_constraintRoot.LayoutUpdated -= OnConstraintRootLayoutUpdated;
+			_waitingForConstraintXamlRoot = false;
 		}
 #endif
 
@@ -210,7 +259,12 @@ namespace Microsoft.Maui.Handlers
 		public static void MapFlowDirection(IWindowHandler handler, IWindow view)
 		{
 #if UNO
-			return;
+			if (handler.PlatformView.Content is UI.Xaml.FrameworkElement root)
+			{
+				root.FlowDirection = view.FlowDirection == FlowDirection.RightToLeft
+					? UI.Xaml.FlowDirection.RightToLeft
+					: UI.Xaml.FlowDirection.LeftToRight;
+			}
 #else
 			var WindowHandle = handler.PlatformView.GetWindowHandle();
 

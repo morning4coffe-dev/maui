@@ -48,10 +48,7 @@ namespace Microsoft.Maui
 			{
 				var titleBar = this.GetAppWindow()?.TitleBar;
 
-				if (titleBar is not null)
-				{
-					titleBar.ExtendsContentIntoTitleBar = true;
-				}
+				titleBar?.ExtendsContentIntoTitleBar = true;
 
 				_viewSettings.ColorValuesChanged += ViewSettingsColorValuesChanged;
 				SetTileBarButtonColors();
@@ -263,7 +260,13 @@ namespace Microsoft.Maui
 
 		void ViewSettingsColorValuesChanged(ViewManagement.UISettings sender, object args)
 		{
-			DispatcherQueue.TryEnqueue(SetTileBarButtonColors);
+			DispatcherQueue.TryEnqueue(() =>
+			{
+				SetTileBarButtonColors();
+#if UNO
+				IPlatformApplication.Current?.Application?.ThemeChanged();
+#endif
+			});
 		}
 
 		void SetTileBarButtonColors()

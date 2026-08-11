@@ -95,12 +95,17 @@ namespace Microsoft.Maui.Storage
 			}
 		}
 
-		static string GetStorageKey(string key, string sharedName) =>
-			GetStoragePrefix(sharedName) + key;
+		static string GetStorageKey(string key, string sharedName)
+		{
+			ArgumentNullException.ThrowIfNull(key);
+			return GetStoragePrefix(sharedName) + key;
+		}
 
 		static string GetStoragePrefix(string sharedName)
 		{
-			var containerName = sharedName ?? string.Empty;
+			var containerName = string.IsNullOrWhiteSpace(sharedName)
+				? string.Empty
+				: sharedName;
 			return $"{StoragePrefix}{containerName.Length.ToString(CultureInfo.InvariantCulture)}:{containerName}:";
 		}
 	}

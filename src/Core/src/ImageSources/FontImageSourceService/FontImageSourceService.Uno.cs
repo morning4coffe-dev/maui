@@ -93,17 +93,25 @@ namespace Microsoft.Maui
 		{
 			var sources = FontManager.GetFontFamily(font).Source
 				.Split(',', StringSplitOptions.RemoveEmptyEntries);
-			var source = sources.Length > 0 ? sources[0].Trim() : font.Family ?? string.Empty;
-			var fragmentIndex = source.IndexOf('#', StringComparison.Ordinal);
-			var familyName = fragmentIndex >= 0 ? source[(fragmentIndex + 1)..] : font.Family;
-			var sourcePath = fragmentIndex >= 0 ? source[..fragmentIndex] : source;
+			string? familyName = font.Family;
 
-			var filePath = ResolveFontFilePath(sourcePath);
-			if (filePath is not null)
+			foreach (var candidate in sources)
 			{
-				var fileTypeface = SKTypeface.FromFile(filePath, 0);
-				if (fileTypeface is not null)
-					return fileTypeface;
+				var source = candidate.Trim();
+				var fragmentIndex = source.IndexOf('#', StringComparison.Ordinal);
+				var candidateFamilyName = fragmentIndex >= 0 ? source[(fragmentIndex + 1)..] : null;
+				var sourcePath = fragmentIndex >= 0 ? source[..fragmentIndex] : source;
+
+				if (!string.IsNullOrWhiteSpace(candidateFamilyName))
+					familyName ??= candidateFamilyName;
+
+				var filePath = ResolveFontFilePath(sourcePath);
+				if (filePath is not null)
+				{
+					var fileTypeface = SKTypeface.FromFile(filePath, 0);
+					if (fileTypeface is not null)
+						return fileTypeface;
+				}
 			}
 
 			return SKTypeface.FromFamilyName(

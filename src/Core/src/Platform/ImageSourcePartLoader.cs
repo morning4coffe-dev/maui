@@ -55,7 +55,10 @@ namespace Microsoft.Maui.Platform
 			SourceManager.Reset();
 		}
 
-		public async Task UpdateImageSourceAsync()
+		public Task UpdateImageSourceAsync() =>
+			UpdateImageSourceAsync(allowResolutionRetry: true);
+
+		async Task UpdateImageSourceAsync(bool allowResolutionRetry)
 		{
 			if (Setter.Handler is not IElementHandler handler || handler.PlatformView is not PlatformView platformView)
 			{
@@ -72,14 +75,18 @@ namespace Microsoft.Maui.Platform
 #endif
 
 #if IOS || WINDOWS
+#if UNO
+				var scale = platformView.GetDisplayDensity();
+#else
 				var scale = handler.MauiContext?.GetOptionalPlatformWindow()?.GetDisplayDensity() ?? 1.0f;
+#endif
 				var result = await imageSource.UpdateSourceAsync(platformView, _imageSourceServiceProvider, Setter.SetImageSource, scale, token)
 					.ConfigureAwait(false);
 
 #if UNO
 				SourceManager.CompleteLoad(result, scale);
-				if (SourceManager.RequiresReload(platformView))
-					await UpdateImageSourceAsync().ConfigureAwait(false);
+				if (allowResolutionRetry && SourceManager.RequiresReload(platformView))
+					await UpdateImageSourceAsync(allowResolutionRetry: false).ConfigureAwait(false);
 #else
 				SourceManager.CompleteLoad(result);
 #endif

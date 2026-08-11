@@ -29,7 +29,7 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 	GraphicsView? interactionView;
 	ObservableCollection<IDrawingLine>? subscribedLines;
 	DrawingLine? currentLine;
-	object? pendingCompletion;
+	readonly List<PendingDrawing> pendingDrawings = [];
 
 	public UnoDrawingViewHandler()
 		: base(Mapper)
@@ -125,13 +125,13 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 
 	void CancelPendingDrawing(IDrawingView? view)
 	{
-		if (currentLine is null && pendingCompletion is null)
+		if (currentLine is null && pendingDrawings.Count == 0)
 		{
 			return;
 		}
 
 		currentLine = null;
-		pendingCompletion = null;
+		pendingDrawings.Clear();
 		view?.OnDrawingLineCancelled();
 	}
 
@@ -203,11 +203,11 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 
 		var completedLine = currentLine;
 		currentLine = null;
-		var completion = new object();
-		pendingCompletion = completion;
-		if (!platformView.DispatcherQueue.TryEnqueue(() => CompleteLine(completion, completedLine)))
+		var pendingDrawing = new PendingDrawing(completedLine);
+		pendingDrawings.Add(pendingDrawing);
+		if (!platformView.DispatcherQueue.TryEnqueue(() => CompleteLine(pendingDrawing)))
 		{
-			pendingCompletion = null;
+			pendingDrawings.Remove(pendingDrawing);
 			virtualView.OnDrawingLineCancelled();
 		}
 
@@ -221,15 +221,24 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 	{
 		var virtualView = connectedView;
 		var platformView = connectedPlatformView;
-		if (virtualView is null ||
-			platformView is null ||
-			(currentLine is null && pendingCompletion is null))
+		if (virtualView is null || platformView is null)
 		{
 			return;
 		}
 
-		currentLine = null;
-		pendingCompletion = null;
+		if (currentLine is not null)
+		{
+			currentLine = null;
+		}
+		else if (pendingDrawings.Count > 0)
+		{
+			pendingDrawings.RemoveAt(pendingDrawings.Count - 1);
+		}
+		else
+		{
+			return;
+		}
+
 		virtualView.OnDrawingLineCancelled();
 		if (ReferenceEquals(connectedPlatformView, platformView))
 		{
@@ -237,21 +246,20 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 		}
 	}
 
-	void CompleteLine(object completion, DrawingLine completedLine)
+	void CompleteLine(PendingDrawing pendingDrawing)
 	{
 		var virtualView = connectedView;
 		var platformView = connectedPlatformView;
-		if (!ReferenceEquals(pendingCompletion, completion) ||
+		if (!pendingDrawings.Remove(pendingDrawing) ||
 			virtualView is null ||
 			platformView is null)
 		{
 			return;
 		}
 
-		pendingCompletion = null;
 		var shouldClearOnFinish = virtualView.ShouldClearOnFinish;
-		virtualView.Lines.Add(completedLine);
-		virtualView.OnDrawingLineCompleted(completedLine);
+		virtualView.Lines.Add(pendingDrawing.Line);
+		virtualView.OnDrawingLineCompleted(pendingDrawing.Line);
 
 		if (shouldClearOnFinish)
 		{
@@ -262,6 +270,11 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 		{
 			platformView.Invalidate();
 		}
+	}
+
+	sealed class PendingDrawing(DrawingLine line)
+	{
+		public DrawingLine Line { get; } = line;
 	}
 
 	sealed class DrawingSurfaceDrawable(UnoDrawingViewHandler owner) : IDrawable

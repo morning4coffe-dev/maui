@@ -45,7 +45,8 @@
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
-    <ProjectReference Include="..\..\Graphics\src\Graphics\Graphics.csproj" />
+    <ProjectReference Include="..\..\Graphics\src\Graphics\Graphics.csproj"
+                      Condition="'$(_MauiTargetPlatformIsUno)' != 'True'" />
     <PackageReference Include="System.Numerics.Vectors" Condition="$(TargetFramework.StartsWith('netstandard'))" />
     <PackageReference Include="System.Text.Json" Condition="$(TargetFramework.StartsWith('netstandard'))" />
   </ItemGroup>
@@ -57,9 +58,12 @@
   </ItemGroup>
   <ItemGroup Condition="'$(_MauiTargetPlatformIsUno)' == 'True'">
     <PackageReference Include="Uno.WinUI" />
+    <ProjectReference Include="..\..\Graphics\src\Graphics\Graphics.csproj"
+                      SkipGetTargetFrameworkProperties="true"
+                      SetTargetFramework="TargetFramework=$(TargetFramework);$(_MauiUnoProjectReferenceProperties)" />
     <ProjectReference Include="..\..\Graphics\src\Graphics.Skia\Graphics.Skia.csproj"
                       SkipGetTargetFrameworkProperties="true"
-                      SetTargetFramework="TargetFramework=$(TargetFramework);MauiUnoTarget=true" />
+                      SetTargetFramework="TargetFramework=$(TargetFramework);$(_MauiUnoProjectReferenceProperties)" />
     <Compile Remove="ImageSources\FontImageSourceService\FontImageSourceService.Windows.cs" />
     <Page Include="Platform\Windows\MauiToolbar.xaml" />
     <Page Include="Platform\Windows\Styles\*.xaml"
@@ -91,8 +95,15 @@
     <ProjectReference Include="..\..\Graphics\src\Graphics.Skia\Graphics.Skia.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Essentials\src\Essentials.csproj" />
-    <ProjectReference Include="..\..\Graphics\src\Graphics\Graphics.csproj" />
+    <ProjectReference Include="..\..\Essentials\src\Essentials.csproj">
+      <SkipGetTargetFrameworkProperties Condition="'$(MauiUnoTarget)' == 'true'">true</SkipGetTargetFrameworkProperties>
+      <SetTargetFramework Condition="'$(MauiUnoTarget)' == 'true'">TargetFramework=$(TargetFramework);$(_MauiUnoProjectReferenceProperties)</SetTargetFramework>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Graphics\src\Graphics\Graphics.csproj"
+                      Condition="'$(_MauiTargetPlatformIsUno)' != 'True'">
+      <SkipGetTargetFrameworkProperties Condition="'$(MauiUnoTarget)' == 'true'">true</SkipGetTargetFrameworkProperties>
+      <SetTargetFramework Condition="'$(MauiUnoTarget)' == 'true'">TargetFramework=$(TargetFramework);$(_MauiUnoProjectReferenceProperties)</SetTargetFramework>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>

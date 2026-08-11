@@ -54,7 +54,7 @@ namespace Microsoft.Maui.Graphics.Skia.Views
 			_scalingCanvas.ResetState();
 			_scalingCanvas.Scale(scale, scale);
 
-			_drawable.Draw(_scalingCanvas, new RectF(0, 0, _width / scale, _height / scale));
+			_drawable.Draw(_scalingCanvas, new RectF(0, 0, _width, _height));
 		}
 
 		private void OnSizeChanged(object sender, SizeChangedEventArgs e)

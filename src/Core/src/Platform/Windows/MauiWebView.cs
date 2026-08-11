@@ -30,6 +30,7 @@ namespace Microsoft.Maui.Platform
 		// Arbitrary local host name for virtual folder mapping
 		const string LocalHostName = "appdir";
 		const string LocalScheme = $"https://{LocalHostName}/";
+		bool _preserveLocalMappingForNextNavigation;
 
 		// Script to insert a <base> tag into an HTML document
 		const string BaseInsertionScript = @"
@@ -40,14 +41,26 @@ namespace Microsoft.Maui.Platform
 			}";
 
 		// Allow for packaged/unpackaged app support
-		static string ApplicationPath =>
+		static string ApplicationPath
+		{
+			get
+			{
 #if UNO
-			AppContext.BaseDirectory;
+				try
+				{
+					return Package.Current?.InstalledLocation.Path ?? AppContext.BaseDirectory;
+				}
+				catch (InvalidOperationException)
+				{
+					return AppContext.BaseDirectory;
+				}
 #else
-			AppInfoUtils.IsPackagedApp
-			? Package.Current.InstalledLocation.Path
-			: AppContext.BaseDirectory;
+				return AppInfoUtils.IsPackagedApp
+					? Package.Current.InstalledLocation.Path
+					: AppContext.BaseDirectory;
 #endif
+			}
+		}
 
 		public async void LoadHtml(string? html, string? baseUrl)
 		{
@@ -72,6 +85,7 @@ namespace Microsoft.Maui.Platform
 			var script = GetBaseTagInsertionScript(baseUrl);
 			var htmlWithScript = $"{script}\n{html}";
 
+			_preserveLocalMappingForNextNavigation = mapBaseDirectory;
 			NavigateToString(htmlWithScript);
 		}
 
@@ -110,8 +124,12 @@ namespace Microsoft.Maui.Platform
 		{
 			NavigationStarting += (sender, args) =>
 			{
+				var preserveLocalMapping = _preserveLocalMappingForNextNavigation;
+				_preserveLocalMappingForNextNavigation = false;
+
 				// Auto map local virtual app dir host, e.g. if navigating back to local site from a link to an external site
-				if (IsUriWithLocalScheme(args?.Uri) ||
+				if (preserveLocalMapping ||
+					IsUriWithLocalScheme(args?.Uri) ||
 					IsWebView2DataUriWithBaseUrl(args?.Uri))
 				{
 					CoreWebView2.SetVirtualHostNameToFolderMapping(

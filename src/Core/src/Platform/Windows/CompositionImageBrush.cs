@@ -23,11 +23,17 @@ namespace Microsoft.Maui.Platform
 	{
 		readonly LoadedImageSurface _surface;
 		readonly CompositionSurfaceBrush _brush;
+		InMemoryRandomAccessStream _stream;
 
-		CompositionImageBrush(LoadedImageSurface surface, CompositionSurfaceBrush brush)
+		CompositionImageBrush(
+			LoadedImageSurface surface,
+			CompositionSurfaceBrush brush,
+			InMemoryRandomAccessStream stream)
 		{
 			_surface = surface;
 			_brush = brush;
+			_stream = stream;
+			_surface.LoadCompleted += OnLoadCompleted;
 		}
 
 		public CompositionBrush Brush => _brush;
@@ -38,25 +44,42 @@ namespace Microsoft.Maui.Platform
 			Size outputSize)
 		{
 			var stream = new InMemoryRandomAccessStream();
-			var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
-			encoder.SetSoftwareBitmap(bitmap);
-			await encoder.FlushAsync();
-			stream.Seek(0);
-
-			var surface = LoadedImageSurface.StartLoadFromStream(stream, outputSize);
-			TypedEventHandler<LoadedImageSurface, LoadedImageSourceLoadCompletedEventArgs> handler = null;
-			handler = (sender, args) =>
+			LoadedImageSurface surface = null;
+			try
 			{
-				sender.LoadCompleted -= handler;
-				stream.Dispose();
-			};
-			surface.LoadCompleted += handler;
+				var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
+				encoder.SetSoftwareBitmap(bitmap);
+				await encoder.FlushAsync();
+				stream.Seek(0);
 
-			return new CompositionImageBrush(surface, compositor.CreateSurfaceBrush(surface));
+				surface = LoadedImageSurface.StartLoadFromStream(stream, outputSize);
+				return new CompositionImageBrush(
+					surface,
+					compositor.CreateSurfaceBrush(surface),
+					stream);
+			}
+			catch
+			{
+				surface?.Dispose();
+				stream.Dispose();
+				throw;
+			}
+		}
+
+		void OnLoadCompleted(
+			LoadedImageSurface sender,
+			LoadedImageSourceLoadCompletedEventArgs args)
+		{
+			sender.LoadCompleted -= OnLoadCompleted;
+			_stream?.Dispose();
+			_stream = null;
 		}
 
 		public void Dispose()
 		{
+			_surface.LoadCompleted -= OnLoadCompleted;
+			_stream?.Dispose();
+			_stream = null;
 			_brush.Dispose();
 			_surface.Dispose();
 		}

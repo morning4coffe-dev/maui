@@ -176,22 +176,23 @@ namespace Microsoft.Maui.Controls.Handlers
 		{
 			handler.PlatformView.UpdateFlowDirection(view);
 			var windowRootView = handler.MauiContext?.GetNavigationRootManager()?.RootView as WindowRootView;
-			var window = handler.MauiContext?.Services?.GetService<Microsoft.UI.Xaml.Window>();
-
-			if (window == null)
-				return;
-
-			var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
 			var isRtl = view.FlowDirection == FlowDirection.RightToLeft;
-			var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
 
-			// Apply or remove WS_EX_LAYOUTRTL to mirror the window including title bar buttons
-			var newExStyle = isRtl ? (exStyle | WS_EX_LAYOUTRTL) : (exStyle & ~WS_EX_LAYOUTRTL);
-			if (exStyle != newExStyle)
-				SetWindowLong(hwnd, GWL_EXSTYLE, newExStyle);
+#if !UNO
+			var window = handler.MauiContext?.Services?.GetService<Microsoft.UI.Xaml.Window>();
+			if (window is not null)
+			{
+				var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+				var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
 
-			if (windowRootView != null)
-				windowRootView.FlowDirection = isRtl ? Microsoft.UI.Xaml.FlowDirection.RightToLeft : Microsoft.UI.Xaml.FlowDirection.LeftToRight;
+				// Apply or remove WS_EX_LAYOUTRTL to mirror the window including title bar buttons
+				var newExStyle = isRtl ? (exStyle | WS_EX_LAYOUTRTL) : (exStyle & ~WS_EX_LAYOUTRTL);
+				if (exStyle != newExStyle)
+					SetWindowLong(hwnd, GWL_EXSTYLE, newExStyle);
+			}
+#endif
+
+			windowRootView?.FlowDirection = isRtl ? Microsoft.UI.Xaml.FlowDirection.RightToLeft : Microsoft.UI.Xaml.FlowDirection.LeftToRight;
 		}
 
 		public static void MapIsPresented(ShellHandler handler, IFlyoutView flyoutView)

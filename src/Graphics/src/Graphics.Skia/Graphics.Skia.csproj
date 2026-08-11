@@ -44,7 +44,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Graphics\Graphics.csproj" />
+    <ProjectReference Include="..\Graphics\Graphics.csproj">
+      <SkipGetTargetFrameworkProperties Condition="'$(MauiUnoTarget)' == 'true'">true</SkipGetTargetFrameworkProperties>
+      <SetTargetFramework Condition="'$(MauiUnoTarget)' == 'true'">TargetFramework=$(TargetFramework);$(_MauiUnoProjectReferenceProperties)</SetTargetFramework>
+    </ProjectReference>
   </ItemGroup>
 
   <Import Project="$(MauiSrcDirectory)MultiTargeting.targets" />

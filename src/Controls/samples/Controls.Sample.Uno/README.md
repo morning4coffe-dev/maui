@@ -4,6 +4,11 @@ This sample runs one shared MAUI application through MAUI's existing Windows
 handlers and hosts that WinUI surface on Uno Platform. It does not register a
 second renderer or compile MAUI's Android, iOS, or Mac Catalyst handlers.
 
+The sample owns the application root through `MauiWinUIApplication`. It is
+separate from Uno's `EmbeddingApplication`/`MauiHost` integration; combining
+both bootstrap models would create competing application scopes, windows, and
+`IPlatformApplication.Current` ownership.
+
 The handler assemblies remain plain `net10.0`; each Uno head supplies the
 platform host:
 
@@ -36,12 +41,22 @@ default x64 simulator or desktop RID, for example:
 .\Build.ps1 -Target iOS -RuntimeIdentifier iossimulator-arm64 -Run
 ```
 
+Release publishing is currently available for the heads that do not require
+signing and have a trim-clean sample:
+
+```powershell
+.\Build.ps1 -Configuration Release -Target Desktop -Publish
+```
+
+WebAssembly publish remains blocked on trimming warnings in the Toolkit sample.
+
 ## Implementation
 
 `MauiUnoSample.props` keeps every MAUI source reference on `net10.0` with
 `MauiUnoTarget=true`, propagates the selected RID through restore and build,
-and prevents the platform heads from pulling MAUI's native workload source
-sets.
+prevents the platform heads from pulling MAUI's native workload source sets,
+and serializes the explicit project-reference graph so repeated framework
+references cannot write the same output concurrently.
 
 The Uno packages are temporarily pinned to `6.7.0-dev.704`. That build contains
 the upstream WebAssembly startup-race fix that avoids rendering before Uno has
@@ -86,6 +101,8 @@ bounds until Uno exposes a public geometry source for `CompositionPath`.
 
 ## Current limitations
 
+- Uno-root MAUI embedding through `MauiHost` is not supported by this
+  standalone application bootstrap.
 - MAUI Essentials remains partial. `AppInfo`, `Clipboard`, `Connectivity`,
   `Preferences`, and `MainThread` have Uno implementations; `DeviceInfo`,
   `FileSystem`, `SecureStorage`, permissions, and most sensors still use their

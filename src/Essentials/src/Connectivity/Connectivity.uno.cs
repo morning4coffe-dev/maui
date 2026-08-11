@@ -29,7 +29,7 @@ namespace Microsoft.Maui.Networking
 					NetworkInformation.GetInternetConnectionProfile);
 				if (profile is null)
 				{
-					return NetworkAccess.None;
+					return NetworkAccess.Unknown;
 				}
 
 				return profile.GetNetworkConnectivityLevel() switch
