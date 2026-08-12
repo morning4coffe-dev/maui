@@ -120,6 +120,42 @@
     </ItemGroup>
   </Target>
 
+  <Target Name="_ConfigureMauiUnoProjectReferenceGraph"
+          BeforeTargets="_GetProjectReferenceTargetFrameworkProperties;_GenerateRestoreProjectPathWalk;_GenerateRestoreGraph"
+          Condition="'$(MauiUnoTarget)' == 'true'">
+    <ItemGroup>
+      <_MauiUnoEligibleProjectReference Include="@(ProjectReference)"
+                                        Condition="'%(ProjectReference.ReferenceOutputAssembly)' != 'false' and '%(ProjectReference.OutputItemType)' != 'Analyzer'" />
+    </ItemGroup>
+
+    <PropertyGroup Condition="'@(_MauiUnoEligibleProjectReference)' != ''">
+      <_MauiUnoCanonicalSetTargetFramework>TargetFramework=$(_MauiDotNetTfm);$(_MauiUnoProjectReferenceProperties)</_MauiUnoCanonicalSetTargetFramework>
+      <_GenerateRestoreGraphProjectEntryInputProperties>
+        $(_GenerateRestoreGraphProjectEntryInputProperties);
+        $(_MauiUnoProjectReferenceProperties)
+      </_GenerateRestoreGraphProjectEntryInputProperties>
+    </PropertyGroup>
+
+    <Error Condition="'@(_MauiUnoEligibleProjectReference)' != '' and '$(_MauiUnoProjectReferenceProperties)' == ''"
+           Text="MauiUnoTarget requires _MauiUnoProjectReferenceProperties before configuring the Uno project-reference graph." />
+    <Error Condition="'@(_MauiUnoEligibleProjectReference)' != '' and '$(RuntimeIdentifier)' != '' and '$(_MauiUnoProjectReferenceProperties)' != '' and $(_MauiUnoProjectReferenceProperties.Contains('RuntimeIdentifier=$(RuntimeIdentifier)')) != 'True'"
+           Text="MauiUnoTarget requires the active RuntimeIdentifier '$(RuntimeIdentifier)' to flow into _MauiUnoProjectReferenceProperties before UnoTargeting.props is imported. Current value: '$(_MauiUnoProjectReferenceProperties)'." />
+
+    <ItemGroup Condition="'@(_MauiUnoEligibleProjectReference)' != ''">
+      <ProjectReference Update="@(ProjectReference)"
+                        Condition="'%(ProjectReference.ReferenceOutputAssembly)' != 'false' and '%(ProjectReference.OutputItemType)' != 'Analyzer'">
+        <GlobalPropertiesToRemove>%(ProjectReference.GlobalPropertiesToRemove);TargetFrameworks;RuntimeIdentifiers;SelfContained</GlobalPropertiesToRemove>
+        <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+        <SetTargetFramework>$(_MauiUnoCanonicalSetTargetFramework)</SetTargetFramework>
+      </ProjectReference>
+      <_MauiUnoProjectReferenceMissingMetadata Include="@(ProjectReference)"
+                                               Condition="'%(ProjectReference.ReferenceOutputAssembly)' != 'false' and '%(ProjectReference.OutputItemType)' != 'Analyzer' and ('%(ProjectReference.SkipGetTargetFrameworkProperties)' != 'true' or '%(ProjectReference.SetTargetFramework)' != '$(_MauiUnoCanonicalSetTargetFramework)')" />
+    </ItemGroup>
+
+    <Error Condition="'@(_MauiUnoProjectReferenceMissingMetadata)' != ''"
+           Text="MauiUnoTarget project references must use the canonical net10.0 + RID graph metadata. Missing or incorrect metadata: @(_MauiUnoProjectReferenceMissingMetadata->'%(Identity)', ', ')." />
+  </Target>
+
   <!-- Tell typescript to stop deleting everything before building the next TFM -->
   <Target Name="TypeScriptDeleteOutputFromOtherConfigs" />
   <!-- Don't add any outputs to any item group, we are embedding things manually -->

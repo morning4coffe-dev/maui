@@ -1,12 +1,14 @@
 <Project>
+  <PropertyGroup Condition="'$(MauiUnoTarget)' == 'true'">
+    <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);https://api.nuget.org/v3/index.json</RestoreAdditionalProjectSources>
+    <_MauiUnoProjectReferenceProperties>MauiUnoTarget=true;RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false;BuildInParallel=false;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false;RestoreAdditionalProjectSources=https://api.nuget.org/v3/index.json</_MauiUnoProjectReferenceProperties>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(MauiUnoTarget)' == 'true' and '$(TargetFramework)' == '$(_MauiDotNetTfm)'">
     <_MauiTargetPlatformIsUno>True</_MauiTargetPlatformIsUno>
     <_MauiTargetPlatformIsWindows>True</_MauiTargetPlatformIsWindows>
     <_MauiNoTargetPlatform>False</_MauiNoTargetPlatform>
     <DefineConstants>WINDOWS;PLATFORM;UNO;$(DefineConstants)</DefineConstants>
     <PublicApiType>Validate</PublicApiType>
-    <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);https://api.nuget.org/v3/index.json</RestoreAdditionalProjectSources>
-    <_MauiUnoProjectReferenceProperties>MauiUnoTarget=true;RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false;BuildInParallel=false;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false;RestoreAdditionalProjectSources=https://api.nuget.org/v3/index.json</_MauiUnoProjectReferenceProperties>
     <!-- Uno0001 tracks known API gaps in this experiment; the other diagnostics originate in generated XAML. -->
     <NoWarn>$(NoWarn);Uno0001;IL2072;IL2111;RS0030</NoWarn>
   </PropertyGroup>

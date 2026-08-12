@@ -1,0 +1,33 @@
+#nullable enable
+*REMOVED*~override Microsoft.Maui.ApplicationModel.Permissions.ContactsRead.CheckStatusAsync() -> System.Threading.Tasks.Task<Microsoft.Maui.ApplicationModel.PermissionStatus>
+*REMOVED*~override Microsoft.Maui.ApplicationModel.Permissions.ContactsWrite.CheckStatusAsync() -> System.Threading.Tasks.Task<Microsoft.Maui.ApplicationModel.PermissionStatus>
+*REMOVED*~override Microsoft.Maui.ApplicationModel.Permissions.LocationAlways.CheckStatusAsync() -> System.Threading.Tasks.Task<Microsoft.Maui.ApplicationModel.PermissionStatus>
+*REMOVED*~override Microsoft.Maui.ApplicationModel.Permissions.LocationWhenInUse.CheckStatusAsync() -> System.Threading.Tasks.Task<Microsoft.Maui.ApplicationModel.PermissionStatus>
+*REMOVED*~override Microsoft.Maui.ApplicationModel.Permissions.Microphone.CheckStatusAsync() -> System.Threading.Tasks.Task<Microsoft.Maui.ApplicationModel.PermissionStatus>
+*REMOVED*~override Microsoft.Maui.ApplicationModel.Permissions.Microphone.RequestAsync() -> System.Threading.Tasks.Task<Microsoft.Maui.ApplicationModel.PermissionStatus>
+*REMOVED*~override Microsoft.Maui.ApplicationModel.Permissions.Microphone.RequiredDeclarations.get -> System.Func<System.Collections.Generic.IEnumerable<string>>
+*REMOVED*~override Microsoft.Maui.ApplicationModel.Permissions.Sensors.CheckStatusAsync() -> System.Threading.Tasks.Task<Microsoft.Maui.ApplicationModel.PermissionStatus>
+*REMOVED*~static Microsoft.Maui.ApplicationModel.Permissions.IsCapabilityDeclared(string capabilityName) -> bool
+*REMOVED*~virtual Microsoft.Maui.ApplicationModel.Permissions.BasePlatformPermission.RequiredDeclarations.get -> System.Func<System.Collections.Generic.IEnumerable<string>>
+*REMOVED*Microsoft.Maui.ApplicationModel.IPlatformAppActions.OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs! e) -> System.Threading.Tasks.Task!
+*REMOVED*Microsoft.Maui.ApplicationModel.IWindowStateManager
+*REMOVED*Microsoft.Maui.ApplicationModel.IWindowStateManager.ActiveWindowChanged -> System.EventHandler!
+*REMOVED*Microsoft.Maui.ApplicationModel.IWindowStateManager.GetActiveWindow() -> Microsoft.UI.Xaml.Window?
+*REMOVED*Microsoft.Maui.ApplicationModel.IWindowStateManager.OnActivated(Microsoft.UI.Xaml.Window! window, Microsoft.UI.Xaml.WindowActivatedEventArgs! args) -> void
+*REMOVED*Microsoft.Maui.ApplicationModel.IWindowStateManager.OnPlatformWindowInitialized(Microsoft.UI.Xaml.Window! window) -> void
+*REMOVED*Microsoft.Maui.ApplicationModel.WindowStateManager
+*REMOVED*Microsoft.Maui.Devices.Sensors.IPlatformGeocoding.MapServiceToken.get -> string?
+*REMOVED*Microsoft.Maui.Devices.Sensors.IPlatformGeocoding.MapServiceToken.set -> void
+*REMOVED*Microsoft.Maui.Media.IPlatformScreenshot.CaptureAsync(Microsoft.UI.Xaml.UIElement! element) -> System.Threading.Tasks.Task<Microsoft.Maui.Media.IScreenshotResult?>!
+*REMOVED*Microsoft.Maui.Media.IPlatformScreenshot.CaptureAsync(Microsoft.UI.Xaml.Window! window) -> System.Threading.Tasks.Task<Microsoft.Maui.Media.IScreenshotResult!>!
+*REMOVED*static Microsoft.Maui.ApplicationModel.AppActionsExtensions.OnLaunched(this Microsoft.Maui.ApplicationModel.IAppActions! appActions, Microsoft.UI.Xaml.LaunchActivatedEventArgs! e) -> System.Threading.Tasks.Task!
+*REMOVED*static Microsoft.Maui.ApplicationModel.Platform.MapServiceToken.get -> string?
+*REMOVED*static Microsoft.Maui.ApplicationModel.Platform.MapServiceToken.set -> void
+*REMOVED*static Microsoft.Maui.ApplicationModel.Platform.OnActivated(Microsoft.UI.Xaml.Window! window, Microsoft.UI.Xaml.WindowActivatedEventArgs! args) -> void
+*REMOVED*static Microsoft.Maui.ApplicationModel.Platform.OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs! e) -> void
+*REMOVED*static Microsoft.Maui.ApplicationModel.Platform.OnPlatformWindowInitialized(Microsoft.UI.Xaml.Window! window) -> void
+*REMOVED*static Microsoft.Maui.ApplicationModel.WindowStateManager.Default.get -> Microsoft.Maui.ApplicationModel.IWindowStateManager!
+*REMOVED*static Microsoft.Maui.Devices.Sensors.GeocodingExtensions.GetMapServiceToken(this Microsoft.Maui.Devices.Sensors.IGeocoding! geocoding) -> string?
+*REMOVED*static Microsoft.Maui.Devices.Sensors.GeocodingExtensions.SetMapServiceToken(this Microsoft.Maui.Devices.Sensors.IGeocoding! geocoding, string? mapServiceToken) -> void
+*REMOVED*static Microsoft.Maui.Media.ScreenshotExtensions.CaptureAsync(this Microsoft.Maui.Media.IScreenshot! screenshot, Microsoft.UI.Xaml.UIElement! element) -> System.Threading.Tasks.Task<Microsoft.Maui.Media.IScreenshotResult?>!
+*REMOVED*static Microsoft.Maui.Media.ScreenshotExtensions.CaptureAsync(this Microsoft.Maui.Media.IScreenshot! screenshot, Microsoft.UI.Xaml.Window! window) -> System.Threading.Tasks.Task<Microsoft.Maui.Media.IScreenshotResult!>!
