@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -14,6 +15,7 @@ namespace Microsoft.Maui.ApplicationModel
 	{
 		const string BuildStringMetadataKey = "Microsoft.Maui.ApplicationModel.AppInfo.BuildString";
 		const string DisplayVersionMetadataKey = "Microsoft.Maui.ApplicationModel.AppInfo.DisplayVersion";
+		const string SettingsUri = "ms-settings:appsfeatures-app";
 		const int ErrorInsufficientBuffer = 122;
 		const int AppModelErrorNoPackage = 15700;
 
@@ -59,8 +61,16 @@ namespace Microsoft.Maui.ApplicationModel
 			GetMetadataValue(BuildStringMetadataKey) ??
 			Math.Max(0, Version.Revision).ToString(CultureInfo.InvariantCulture);
 
-		public void ShowSettingsUI() =>
-			throw new FeatureNotSupportedException("Opening application settings is not supported by the Uno Essentials projection.");
+		public void ShowSettingsUI()
+		{
+			if (!OperatingSystem.IsWindows())
+				throw new FeatureNotSupportedException("Opening application settings is not supported by this Uno host.");
+
+			if (CurrentPackage.Value is not null)
+				global::Windows.System.Launcher.LaunchUriAsync(new Uri(SettingsUri)).WatchForError();
+			else
+				Process.Start(new ProcessStartInfo { FileName = SettingsUri, UseShellExecute = true });
+		}
 
 		public AppTheme RequestedTheme =>
 			Application.Current?.RequestedTheme switch

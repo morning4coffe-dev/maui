@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -11,6 +12,7 @@ using Microsoft.Maui.LifecycleEvents;
 using Android.App;
 #endif
 #if UNO
+using Microsoft.Maui.Media;
 using Microsoft.UI.Dispatching;
 #endif
 
@@ -89,6 +91,14 @@ namespace Microsoft.Maui.Hosting
 #if !(ANDROID || __IOS__ || __MACCATALYST__ || WINDOWS || TIZEN) || UNO
 			builder.Services.TryAddEnumerable(ServiceDescriptor.Transient<IMauiInitializeService, MainThreadBridgeInitializer>());
 #endif
+#if UNO
+			builder.Services.AddKeyedSingleton<Func<object, Task<IScreenshotResult?>>>(
+				ScreenshotDispatch.ViewCaptureKey,
+				(_, _) => UnoScreenshotCapture.CaptureAsync);
+			builder.Services.AddKeyedSingleton<Func<object, Task<IScreenshotResult?>>>(
+				ScreenshotDispatch.WindowCaptureKey,
+				(_, _) => UnoScreenshotCapture.CaptureAsync);
+#endif
 
 			return builder;
 		}
@@ -139,17 +149,22 @@ namespace Microsoft.Maui.Hosting
 					return;
 
 #if UNO
-				if (dispatcher is Dispatcher platformDispatcher)
+				var mainThreadId = Environment.CurrentManagedThreadId;
+				var dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+				if (dispatcherQueue is not null)
 				{
-					var dispatcherQueue = platformDispatcher.PlatformDispatcherQueue;
 					MainThread.SetCustomImplementation(
-						isMainThread: () => dispatcherQueue.HasThreadAccess,
-						beginInvokeOnMainThread: action => DispatchOrThrow(dispatcher, action));
+						isMainThread: () =>
+							Environment.CurrentManagedThreadId == mainThreadId ||
+							!dispatcher.IsDispatchRequired,
+						beginInvokeOnMainThread: action => EnqueueOrThrow(dispatcherQueue, action));
 				}
 				else
 				{
 					MainThread.SetCustomImplementation(
-						isMainThread: () => !dispatcher.IsDispatchRequired,
+						isMainThread: () =>
+							Environment.CurrentManagedThreadId == mainThreadId ||
+							!dispatcher.IsDispatchRequired,
 						beginInvokeOnMainThread: action => DispatchOrThrow(dispatcher, action));
 				}
 #else
@@ -164,6 +179,14 @@ namespace Microsoft.Maui.Hosting
 				if (!dispatcher.Dispatch(action))
 					throw new InvalidOperationException("Unable to queue on the main thread.");
 			}
+
+#if UNO
+			static void EnqueueOrThrow(DispatcherQueue dispatcherQueue, Action action)
+			{
+				if (!dispatcherQueue.TryEnqueue(() => action()))
+					throw new InvalidOperationException("Unable to queue on the Uno main thread.");
+			}
+#endif
 		}
 #endif
 

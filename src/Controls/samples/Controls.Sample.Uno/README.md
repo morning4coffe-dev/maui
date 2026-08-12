@@ -42,13 +42,15 @@ default x64 simulator or desktop RID, for example:
 ```
 
 Release publishing is currently available for the heads that do not require
-signing and have a trim-clean sample:
+signing:
 
 ```powershell
 .\Build.ps1 -Configuration Release -Target Desktop -Publish
+.\Build.ps1 -Configuration Release -Target WebAssembly -Publish
 ```
 
-WebAssembly publish remains blocked on trimming warnings in the Toolkit sample.
+The WebAssembly publish preserves the two CommunityToolkit assemblies in full
+because the pinned Toolkit build is not trim-analysis clean.
 
 ## Implementation
 
@@ -107,12 +109,13 @@ bounds until Uno exposes a public geometry source for `CompositionPath`.
   `Preferences`, and `MainThread` have Uno implementations; `DeviceInfo`,
   `FileSystem`, `SecureStorage`, permissions, and most sensors still use their
   portable unsupported implementations.
-- Native window handles and Win32 message callbacks remain unavailable. Window
-  position, size, constraints, minimize, maximize, and restore use Uno's public
-  `AppWindow` APIs where the host supports them; mobile and WebAssembly hosts
-  may intentionally ignore desktop-only operations. X11 minimize, maximize,
-  and restore are disabled until Uno can reliably deiconify and reactivate the
-  window during restore.
+- Native HWND access is available on the Windows Uno host. Win32 message
+  callbacks remain unavailable, and non-Windows heads do not expose native
+  window handles. Window position, size, constraints, minimize, maximize, and
+  restore use Uno's public `AppWindow` APIs where the host supports them;
+  mobile and WebAssembly hosts may intentionally ignore desktop-only
+  operations. X11 minimize, maximize, and restore are disabled until Uno can
+  reliably deiconify and reactivate the window during restore.
 - Arbitrary non-rectangular MAUI paths still fall back to rectangular
   composition clips because Uno's path-geometry interop is internal. Rounded
   rectangles, including independent corner radii, are preserved.

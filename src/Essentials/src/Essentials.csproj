@@ -45,6 +45,7 @@
     <Compile Include="Clipboard\Clipboard.uno.cs" />
     <Compile Include="Connectivity\Connectivity.uno.cs" />
     <Compile Include="Preferences\Preferences.uno.cs" />
+    <Compile Include="Platform\PlatformUtils.windows.cs" />
     <PackageReference Include="Uno.WinUI" ExcludeAssets="analyzers;build;buildTransitive" />
   </ItemGroup>
   <Target Name="_RemoveUnoWinUIAnalyzersFromEssentials"

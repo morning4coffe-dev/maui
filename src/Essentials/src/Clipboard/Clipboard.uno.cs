@@ -21,12 +21,12 @@ namespace Microsoft.Maui.ApplicationModel.DataTransfer
 		public bool HasText =>
 			OperatingSystem.IsBrowser()
 				? throw new FeatureNotSupportedException("Clipboard.HasText is not supported by the Uno WebAssembly clipboard projection.")
-				: WindowsClipboard.GetContent().Contains(StandardDataFormats.Text);
+				: WindowsClipboard.GetContent()?.Contains(StandardDataFormats.Text) == true;
 
 		public async Task<string?> GetTextAsync()
 		{
 			var clipboardContent = WindowsClipboard.GetContent();
-			return clipboardContent.Contains(StandardDataFormats.Text)
+			return clipboardContent?.Contains(StandardDataFormats.Text) == true
 				? await clipboardContent.GetTextAsync()
 				: null;
 		}
