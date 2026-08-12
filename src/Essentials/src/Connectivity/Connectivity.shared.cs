@@ -120,6 +120,9 @@ namespace Microsoft.Maui.Networking
 				MainThread.BeginInvokeOnMainThread(() => ConnectivityChangedInternal?.Invoke(null, e));
 			}
 		}
+
+		internal static NetworkAccess GetFallbackNetworkAccess(bool isNetworkAvailable) =>
+			isNetworkAvailable ? NetworkAccess.Unknown : NetworkAccess.None;
 	}
 
 	/// <summary>

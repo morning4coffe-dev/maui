@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 using Microsoft.UI.Xaml;
 using Windows.ApplicationModel;
@@ -120,8 +121,14 @@ namespace Microsoft.Maui.ApplicationModel
 			}
 		}
 
+		[SupportedOSPlatform("windows")]
 		static bool HasPackageIdentity()
 		{
+			if (!OperatingSystem.IsWindows())
+			{
+				return false;
+			}
+
 			var packageFullNameLength = 0;
 			var result = GetCurrentPackageFullName(ref packageFullNameLength, null);
 			return result switch
@@ -132,6 +139,7 @@ namespace Microsoft.Maui.ApplicationModel
 			};
 		}
 
+		[SupportedOSPlatform("windows")]
 		[DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
 		static extern int GetCurrentPackageFullName(
 			ref int packageFullNameLength,

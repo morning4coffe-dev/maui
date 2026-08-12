@@ -1,5 +1,8 @@
 #nullable enable
 using System;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace Microsoft.Maui.Storage
@@ -206,6 +209,32 @@ namespace Microsoft.Maui.Storage
 		// Special Alias that is only used for Secure Storage. All others should use: Preferences.GetPrivatePreferencesSharedName
 		internal static readonly string Alias = Preferences.GetPrivatePreferencesSharedName("preferences");
 #endif
+
+		internal static string GetSecureStoragePasswordVaultResource(string? packageName)
+		{
+			var scopedPackageName = string.IsNullOrWhiteSpace(packageName)
+				? "microsoft.maui.essentials"
+				: packageName;
+
+			return $"{scopedPackageName}.microsoft.maui.essentials.securestorage";
+		}
+
+		internal static string HashSecureStorageKey(string key)
+		{
+			if (key == null)
+				throw new ArgumentNullException(nameof(key));
+
+			// PasswordVault uses this identifier as the storage slot, so hash the key to preserve case sensitivity across hosts.
+			using var sha256 = SHA256.Create();
+			var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(key));
+			var builder = new StringBuilder(hash.Length * 2);
+			foreach (var value in hash)
+			{
+				builder.Append(value.ToString("x2", CultureInfo.InvariantCulture));
+			}
+
+			return builder.ToString();
+		}
 
 		public Task<string?> GetAsync(string key)
 		{

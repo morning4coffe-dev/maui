@@ -34,8 +34,10 @@ When this fork is checked out through `uno.maui.renderer`, use its root wrapper:
 
 `Desktop` is the default target. Android, iOS, Mac Catalyst, and WebAssembly
 require their corresponding .NET 10 workloads. Apple heads compile on Windows,
-but running them requires macOS. Use `-RuntimeIdentifier` to override the
-default x64 simulator or desktop RID, for example:
+but running them requires macOS. On Apple Silicon macOS the default
+simulator/Catalyst RID is arm64; on Intel macOS it remains x64. Windows keeps
+the existing Debug x64 / Release arm64 defaults. Use `-RuntimeIdentifier` to
+override the default RID, for example:
 
 ```powershell
 .\Build.ps1 -Target iOS -RuntimeIdentifier iossimulator-arm64 -Run
@@ -79,9 +81,16 @@ resources, focus, property mapper updates, and a package-only
 file-system probe.
 
 The Essentials compatibility probe uses Uno-specific implementations for
-`AppInfo`, `Clipboard`, `Connectivity`, `Preferences`, and `FileSystem`. `MainThread` remains
-bridged to the MAUI dispatcher. The probe reports APIs that still use the
-portable unsupported implementation instead of hiding the gap.
+`AppInfo`, `Clipboard`, `Connectivity`, `Preferences`, `FileSystem`, and
+`SecureStorage`. `Connectivity.NetworkAccess` falls back to
+`NetworkInterface.GetIsNetworkAvailable()` when a host does not project the
+WinRT internet profile, while `ConnectivityChanged` reports unsupported
+notifications explicitly on those heads. `SecureStorage` uses Uno's
+`PasswordVault` on Windows, Android API 23+, iOS, and Mac Catalyst, and
+intentionally throws on browser and desktop Linux/macOS hosts instead of
+silently falling back to plain-text storage. `MainThread` remains bridged to
+the MAUI dispatcher. The probe reports APIs that still use the portable
+unsupported implementation instead of hiding the gap.
 
 The window operations probe exercises MAUI minimum and maximum dimensions
 through Uno's `OverlappedPresenter` constraints and verifies maximize/restore
@@ -107,9 +116,11 @@ bounds until Uno exposes a public geometry source for `CompositionPath`.
 - Uno-root MAUI embedding through `MauiHost` is not supported by this
   standalone application bootstrap.
 - MAUI Essentials remains partial. `AppInfo`, `Clipboard`, `Connectivity`,
-  `Preferences`, `FileSystem`, and `MainThread` have Uno implementations;
-  `DeviceInfo`, `SecureStorage`, permissions, and most sensors still use their
-  portable unsupported implementations.
+  `Preferences`, `FileSystem`, `SecureStorage`, and `MainThread` have Uno
+  implementations. `SecureStorage` is available on Windows, Android API 23+,
+  iOS, and Mac Catalyst, and stays unsupported on browser and desktop
+  Linux/macOS hosts. `DeviceInfo` is conservative; permissions and most
+  sensors still use their portable unsupported implementations.
 - Native HWND access is available on the Windows Uno host. Win32 message
   callbacks remain unavailable, and non-Windows heads do not expose native
   window handles. Window position, size, constraints, minimize, maximize, and
