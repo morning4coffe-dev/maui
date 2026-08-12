@@ -12,25 +12,31 @@ public class MauiHostGuardTests
 	[Fact]
 	public void StandaloneHost_canBuild_withoutEmbedding()
 	{
-		var previousPlatformApplication = IPlatformApplication.Current;
 		var platformApplication = new PlatformApplicationStub();
+#if PLATFORM || WINDOWS
+		var previousPlatformApplication = IPlatformApplication.Current;
 
 		try
 		{
+#endif
 			using var app = MauiHostGuard.CreateStandaloneApp(
 				platformApplication,
 				() =>
 				{
+#if PLATFORM || WINDOWS
 					Assert.Same(platformApplication, IPlatformApplication.Current);
+#endif
 					return MauiApp.CreateBuilder(useDefaults: false).Build();
 				});
 
+#if PLATFORM || WINDOWS
 			Assert.Same(platformApplication, IPlatformApplication.Current);
 		}
 		finally
 		{
 			IPlatformApplication.Current = previousPlatformApplication;
 		}
+#endif
 	}
 
 	[Fact]
@@ -40,21 +46,27 @@ public class MauiHostGuardTests
 		var builder = MauiApp.CreateBuilder(useDefaults: false);
 		builder.Services.AddSingleton<IMauiInitializeService>(initializer);
 		builder.UseMauiEmbedding<ApplicationStub>();
+#if PLATFORM || WINDOWS
 		var previousPlatformApplication = IPlatformApplication.Current;
+#endif
 		var platformApplication = new PlatformApplicationStub();
 
+#if PLATFORM || WINDOWS
 		try
 		{
+#endif
 			var exception = Assert.Throws<InvalidOperationException>(() =>
 				MauiHostGuard.CreateStandaloneApp(platformApplication, builder.Build));
 
 			Assert.Equal(MauiHostGuard.StandaloneEmbeddingConflictMessage, exception.Message);
+#if PLATFORM || WINDOWS
 			Assert.Same(previousPlatformApplication, IPlatformApplication.Current);
 		}
 		finally
 		{
 			IPlatformApplication.Current = previousPlatformApplication;
 		}
+#endif
 
 		Assert.False(initializer.Initialized);
 	}
@@ -62,28 +74,36 @@ public class MauiHostGuardTests
 	[Fact]
 	public void StandaloneHost_rolls_back_current_when_creation_fails()
 	{
-		var previousPlatformApplication = IPlatformApplication.Current;
 		var platformApplication = new PlatformApplicationStub();
+#if PLATFORM || WINDOWS
+		var previousPlatformApplication = IPlatformApplication.Current;
 		var expectedException = new InvalidOperationException("creation failed");
 
 		try
 		{
+#else
+		var expectedException = new InvalidOperationException("creation failed");
+#endif
 			var exception = Assert.Throws<InvalidOperationException>(() =>
 				MauiHostGuard.CreateStandaloneApp(
 					platformApplication,
 					() =>
 					{
+#if PLATFORM || WINDOWS
 						Assert.Same(platformApplication, IPlatformApplication.Current);
+#endif
 						throw expectedException;
 					}));
 
 			Assert.Same(expectedException, exception);
+#if PLATFORM || WINDOWS
 			Assert.Same(previousPlatformApplication, IPlatformApplication.Current);
 		}
 		finally
 		{
 			IPlatformApplication.Current = previousPlatformApplication;
 		}
+#endif
 	}
 
 	[Fact]

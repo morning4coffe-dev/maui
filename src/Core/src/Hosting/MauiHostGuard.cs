@@ -26,10 +26,14 @@ internal static class MauiHostGuard
 		if (createMauiApp is null)
 			throw new ArgumentNullException(nameof(createMauiApp));
 
+#if PLATFORM || WINDOWS
 		var previousPlatformApplication = IPlatformApplication.Current;
+#endif
 		using (EnterStandaloneHostCreation())
 		{
+#if PLATFORM || WINDOWS
 			IPlatformApplication.Current = platformApplication;
+#endif
 			MauiApp? mauiApp = null;
 
 			try
@@ -46,7 +50,9 @@ internal static class MauiHostGuard
 				}
 				finally
 				{
+#if PLATFORM || WINDOWS
 					IPlatformApplication.Current = previousPlatformApplication;
+#endif
 				}
 
 				throw;
