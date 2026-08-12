@@ -1,12 +1,12 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI.ViewManagement;
+using WinRT.Interop;
 using WPoint = Windows.Foundation.Point;
 
 namespace Microsoft.Maui.Platform
@@ -288,7 +288,7 @@ namespace Microsoft.Maui.Platform
 
 		internal static bool HideSoftInput(this FrameworkElement element)
 		{
-			if (TryGetInputPane(out var inputPane))
+			if (element.TryGetInputPane(out var inputPane))
 			{
 				return inputPane.TryHide();
 			}
@@ -298,7 +298,7 @@ namespace Microsoft.Maui.Platform
 
 		internal static bool ShowSoftInput(this FrameworkElement element)
 		{
-			if (TryGetInputPane(out var inputPane))
+			if (element.TryGetInputPane(out var inputPane))
 			{
 				return inputPane.TryShow();
 			}
@@ -308,7 +308,7 @@ namespace Microsoft.Maui.Platform
 
 		internal static bool IsSoftInputShowing(this FrameworkElement element)
 		{
-			if (TryGetInputPane(out var inputPane))
+			if (element.TryGetInputPane(out var inputPane))
 			{
 				return inputPane.Visible;
 			}
@@ -316,17 +316,25 @@ namespace Microsoft.Maui.Platform
 			return false;
 		}
 
-		internal static bool TryGetInputPane([NotNullWhen(true)] out InputPane? inputPane)
+		internal static bool TryGetInputPane(this FrameworkElement element, [NotNullWhen(true)] out InputPane? inputPane)
 		{
+			// Bind to the element's owning window instead of the process main window so multi-window hosts stay correct.
+			var hostedWindow = element.GetHostedWindow();
+			if (hostedWindow?.Handler?.PlatformView is not Window)
+			{
+				inputPane = null;
+				return false;
+			}
+
 #if UNO
-			inputPane = null;
-			return false;
+			inputPane = InputPane.GetForCurrentView();
+			return true;
 #else
-			var handleId = Process.GetCurrentProcess().MainWindowHandle;
+			var platformWindow = (Window)hostedWindow.Handler!.PlatformView!;
+			var handleId = WindowNative.GetWindowHandle(platformWindow);
 			if (handleId == IntPtr.Zero)
 			{
 				inputPane = null;
-
 				return false;
 			}
 

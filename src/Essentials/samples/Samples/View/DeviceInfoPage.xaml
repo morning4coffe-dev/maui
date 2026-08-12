@@ -9,10 +9,14 @@
     </views:BasePage.BindingContext>
 
     <Grid RowDefinitions="Auto,*">
-        <Label Text="Find out about the device with ease." FontAttributes="Bold" Margin="12" />
+        <Label Text="Find out about the device with conservative runtime-backed values." FontAttributes="Bold" Margin="12" />
 
         <ScrollView Grid.Row="1">
             <StackLayout Padding="12,0,12,12" Spacing="6">
+                <Label Text="Uno uses stable BCL/runtime APIs here, so some values may be conservative or blank."
+                       FontAttributes="Italic"
+                       LineBreakMode="WordWrap"
+                       Margin="0,6,0,0" />
                 <Label Text="Device Info:" FontAttributes="Bold" Margin="0,6,0,0" />
                 <Label Text="{Binding Model, StringFormat='Model: {0}'}" />
                 <Label Text="{Binding Manufacturer, StringFormat='Manufacturer: {0}'}" />
