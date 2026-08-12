@@ -190,6 +190,7 @@ namespace Microsoft.Maui.Hosting
 		/// <returns>A configured <see cref="MauiApp"/>.</returns>
 		public MauiApp Build()
 		{
+			MauiHostGuard.ThrowIfEmbeddingConfigured(_services);
 			ConfigureDefaultLogging();
 
 			IServiceProvider serviceProvider = _createServiceProvider != null

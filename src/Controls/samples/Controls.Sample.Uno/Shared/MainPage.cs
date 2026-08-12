@@ -1,4 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Threading.Tasks;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.ApplicationModel.DataTransfer;
@@ -7,11 +9,16 @@ using Microsoft.Maui.Devices;
 using Microsoft.Maui.Networking;
 using Microsoft.Maui.Storage;
 using Microsoft.UI.Windowing;
+using Windows.Storage;
 
 namespace Microsoft.Maui.Controls.Sample.Uno;
 
 public sealed class MainPage : ContentPage
 {
+	const string FileSystemProbeAssetName = "FileSystemProbe.txt";
+	const string FileSystemProbeAssetContents = "Uno FileSystem sample asset.";
+	const string FileSystemProbeLocalContents = "Uno FileSystem local file probe.";
+
 	public MainPage()
 	{
 		Title = "MAUI on Uno";
@@ -267,24 +274,38 @@ public sealed class MainPage : ContentPage
 			AutomationId = "EssentialsProbeRun",
 			Text = "Run Essentials compatibility probe",
 		};
-		runButton.Clicked += (_, _) =>
+		var probeRunning = false;
+		runButton.Clicked += async (_, _) =>
 		{
-			results.Text = string.Join(
-				Environment.NewLine,
-				Probe(
-					"AppInfo",
-					() => $"{AppInfo.Name} {AppInfo.VersionString} (build {AppInfo.BuildString}; {AppInfo.PackagingModel})"),
-				Probe("Clipboard", () => Clipboard.HasText ? "text available" : "empty"),
-				Probe("Connectivity", () => $"{Connectivity.NetworkAccess}; {string.Join(", ", Connectivity.ConnectionProfiles)}"),
-				Probe("Preferences", RunPreferencesProbe),
-				Probe("MainThread", () => MainThread.IsMainThread ? "current callback is on the main thread" : "dispatcher active; current callback requires dispatch"),
-				Probe("DeviceInfo", () =>
-					DeviceInfo.Platform == DevicePlatform.Unknown && DeviceInfo.Idiom == DeviceIdiom.Unknown
-						? "portable fallback (Unknown)"
-						: $"{DeviceInfo.Platform}; {DeviceInfo.Idiom}"),
-				Probe("FileSystem", () => string.IsNullOrWhiteSpace(FileSystem.AppDataDirectory) ? "no app-data path" : "app-data path available"),
-				"SecureStorage: not yet adapted",
-				"Permissions: not yet adapted");
+			if (probeRunning)
+				return;
+
+			probeRunning = true;
+			runButton.IsEnabled = false;
+			try
+			{
+				results.Text = string.Join(
+					Environment.NewLine,
+					Probe(
+						"AppInfo",
+						() => $"{AppInfo.Name} {AppInfo.VersionString} (build {AppInfo.BuildString}; {AppInfo.PackagingModel})"),
+					Probe("Clipboard", () => Clipboard.HasText ? "text available" : "empty"),
+					Probe("Connectivity", () => $"{Connectivity.NetworkAccess}; {string.Join(", ", Connectivity.ConnectionProfiles)}"),
+					Probe("Preferences", RunPreferencesProbe),
+					Probe("MainThread", () => MainThread.IsMainThread ? "current callback is on the main thread" : "dispatcher active; current callback requires dispatch"),
+					Probe("DeviceInfo", () =>
+						DeviceInfo.Platform == DevicePlatform.Unknown && DeviceInfo.Idiom == DeviceIdiom.Unknown
+							? "portable fallback (Unknown)"
+							: $"{DeviceInfo.Platform}; {DeviceInfo.Idiom}"),
+					await ProbeAsync("FileSystem", RunFileSystemProbeAsync),
+					"SecureStorage: not yet adapted",
+					"Permissions: not yet adapted");
+			}
+			finally
+			{
+				runButton.IsEnabled = true;
+				probeRunning = false;
+			}
 		};
 
 		return new VerticalStackLayout
@@ -349,6 +370,78 @@ public sealed class MainPage : ContentPage
 		catch (UnauthorizedAccessException ex)
 		{
 			return $"{name}: failed ({ex.Message})";
+		}
+	}
+
+	static async Task<string> ProbeAsync(string name, Func<Task<string>> probe)
+	{
+		try
+		{
+			return $"{name}: {await probe()}";
+		}
+		catch (FeatureNotSupportedException ex)
+		{
+			return $"{name}: unsupported ({ex.Message})";
+		}
+		catch (NotImplementedException ex)
+		{
+			return $"{name}: unsupported ({ex.Message})";
+		}
+		catch (FileNotFoundException ex)
+		{
+			return $"{name}: failed ({ex.Message})";
+		}
+		catch (IOException ex)
+		{
+			return $"{name}: failed ({ex.Message})";
+		}
+		catch (InvalidOperationException ex)
+		{
+			return $"{name}: failed ({ex.Message})";
+		}
+		catch (PermissionException ex)
+		{
+			return $"{name}: failed ({ex.Message})";
+		}
+		catch (UnauthorizedAccessException ex)
+		{
+			return $"{name}: failed ({ex.Message})";
+		}
+	}
+
+	static async Task<string> RunFileSystemProbeAsync()
+	{
+		await ApplicationData.Current.LocalFolder.CreateFolderAsync("FileSystemProbe", CreationCollisionOption.OpenIfExists);
+
+		var localPath = System.IO.Path.Combine(FileSystem.AppDataDirectory, $"FileSystemProbe_{Guid.NewGuid():N}.txt");
+		await File.WriteAllTextAsync(localPath, FileSystemProbeLocalContents);
+
+		try
+		{
+			using var localStream = await new FileResult(localPath).OpenReadAsync();
+			using var localReader = new StreamReader(localStream);
+			var localContents = await localReader.ReadToEndAsync();
+
+			using var packageStream = await FileSystem.OpenAppPackageFileAsync(FileSystemProbeAssetName);
+			using var packageReader = new StreamReader(packageStream);
+			var packageContents = (await packageReader.ReadToEndAsync()).TrimEnd();
+
+			var packageExists = await FileSystem.AppPackageFileExistsAsync(FileSystemProbeAssetName);
+			var missingExists = await FileSystem.AppPackageFileExistsAsync("MissingFile.txt");
+			var traversalExists = await FileSystem.AppPackageFileExistsAsync("../" + FileSystemProbeAssetName);
+
+			return localContents == FileSystemProbeLocalContents &&
+				packageContents == FileSystemProbeAssetContents &&
+				packageExists &&
+				!missingExists &&
+				!traversalExists
+				? "local file round-trip, package asset access, and traversal guard passed"
+				: $"unexpected file system values: local={localContents}, package={packageContents}, exists={packageExists}, missing={missingExists}, traversal={traversalExists}";
+		}
+		finally
+		{
+			if (File.Exists(localPath))
+				File.Delete(localPath);
 		}
 	}
 

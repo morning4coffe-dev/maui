@@ -28,8 +28,7 @@ namespace Microsoft.Maui
 				return;
 			}
 
-			IPlatformApplication.Current = this;
-			var mauiApp = CreateMauiApp();
+			var mauiApp = MauiHostGuard.CreateStandaloneApp(this, CreateMauiApp);
 
 			var rootContext = new MauiContext(mauiApp.Services);
 
