@@ -28,8 +28,7 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 	PlatformTouchGraphicsView? connectedPlatformView;
 	GraphicsView? interactionView;
 	ObservableCollection<IDrawingLine>? subscribedLines;
-	DrawingLine? currentLine;
-	readonly List<PendingDrawing> pendingDrawings = [];
+	CurrentDrawing? currentDrawing;
 
 	public UnoDrawingViewHandler()
 		: base(Mapper)
@@ -43,7 +42,7 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 	{
 		if (!ReferenceEquals(connectedView, view))
 		{
-			CancelPendingDrawing(connectedView);
+			CancelCurrentDrawing(connectedView);
 			connectedView = null;
 			SubscribeToLines(null);
 		}
@@ -61,22 +60,24 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 
 		connectedView = VirtualView;
 		connectedPlatformView = platformView;
-		interactionView = new GraphicsView
+		var interactionView = new GraphicsView
 		{
 			Drawable = drawable,
 		};
+		this.interactionView = interactionView;
 		interactionView.StartInteraction += OnStartInteraction;
 		interactionView.DragInteraction += OnDragInteraction;
 		interactionView.EndInteraction += OnEndInteraction;
 		interactionView.CancelInteraction += OnCancelInteraction;
 
 		platformView.UpdateDrawable(interactionView);
+		platformView.Connect(interactionView);
 		SubscribeToLines(connectedView.Lines);
 	}
 
 	protected override void DisconnectHandler(PlatformTouchGraphicsView platformView)
 	{
-		CancelPendingDrawing(connectedView);
+		CancelCurrentDrawing(connectedView);
 		connectedView = null;
 		connectedPlatformView = null;
 		SubscribeToLines(null);
@@ -123,16 +124,18 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 		}
 	}
 
-	void CancelPendingDrawing(IDrawingView? view)
+	bool CancelCurrentDrawing(IDrawingView? view)
 	{
-		if (currentLine is null && pendingDrawings.Count == 0)
+		if (currentDrawing is null)
 		{
-			return;
+			return false;
 		}
 
-		currentLine = null;
-		pendingDrawings.Clear();
+		var drawing = currentDrawing;
+		currentDrawing = null;
+		drawing.Dispose();
 		view?.OnDrawingLineCancelled();
+		return true;
 	}
 
 	void OnLinesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
@@ -147,18 +150,15 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 			return;
 		}
 
+		CancelCurrentDrawing(virtualView);
+
 		if (!virtualView.IsMultiLineModeEnabled)
 		{
 			virtualView.Lines.Clear();
 		}
 
 		var point = e.Touches[0];
-		currentLine = new DrawingLine
-		{
-			LineColor = virtualView.LineColor,
-			LineWidth = virtualView.LineWidth,
-			Points = [point],
-		};
+		currentDrawing = CurrentDrawing.Create(virtualView.LineColor, virtualView.LineWidth, point);
 
 		virtualView.OnDrawingLineStarted(point);
 		if (ReferenceEquals(connectedPlatformView, platformView))
@@ -171,10 +171,10 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 	{
 		var virtualView = connectedView;
 		var platformView = connectedPlatformView;
-		var drawingLine = currentLine;
+		var drawing = currentDrawing;
 		if (virtualView is null ||
 			platformView is null ||
-			drawingLine is null ||
+			drawing is null ||
 			e.Touches is not { Length: > 0 })
 		{
 			return;
@@ -182,7 +182,7 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 
 		foreach (var point in e.Touches)
 		{
-			drawingLine.Points.Add(point);
+			drawing.AppendPoint(point);
 			virtualView.OnPointDrawn(point);
 		}
 
@@ -196,24 +196,21 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 	{
 		var virtualView = connectedView;
 		var platformView = connectedPlatformView;
-		if (virtualView is null || platformView is null || currentLine is null)
+		var drawing = currentDrawing;
+		if (virtualView is null || platformView is null || drawing is null)
 		{
 			return;
 		}
 
-		var completedLine = currentLine;
-		currentLine = null;
-		var pendingDrawing = new PendingDrawing(completedLine);
-		pendingDrawings.Add(pendingDrawing);
-		if (!platformView.DispatcherQueue.TryEnqueue(() => CompleteLine(pendingDrawing)))
-		{
-			pendingDrawings.Remove(pendingDrawing);
-			virtualView.OnDrawingLineCancelled();
-		}
+		currentDrawing = null;
 
-		if (ReferenceEquals(connectedPlatformView, platformView))
+		try
 		{
-			platformView.Invalidate();
+			CompleteLine(virtualView, platformView, drawing.Line);
+		}
+		finally
+		{
+			drawing.Dispose();
 		}
 	}
 
@@ -221,45 +218,22 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 	{
 		var virtualView = connectedView;
 		var platformView = connectedPlatformView;
-		if (virtualView is null || platformView is null)
+		if (virtualView is null || platformView is null || !CancelCurrentDrawing(virtualView))
 		{
 			return;
 		}
 
-		if (currentLine is not null)
-		{
-			currentLine = null;
-		}
-		else if (pendingDrawings.Count > 0)
-		{
-			pendingDrawings.RemoveAt(pendingDrawings.Count - 1);
-		}
-		else
-		{
-			return;
-		}
-
-		virtualView.OnDrawingLineCancelled();
 		if (ReferenceEquals(connectedPlatformView, platformView))
 		{
 			platformView.Invalidate();
 		}
 	}
 
-	void CompleteLine(PendingDrawing pendingDrawing)
+	void CompleteLine(IDrawingView virtualView, PlatformTouchGraphicsView platformView, DrawingLine drawingLine)
 	{
-		var virtualView = connectedView;
-		var platformView = connectedPlatformView;
-		if (!pendingDrawings.Remove(pendingDrawing) ||
-			virtualView is null ||
-			platformView is null)
-		{
-			return;
-		}
-
 		var shouldClearOnFinish = virtualView.ShouldClearOnFinish;
-		virtualView.Lines.Add(pendingDrawing.Line);
-		virtualView.OnDrawingLineCompleted(pendingDrawing.Line);
+		virtualView.Lines.Add(drawingLine);
+		virtualView.OnDrawingLineCompleted(drawingLine);
 
 		if (shouldClearOnFinish)
 		{
@@ -270,11 +244,6 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 		{
 			platformView.Invalidate();
 		}
-	}
-
-	sealed class PendingDrawing(DrawingLine line)
-	{
-		public DrawingLine Line { get; } = line;
 	}
 
 	sealed class DrawingSurfaceDrawable(UnoDrawingViewHandler owner) : IDrawable
@@ -299,9 +268,13 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 				DrawLine(canvas, line, smooth: line.ShouldSmoothPathWhenDrawn);
 			}
 
-			if (owner.currentLine is not null)
+			if (owner.currentDrawing is not null)
 			{
-				DrawLine(canvas, owner.currentLine, smooth: false);
+				DrawPath(
+					canvas,
+					owner.currentDrawing.Path,
+					owner.currentDrawing.Line.LineColor,
+					owner.currentDrawing.Line.LineWidth);
 			}
 		}
 
@@ -328,5 +301,44 @@ sealed class UnoDrawingViewHandler : ViewHandler<IDrawingView, PlatformTouchGrap
 			canvas.StrokeLineJoin = LineJoin.Round;
 			canvas.DrawPath(path);
 		}
+
+		static void DrawPath(ICanvas canvas, PathF path, Color lineColor, float lineWidth)
+		{
+			canvas.StrokeColor = lineColor;
+			canvas.StrokeSize = lineWidth;
+			canvas.StrokeLineCap = LineCap.Round;
+			canvas.StrokeLineJoin = LineJoin.Round;
+			canvas.DrawPath(path);
+		}
+	}
+
+	sealed class CurrentDrawing(DrawingLine line, PathF path) : IDisposable
+	{
+		public DrawingLine Line { get; } = line;
+
+		public PathF Path { get; } = path;
+
+		public static CurrentDrawing Create(Color lineColor, float lineWidth, PointF startPoint)
+		{
+			var path = new PathF();
+			path.MoveTo(startPoint);
+
+			return new CurrentDrawing(
+				new DrawingLine
+				{
+					LineColor = lineColor,
+					LineWidth = lineWidth,
+					Points = [startPoint],
+				},
+				path);
+		}
+
+		public void AppendPoint(PointF point)
+		{
+			Path.LineTo(point);
+			Line.Points.Add(point);
+		}
+
+		public void Dispose() => Path.Dispose();
 	}
 }

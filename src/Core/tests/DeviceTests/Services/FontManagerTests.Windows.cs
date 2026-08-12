@@ -66,4 +66,43 @@ public partial class FontManagerTests : TestBase
 
 			Assert.Equal(expected, actual.Source);
 		});
+
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public Task CanResolveFontFilePathFromFontFamilySource(bool embedded) =>
+		InvokeOnMainThreadAsync(() =>
+		{
+			FontRegistrar registrar;
+			if (embedded)
+			{
+				registrar = new FontRegistrar(new EmbeddedFontLoader());
+				registrar.Register("dokdo_regular.ttf", "myalias", GetType().Assembly);
+			}
+			else
+			{
+				registrar = new FontRegistrar(fontLoader: null);
+				registrar.Register("dokdo_regular.ttf", "myalias");
+			}
+
+			var manager = new FontManager(registrar);
+			var source = manager.GetFontFamily(Font.OfSize("myalias", 12, FontWeight.Regular)).Source;
+
+			var filePath = FontSourceResolver.ResolveFilePath(source);
+
+			Assert.NotNull(filePath);
+			Assert.True(File.Exists(filePath!), $"File not found: {filePath}");
+
+#if UNPACKAGED
+			if (embedded)
+			{
+				var expectedRoot = Path.GetFullPath(Path.Combine(FileSystem.CacheDirectory, ".."));
+				var expectedFilePath = Path.GetFullPath(Path.Combine(expectedRoot, "Fonts", "dokdo_regular.ttf"));
+
+				Assert.Equal(expectedFilePath, filePath);
+			}
+#endif
+
+			Assert.True(filePath.EndsWith("dokdo_regular.ttf", StringComparison.OrdinalIgnoreCase), filePath);
+		});
 }

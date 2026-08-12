@@ -1,6 +1,7 @@
 #if UNO
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,7 +10,6 @@ using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Graphics.Skia;
 using Microsoft.UI.Xaml.Media.Imaging;
 using SkiaSharp;
-using Windows.Storage;
 using WImageSource = Microsoft.UI.Xaml.Media.ImageSource;
 
 namespace Microsoft.Maui
@@ -91,90 +91,111 @@ namespace Microsoft.Maui
 
 		SKTypeface ResolveTypeface(Font font)
 		{
-			var sources = FontManager.GetFontFamily(font).Source
-				.Split(',', StringSplitOptions.RemoveEmptyEntries);
-			string? familyName = font.Family;
+			var fontStyle = CreateFontStyle(font);
 
-			foreach (var candidate in sources)
+			foreach (var candidate in GetFontCandidates(font))
 			{
-				var source = candidate.Trim();
-				var fragmentIndex = source.IndexOf('#', StringComparison.Ordinal);
-				var candidateFamilyName = fragmentIndex >= 0 ? source[(fragmentIndex + 1)..] : null;
-				var sourcePath = fragmentIndex >= 0 ? source[..fragmentIndex] : source;
-
-				if (!string.IsNullOrWhiteSpace(candidateFamilyName))
-					familyName ??= candidateFamilyName;
-
-				var filePath = ResolveFontFilePath(sourcePath);
-				if (filePath is not null)
+				if (candidate.FilePath is { Length: > 0 } filePath)
 				{
-					var fileTypeface = SKTypeface.FromFile(filePath, 0);
+					var fileTypeface = CreateFileTypeface(filePath);
 					if (fileTypeface is not null)
 						return fileTypeface;
 				}
+
+				if (candidate.FamilyName is { Length: > 0 } familyName)
+				{
+					var familyTypeface = CreateFamilyTypeface(familyName, fontStyle);
+					if (familyTypeface is not null)
+						return familyTypeface;
+				}
 			}
 
-			return SKTypeface.FromFamilyName(
-				familyName,
-				(int)font.Weight,
-				(int)SKFontStyleWidth.Normal,
+			return SKTypeface.FromFamilyName(null, fontStyle) ?? SKTypeface.CreateDefault();
+		}
+
+		internal SkiaFontCandidate[] GetFontCandidates(Font font)
+		{
+			var candidates = new List<SkiaFontCandidate>();
+			var seenFamilyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+			foreach (var rawCandidate in FontManager.GetFontFamily(font).Source.Split(',', StringSplitOptions.RemoveEmptyEntries))
+			{
+				var source = rawCandidate.Trim();
+				if (source.Length == 0)
+					continue;
+
+				var filePath = FontSourceResolver.ResolveFilePath(source);
+				var familyName = FontSourceResolver.ResolveFamilyName(source) ?? FontSourceResolver.GetFamilyNameFragment(source);
+
+				if (string.IsNullOrWhiteSpace(familyName)
+					&& filePath is null
+					&& !FontSourceResolver.LooksLikeFileReference(source))
+				{
+					familyName = FontSourceResolver.GetSourcePath(source);
+				}
+
+				if (!string.IsNullOrWhiteSpace(familyName))
+				{
+					if (!seenFamilyNames.Add(familyName))
+						familyName = null;
+				}
+
+				if (!string.IsNullOrWhiteSpace(familyName) || filePath is not null)
+					candidates.Add(new SkiaFontCandidate(familyName, filePath));
+			}
+
+			return candidates.ToArray();
+		}
+
+		static SKFontStyle CreateFontStyle(Font font) =>
+			new(
+				(SKFontStyleWeight)(int)font.Weight,
+				SKFontStyleWidth.Normal,
 				font.Slant switch
 				{
 					FontSlant.Italic => SKFontStyleSlant.Italic,
 					FontSlant.Oblique => SKFontStyleSlant.Oblique,
 					_ => SKFontStyleSlant.Upright,
-				}) ?? SKTypeface.CreateDefault();
+				});
+
+		static SKTypeface? CreateFamilyTypeface(string familyName, SKFontStyle fontStyle)
+		{
+			try
+			{
+				using var fontStyles = SKFontManager.Default.GetFontStyles(familyName);
+				if (fontStyles.Count == 0)
+					return null;
+
+				return fontStyles.CreateTypeface(fontStyle);
+			}
+			catch
+			{
+				return null;
+			}
 		}
 
-		static string? ResolveFontFilePath(string source)
+		static SKTypeface? CreateFileTypeface(string filePath)
 		{
-			if (string.IsNullOrWhiteSpace(source))
-				return null;
-
-			if (!Uri.TryCreate(source, UriKind.RelativeOrAbsolute, out var uri))
-				return null;
-
-			if (uri.IsAbsoluteUri && uri.IsFile && File.Exists(uri.LocalPath))
-				return uri.LocalPath;
-
-			if (uri.IsAbsoluteUri && uri.Scheme.Equals("ms-appdata", StringComparison.OrdinalIgnoreCase))
+			try
 			{
-				var appDataPath = Uri.UnescapeDataString(uri.AbsolutePath).TrimStart('/', '\\');
-				const string tempPrefix = "temp/";
-				if (appDataPath.StartsWith(tempPrefix, StringComparison.OrdinalIgnoreCase))
-					appDataPath = appDataPath[tempPrefix.Length..];
+				return SKTypeface.FromFile(filePath, 0);
+			}
+			catch
+			{
+				return null;
+			}
+		}
 
-				return ResolveUnderRoot(ApplicationData.Current.TemporaryFolder.Path, appDataPath);
+		internal readonly struct SkiaFontCandidate
+		{
+			public SkiaFontCandidate(string? familyName, string? filePath)
+			{
+				FamilyName = familyName;
+				FilePath = filePath;
 			}
 
-			var relativePath = uri.IsAbsoluteUri
-				? uri.LocalPath.TrimStart('/', '\\')
-				: source.TrimStart('/', '\\');
-			var fullPath = ResolveUnderRoot(AppContext.BaseDirectory, relativePath);
-			if (fullPath is not null)
-				return fullPath;
-
-			var flattenedPath = Path.Combine(AppContext.BaseDirectory, Path.GetFileName(relativePath));
-			return File.Exists(flattenedPath) ? flattenedPath : null;
-		}
-
-		static string? ResolveUnderRoot(string root, string relativePath)
-		{
-			var fullRoot = Path.GetFullPath(root);
-			var fullPath = Path.GetFullPath(Path.Combine(
-				fullRoot,
-				relativePath.Replace('/', Path.DirectorySeparatorChar)));
-			var rootPrefix = fullRoot.EndsWith(Path.DirectorySeparatorChar)
-				? fullRoot
-				: fullRoot + Path.DirectorySeparatorChar;
-			var comparison = OperatingSystem.IsWindows()
-				? StringComparison.OrdinalIgnoreCase
-				: StringComparison.Ordinal;
-
-			if (!fullPath.StartsWith(rootPrefix, comparison))
-				return null;
-
-			return File.Exists(fullPath) ? fullPath : null;
+			public string? FamilyName { get; }
+			public string? FilePath { get; }
 		}
 	}
 }

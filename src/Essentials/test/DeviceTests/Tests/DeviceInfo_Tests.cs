@@ -64,5 +64,18 @@ namespace Microsoft.Maui.Essentials.DeviceTests
 			throw new PlatformNotSupportedException();
 #endif
 		}
+
+#if UNO
+		[Fact]
+		public void Model_Is_Conservative_On_Uno()
+		{
+			Assert.True(string.IsNullOrEmpty(DeviceInfo.Model));
+
+			if (OperatingSystem.IsBrowser())
+			{
+				Assert.Equal("WebAssembly Host", DeviceInfo.Name);
+			}
+		}
+#endif
 	}
 }

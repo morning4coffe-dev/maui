@@ -3,6 +3,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using Microsoft.Extensions.Logging;
+#if UNO
+using SkiaSharp;
+#endif
 #if !UNO
 using Microsoft.Graphics.Canvas.Text;
 #endif
@@ -10,6 +13,7 @@ using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
+using Windows.Storage;
 
 namespace Microsoft.Maui
 {
@@ -169,7 +173,7 @@ namespace Microsoft.Maui
 				return null;
 
 #if UNO
-			return null;
+			return FontSourceResolver.ResolveFamilyName(fontFile);
 #else
 			// Under Native AOT, observed crashes when invoking Win2D CanvasFontSet -> GetPropertyValues
 			// This lookup is an optimization; returning null should just cause callers to use the
@@ -213,6 +217,140 @@ namespace Microsoft.Maui
 			}
 #endif
 #endif
+		}
+	}
+
+	internal static class FontSourceResolver
+	{
+		const string TemporaryFolderPrefix = "temp/";
+
+#if UNO
+		static readonly ConcurrentDictionary<string, string> s_fontFamilyNames = new(
+			OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+#endif
+
+		internal static string? GetFamilyNameFragment(string source)
+		{
+			if (string.IsNullOrWhiteSpace(source))
+				return null;
+
+			var fragmentIndex = source.IndexOf('#', StringComparison.Ordinal);
+			return fragmentIndex >= 0 ? source[(fragmentIndex + 1)..].Trim() : null;
+		}
+
+		internal static string GetSourcePath(string source)
+		{
+			if (string.IsNullOrWhiteSpace(source))
+				return string.Empty;
+
+			var fragmentIndex = source.IndexOf('#', StringComparison.Ordinal);
+			return (fragmentIndex >= 0 ? source[..fragmentIndex] : source).Trim();
+		}
+
+		internal static bool LooksLikeFileReference(string source)
+		{
+			var sourcePath = GetSourcePath(source);
+			if (string.IsNullOrWhiteSpace(sourcePath))
+				return false;
+
+			if (sourcePath.Contains("://", StringComparison.Ordinal))
+				return true;
+
+			if (Path.IsPathRooted(sourcePath))
+				return true;
+
+			if (sourcePath.IndexOfAny(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }) >= 0)
+				return true;
+
+			return Path.HasExtension(sourcePath);
+		}
+
+		internal static string? ResolveFilePath(string source)
+		{
+			var sourcePath = GetSourcePath(source);
+			if (string.IsNullOrWhiteSpace(sourcePath))
+				return null;
+
+			if (!Uri.TryCreate(sourcePath, UriKind.RelativeOrAbsolute, out var uri))
+				return null;
+
+			if (uri.IsAbsoluteUri)
+			{
+				var localPath = uri.LocalPath;
+				var pathRoot = Path.GetPathRoot(localPath);
+
+				// Packaged font sources can use relative ms-appx URIs, but unpackaged embedded fonts
+				// emit rooted ms-appx URIs that should resolve only when they point at an existing
+				// local file path.
+				if (!string.IsNullOrWhiteSpace(pathRoot) && pathRoot.Length > 1)
+					return File.Exists(localPath) ? localPath : null;
+			}
+
+			if (uri.IsAbsoluteUri && uri.Scheme.Equals("ms-appdata", StringComparison.OrdinalIgnoreCase))
+			{
+				var appDataPath = Uri.UnescapeDataString(uri.AbsolutePath).TrimStart('/', '\\');
+				if (appDataPath.StartsWith(TemporaryFolderPrefix, StringComparison.OrdinalIgnoreCase))
+					appDataPath = appDataPath[TemporaryFolderPrefix.Length..];
+
+				return ResolveUnderRoot(ApplicationData.Current.TemporaryFolder.Path, appDataPath);
+			}
+
+			var relativePath = uri.IsAbsoluteUri
+				? Uri.UnescapeDataString(uri.LocalPath).TrimStart('/', '\\')
+				: sourcePath.TrimStart('/', '\\');
+
+			return ResolveUnderRoot(AppContext.BaseDirectory, relativePath)
+				?? ResolveUnderRoot(AppContext.BaseDirectory, Path.GetFileName(relativePath));
+		}
+
+#if UNO
+		internal static string? ResolveFamilyName(string? source)
+		{
+			if (string.IsNullOrWhiteSpace(source))
+				return null;
+
+			var filePath = ResolveFilePath(source);
+			if (filePath is null)
+				return null;
+
+			var cachedFamilyName = s_fontFamilyNames.GetOrAdd(filePath, static path => ReadFamilyName(path) ?? string.Empty);
+			return cachedFamilyName.Length == 0 ? null : cachedFamilyName;
+		}
+
+		static string? ReadFamilyName(string filePath)
+		{
+			try
+			{
+				using var typeface = SKTypeface.FromFile(filePath, 0);
+				return string.IsNullOrWhiteSpace(typeface?.FamilyName) ? null : typeface.FamilyName;
+			}
+			catch
+			{
+				return null;
+			}
+		}
+#endif
+
+		static string? ResolveUnderRoot(string root, string relativePath)
+		{
+			if (string.IsNullOrWhiteSpace(relativePath))
+				return null;
+
+			var fullRoot = Path.GetFullPath(root);
+			var fullPath = Path.GetFullPath(Path.Combine(
+				fullRoot,
+				relativePath.Replace('/', Path.DirectorySeparatorChar)));
+			var rootPrefix = fullRoot.EndsWith(Path.DirectorySeparatorChar)
+				? fullRoot
+				: fullRoot + Path.DirectorySeparatorChar;
+			var comparison = OperatingSystem.IsWindows()
+				? StringComparison.OrdinalIgnoreCase
+				: StringComparison.Ordinal;
+
+			if (!fullPath.StartsWith(rootPrefix, comparison))
+				return null;
+
+			return File.Exists(fullPath) ? fullPath : null;
 		}
 	}
 }

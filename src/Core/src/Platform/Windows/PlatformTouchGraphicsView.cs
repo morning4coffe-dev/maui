@@ -10,8 +10,7 @@ namespace Microsoft.Maui.Platform
 	{
 		IGraphicsView? _graphicsView;
 		readonly W2DGraphicsView _platformGraphicsView;
-		bool _isTouching;
-		bool _isInBounds;
+		readonly TouchGraphicsInteractionState _interactionState = new();
 
 		public PlatformTouchGraphicsView()
 		{
@@ -23,6 +22,11 @@ namespace Microsoft.Maui.Platform
 		public void UpdateDrawable(IGraphicsView graphicsView)
 		{
 			_platformGraphicsView.UpdateDrawable(graphicsView);
+			if (!ReferenceEquals(_graphicsView, graphicsView))
+			{
+				_interactionState.Reset();
+			}
+
 			_graphicsView = graphicsView;
 		}
 
@@ -34,66 +38,73 @@ namespace Microsoft.Maui.Platform
 			return new[] { new PointF((float)point.X, (float)point.Y) };
 		}
 
+		bool IsInBounds(PointF[] points) => new RectF(0, 0, (float)ActualWidth, (float)ActualHeight).ContainsAny(points);
+
 		protected override void OnPointerEntered(PointerRoutedEventArgs e)
 		{
-			_isInBounds = true;
-			_graphicsView?.StartHoverInteraction(GetViewPoints(e));
+			_interactionState.PointerEntered(_graphicsView, GetViewPoints(e));
 		}
 
 		protected override void OnPointerCanceled(PointerRoutedEventArgs e)
 		{
-			if (_isTouching)
-			{
-				_isTouching = false;
-				_graphicsView?.EndInteraction(GetViewPoints(e), _isInBounds);
-				_graphicsView?.CancelInteraction();
-			}
+			_interactionState.PointerCanceled(_graphicsView);
+			ReleasePointerCaptures();
+		}
+
+		void OnPointerCaptureLost(object? sender, PointerRoutedEventArgs e)
+		{
+			_interactionState.PointerCaptureLost(_graphicsView);
 		}
 
 		protected override void OnPointerExited(PointerRoutedEventArgs e)
 		{
-			_isInBounds = false;
-
-			_graphicsView?.EndHoverInteraction();
-
-			if (_isTouching)
-			{
-				_isTouching = false;
-				_graphicsView?.EndInteraction(GetViewPoints(e), _isInBounds);
-			}
+			_interactionState.PointerExited(_graphicsView);
 		}
 
 		protected override void OnPointerMoved(PointerRoutedEventArgs e)
 		{
 			var points = GetViewPoints(e);
-
-			_graphicsView?.MoveHoverInteraction(points);
-
-			if (_isTouching)
-				_graphicsView?.DragInteraction(points);
+			var isInBounds = IsInBounds(points);
+			_interactionState.PointerMoved(_graphicsView, points, isInBounds);
 		}
 
 		protected override void OnPointerPressed(PointerRoutedEventArgs e)
 		{
-			var points = GetViewPoints(e);
-			_isTouching = true;
-			_graphicsView?.StartInteraction(points);
+			if (_graphicsView is null)
+			{
+				return;
+			}
+
+			CapturePointer(e.Pointer);
+			_interactionState.PointerPressed(_graphicsView, GetViewPoints(e));
 		}
 
 		protected override void OnPointerReleased(PointerRoutedEventArgs e)
 		{
 			var points = GetViewPoints(e);
-
-			if (_isTouching)
-			{
-				_isTouching = false;
-				//Only fires if it's inside on windows
-				_graphicsView?.EndInteraction(points, _isInBounds);
-			}
+			var isInBounds = IsInBounds(points);
+			_interactionState.PointerReleased(_graphicsView, points, isInBounds);
+			ReleasePointerCaptures();
 		}
 
-		public void Connect(IGraphicsView graphicsView) => _graphicsView = graphicsView;
+		public void Connect(IGraphicsView graphicsView)
+		{
+			PointerCaptureLost -= OnPointerCaptureLost;
+			PointerCaptureLost += OnPointerCaptureLost;
 
-		public void Disconnect() => _graphicsView = null;
+			if (!ReferenceEquals(_graphicsView, graphicsView))
+			{
+				_interactionState.Reset();
+			}
+
+			_graphicsView = graphicsView;
+		}
+
+		public void Disconnect()
+		{
+			PointerCaptureLost -= OnPointerCaptureLost;
+			_graphicsView = null;
+			_interactionState.Reset();
+		}
 	}
 }

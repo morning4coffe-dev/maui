@@ -89,8 +89,8 @@ namespace Samples.ViewModel
 					"📱",
 					"Device Info",
 					typeof(DeviceInfoPage),
-					"Find out about the device with ease.",
-					new[] { "hardware", "device", "info", "screen", "display", "orientation", "rotation" }),
+					"Find out about the device with conservative runtime-backed values.",
+					new[] { "hardware", "device", "info", "runtime", "screen", "display", "orientation", "rotation" }),
 				new SampleItem(
 					"📧",
 					"Email",

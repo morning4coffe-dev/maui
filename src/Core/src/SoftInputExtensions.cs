@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Dispatching;
 using Microsoft.Maui.Platform;
 using System.Threading.Tasks;
@@ -38,12 +39,17 @@ public static partial class SoftInputExtensions
 		return Task.FromResult(false);
 #else
 		token.ThrowIfCancellationRequested();
-		if (!targetView.TryGetPlatformView(out var platformView, out _, out _))
+		if (!targetView.TryGetPlatformView(out var platformView, out var handler, out _))
 		{
 			return Task.FromResult(false);
 		}
 
-		return Task.FromResult(platformView.HideSoftInput());
+		if (handler.MauiContext?.Services.GetService<IDispatcher>() is not IDispatcher dispatcher)
+		{
+			return Task.FromResult(false);
+		}
+
+		return InvokeOnDispatcherAsync(dispatcher, () => platformView.HideSoftInput()).WaitAsync(token);
 #endif
 	}
 
@@ -66,34 +72,12 @@ public static partial class SoftInputExtensions
 			return Task.FromResult(false);
 		}
 
-		if (!view.IsFocused)
+		if (handler.MauiContext?.Services.GetService<IDispatcher>() is not IDispatcher dispatcher)
 		{
-			var showKeyboardTCS = new TaskCompletionSource<bool>();
-
-#pragma warning disable CS0618
-			handler.Invoke(nameof(IView.Focus), new FocusRequest(false));
-#pragma warning restore CS0618
-
-			handler.GetRequiredService<IDispatcher>().Dispatch(() =>
-			{
-				try
-				{
-					var result = platformView.ShowSoftInput();
-					showKeyboardTCS.SetResult(result);
-				}
-				catch (Exception e)
-				{
-					showKeyboardTCS.SetException(e);
-				}
-			});
-
-			return showKeyboardTCS.Task.WaitAsync(token);
+			return Task.FromResult(false);
 		}
-		else
-		{
-			var result = platformView.ShowSoftInput();
-			return Task.FromResult(result).WaitAsync(token);
-		}
+
+		return ShowSoftInputAsyncCore(dispatcher, platformView, handler, view, token);
 #endif
 	}
 
@@ -105,13 +89,66 @@ public static partial class SoftInputExtensions
 	/// Returns <c>true</c> if the soft input pane is currently showing.</returns>
 	public static bool IsSoftInputShowing(this ITextInput targetView)
 	{
-		if (!targetView.TryGetPlatformView(out PlatformView? platformView, out _, out _))
+		if (!targetView.TryGetPlatformView(out PlatformView? platformView, out var handler, out _))
+		{
+			return false;
+		}
+
+		if (handler.MauiContext?.Services.GetService<IDispatcher>() is not IDispatcher dispatcher ||
+			dispatcher.IsDispatchRequired)
 		{
 			return false;
 		}
 
 		return platformView.IsSoftInputShowing();
 	}
+
+	internal static Task<bool> InvokeOnDispatcherAsync(IDispatcher? dispatcher, Func<bool> action)
+	{
+		_ = action ?? throw new ArgumentNullException(nameof(action));
+
+		if (dispatcher is null)
+		{
+			return Task.FromResult(false);
+		}
+
+		var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		if (!dispatcher.Dispatch(() =>
+		{
+			try
+			{
+				tcs.TrySetResult(action());
+			}
+			catch (Exception e)
+			{
+				tcs.TrySetException(e);
+			}
+		}))
+		{
+			return Task.FromResult(false);
+		}
+
+		return tcs.Task;
+	}
+
+#if !NETSTANDARD
+	static async Task<bool> ShowSoftInputAsyncCore(IDispatcher dispatcher, PlatformView platformView, IPlatformViewHandler handler, IView view, CancellationToken token)
+	{
+		var isFocused = await InvokeOnDispatcherAsync(dispatcher, () => view.IsFocused).WaitAsync(token).ConfigureAwait(false);
+		if (!isFocused)
+		{
+			await InvokeOnDispatcherAsync(dispatcher, () =>
+			{
+#pragma warning disable CS0618
+				handler.Invoke(nameof(IView.Focus), new FocusRequest(false));
+#pragma warning restore CS0618
+				return true;
+			}).WaitAsync(token).ConfigureAwait(false);
+		}
+
+		return await InvokeOnDispatcherAsync(dispatcher, () => platformView.ShowSoftInput()).WaitAsync(token).ConfigureAwait(false);
+	}
+#endif
 
 	static bool TryGetPlatformView(this ITextInput textInput,
 									[NotNullWhen(true)] out PlatformView? platformView,
