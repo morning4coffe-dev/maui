@@ -1,15 +1,13 @@
 <Project>
   <PropertyGroup>
     <MauiUnoTarget>true</MauiUnoTarget>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(UnoSampleRuntimeIdentifier)' != ''">$(UnoSampleRuntimeIdentifier)</RuntimeIdentifier>
     <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">1.0</ApplicationDisplayVersion>
     <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">1</ApplicationVersion>
   </PropertyGroup>
-
   <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
-
   <PropertyGroup>
-    <RuntimeIdentifier Condition="'$(UnoSampleRuntimeIdentifier)' != ''">$(UnoSampleRuntimeIdentifier)</RuntimeIdentifier>
-    <_MauiUnoBuildProperties>MauiUnoTarget=true;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false;RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false;BuildInParallel=false;RestoreAdditionalProjectSources=https://api.nuget.org/v3/index.json</_MauiUnoBuildProperties>
+    <_MauiUnoBuildProperties>$(_MauiUnoProjectReferenceProperties)</_MauiUnoBuildProperties>
     <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
     <BuildInParallel>false</BuildInParallel>
     <UnoDisableHotRestartHelperGeneration>true</UnoDisableHotRestartHelperGeneration>
@@ -69,15 +67,4 @@
       SkipGetTargetFrameworkProperties="true"
       SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
   </ItemGroup>
-
-  <Target Name="_ConfigureMauiUnoRestoreGraph"
-          BeforeTargets="_GenerateRestoreProjectPathWalk;_GenerateRestoreGraph"
-          Condition="'$(MauiUnoTarget)' == 'true'">
-    <PropertyGroup>
-      <_GenerateRestoreGraphProjectEntryInputProperties>
-        $(_GenerateRestoreGraphProjectEntryInputProperties);
-        $(_MauiUnoBuildProperties)
-      </_GenerateRestoreGraphProjectEntryInputProperties>
-    </PropertyGroup>
-  </Target>
 </Project>

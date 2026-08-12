@@ -1,5 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
   <PropertyGroup>
     <TargetFrameworks>netstandard2.1;netstandard2.0;$(_MauiDotNetTfm);$(MauiPlatforms)</TargetFrameworks>
     <TargetFrameworks Condition="'$(IncludePreviousTfmsEssentials)' == 'true'">$(TargetFrameworks);$(_MauiPreviousDotNetTfm);$(MauiPreviousPlatforms)</TargetFrameworks>
@@ -13,6 +15,12 @@
     <NoWarn>$(NoWarn);NU5104;RS0041;RS0026</NoWarn>
     <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
     <NoWarn Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">$(NoWarn);CA1420</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(MauiUnoTarget)' == 'true' and '$(TargetFramework)' == '$(_MauiDotNetTfm)'">
+    <!-- Keep the existing net10.0 Essentials file set; only the PublicAPI baseline switches to Uno. -->
+    <_MauiTargetPlatformIsWindows>False</_MauiTargetPlatformIsWindows>
+    <_MauiNoTargetPlatform>True</_MauiNoTargetPlatform>
+    <DefineConstants>$([System.String]::Copy('$(DefineConstants)').Replace('WINDOWS;', '').Replace('PLATFORM;', ''))</DefineConstants>
   </PropertyGroup>
   <PropertyGroup>
     <!-- NuGet package information -->
@@ -44,6 +52,7 @@
     <Compile Remove="FileSystem\FileSystem.netstandard.cs" />
     <Compile Remove="Preferences\Preferences.netstandard.cs" />
     <Compile Remove="SecureStorage\SecureStorage.netstandard.cs" />
+    <Compile Include="GlobalStaticResources.ApiSuppressions.Uno.cs" />
     <Compile Include="AppInfo\AppInfo.uno.cs" />
     <Compile Include="Clipboard\Clipboard.uno.cs" />
     <Compile Include="Connectivity\Connectivity.uno.cs" />
@@ -52,16 +61,8 @@
     <Compile Include="Preferences\Preferences.uno.cs" />
     <Compile Include="SecureStorage\SecureStorage.uno.cs" />
     <Compile Include="Platform\PlatformUtils.windows.cs" />
-    <PackageReference Include="Uno.WinUI" ExcludeAssets="analyzers;build;buildTransitive" />
+    <PackageReference Include="Uno.WinUI" />
   </ItemGroup>
-  <Target Name="_RemoveUnoWinUIAnalyzersFromEssentials"
-          BeforeTargets="CoreCompile"
-          Condition="'$(MauiUnoTarget)' == 'true' and '$(TargetFramework)' == '$(_MauiDotNetTfm)'">
-    <ItemGroup>
-      <!-- Essentials consumes Uno's WinRT surface but has no XAML or generated resource dictionaries. -->
-      <Analyzer Remove="@(Analyzer)" Condition="'%(Analyzer.NuGetPackageId)' == 'Uno.WinUI'" />
-    </ItemGroup>
-  </Target>
   <ItemGroup Condition=" $(TargetFramework.Contains('-windows')) ">
     <Compile Include="**\*.windows.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
     <Compile Include="**\*.windows.*.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
