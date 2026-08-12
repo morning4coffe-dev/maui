@@ -43,12 +43,14 @@
     <Compile Remove="DeviceInfo\DeviceInfo.netstandard.cs" />
     <Compile Remove="FileSystem\FileSystem.netstandard.cs" />
     <Compile Remove="Preferences\Preferences.netstandard.cs" />
+    <Compile Remove="SecureStorage\SecureStorage.netstandard.cs" />
     <Compile Include="AppInfo\AppInfo.uno.cs" />
     <Compile Include="Clipboard\Clipboard.uno.cs" />
     <Compile Include="Connectivity\Connectivity.uno.cs" />
     <Compile Include="DeviceInfo\DeviceInfo.uno.cs" />
     <Compile Include="FileSystem\FileSystem.uno.cs" />
     <Compile Include="Preferences\Preferences.uno.cs" />
+    <Compile Include="SecureStorage\SecureStorage.uno.cs" />
     <Compile Include="Platform\PlatformUtils.windows.cs" />
     <PackageReference Include="Uno.WinUI" ExcludeAssets="analyzers;build;buildTransitive" />
   </ItemGroup>

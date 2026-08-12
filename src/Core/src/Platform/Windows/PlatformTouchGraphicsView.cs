@@ -58,7 +58,7 @@ namespace Microsoft.Maui.Platform
 
 		protected override void OnPointerExited(PointerRoutedEventArgs e)
 		{
-			_interactionState.PointerExited(_graphicsView);
+			TouchGraphicsInteractionState.PointerExited(_graphicsView);
 		}
 
 		protected override void OnPointerMoved(PointerRoutedEventArgs e)

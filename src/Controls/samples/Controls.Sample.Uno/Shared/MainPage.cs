@@ -18,6 +18,8 @@ public sealed class MainPage : ContentPage
 	const string FileSystemProbeAssetName = "FileSystemProbe.txt";
 	const string FileSystemProbeAssetContents = "Uno FileSystem sample asset.";
 	const string FileSystemProbeLocalContents = "Uno FileSystem local file probe.";
+	const string SecureStorageProbeKey = "__uno_securestorage_probe__";
+	const string SecureStorageProbeValue = "Uno SecureStorage probe.";
 
 	public MainPage()
 	{
@@ -290,7 +292,7 @@ public sealed class MainPage : ContentPage
 						"AppInfo",
 						() => $"{AppInfo.Name} {AppInfo.VersionString} (build {AppInfo.BuildString}; {AppInfo.PackagingModel})"),
 					Probe("Clipboard", () => Clipboard.HasText ? "text available" : "empty"),
-					Probe("Connectivity", () => $"{Connectivity.NetworkAccess}; {string.Join(", ", Connectivity.ConnectionProfiles)}"),
+					Probe("Connectivity", RunConnectivityProbe),
 					Probe("Preferences", RunPreferencesProbe),
 					Probe("MainThread", () => MainThread.IsMainThread ? "current callback is on the main thread" : "dispatcher active; current callback requires dispatch"),
 					Probe("DeviceInfo", () =>
@@ -298,7 +300,7 @@ public sealed class MainPage : ContentPage
 							? "portable fallback (Unknown)"
 							: $"{DeviceInfo.Platform}; {DeviceInfo.Idiom}"),
 					await ProbeAsync("FileSystem", RunFileSystemProbeAsync),
-					"SecureStorage: not yet adapted",
+					await ProbeAsync("SecureStorage", RunSecureStorageProbeAsync),
 					"Permissions: not yet adapted");
 			}
 			finally
@@ -343,6 +345,65 @@ public sealed class MainPage : ContentPage
 		return firstValue == 41 && secondValue == 42 && secondValueAfterFirstClear == 42
 			? "round-trip and container isolation passed"
 			: $"unexpected values: {firstValue}, {secondValue}, {secondValueAfterFirstClear}";
+	}
+
+	static string RunConnectivityProbe()
+	{
+		var profiles = string.Join(", ", Connectivity.ConnectionProfiles);
+		var notifications = "listener available";
+
+		static void ConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+		{
+		}
+
+		try
+		{
+			Connectivity.ConnectivityChanged += ConnectivityChanged;
+			Connectivity.ConnectivityChanged -= ConnectivityChanged;
+		}
+		catch (FeatureNotSupportedException ex)
+		{
+			notifications = $"listener unsupported ({ex.Message})";
+		}
+		catch (NotImplementedException ex)
+		{
+			notifications = $"listener unsupported ({ex.Message})";
+		}
+		catch (PlatformNotSupportedException ex)
+		{
+			notifications = $"listener unsupported ({ex.Message})";
+		}
+
+		return $"{Connectivity.NetworkAccess}; {(string.IsNullOrEmpty(profiles) ? "no active profile" : profiles)}; {notifications}";
+	}
+
+	static async Task<string> RunSecureStorageProbeAsync()
+	{
+		try
+		{
+			SecureStorage.Remove(SecureStorageProbeKey);
+			await SecureStorage.SetAsync(SecureStorageProbeKey, SecureStorageProbeValue);
+			var storedValue = await SecureStorage.GetAsync(SecureStorageProbeKey);
+			var removed = SecureStorage.Remove(SecureStorageProbeKey);
+			var removedValue = await SecureStorage.GetAsync(SecureStorageProbeKey);
+
+			return storedValue == SecureStorageProbeValue && removed && removedValue is null
+				? "round-trip and removal passed"
+				: $"unexpected values: {storedValue ?? "<null>"}, removed={removed}, after remove={removedValue ?? "<null>"}";
+		}
+		finally
+		{
+			try
+			{
+				SecureStorage.Remove(SecureStorageProbeKey);
+			}
+			catch (FeatureNotSupportedException)
+			{
+			}
+			catch (NotImplementedException)
+			{
+			}
+		}
 	}
 
 	static string Probe(string name, Func<string> probe)

@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,9 +12,22 @@ namespace Microsoft.Maui.Networking
 {
 	partial class ConnectivityImplementation : IConnectivity
 	{
-		void StartListeners() =>
-			ExecuteWithPermissionTranslation(
-				() => NetworkInformation.NetworkStatusChanged += NetworkStatusChanged);
+		void StartListeners()
+		{
+			try
+			{
+				ExecuteWithPermissionTranslation(
+					() => NetworkInformation.NetworkStatusChanged += NetworkStatusChanged);
+			}
+			catch (PlatformNotSupportedException ex)
+			{
+				throw CreateUnsupportedListenerException(ex);
+			}
+			catch (NotImplementedException ex)
+			{
+				throw CreateUnsupportedListenerException(ex);
+			}
+		}
 
 		void StopListeners() =>
 			NetworkInformation.NetworkStatusChanged -= NetworkStatusChanged;
@@ -25,8 +39,21 @@ namespace Microsoft.Maui.Networking
 		{
 			get
 			{
-				var profile = ExecuteWithPermissionTranslation(
-					NetworkInformation.GetInternetConnectionProfile);
+				global::Windows.Networking.Connectivity.ConnectionProfile? profile;
+				try
+				{
+					profile = ExecuteWithPermissionTranslation(
+						NetworkInformation.GetInternetConnectionProfile);
+				}
+				catch (PlatformNotSupportedException)
+				{
+					return GetFallbackNetworkAccess();
+				}
+				catch (NotImplementedException)
+				{
+					return GetFallbackNetworkAccess();
+				}
+
 				if (profile is null)
 				{
 					return NetworkAccess.Unknown;
@@ -110,5 +137,27 @@ namespace Microsoft.Maui.Networking
 
 		static PermissionException CreateNetworkStatePermissionException() =>
 			new("ACCESS_NETWORK_STATE must be declared in the Android manifest to use Connectivity.");
+
+		static FeatureNotSupportedException CreateUnsupportedListenerException(Exception innerException) =>
+			new("ConnectivityChanged notifications are not supported by this Uno host.", innerException);
+
+		static NetworkAccess GetFallbackNetworkAccess()
+		{
+			try
+			{
+				return GetFallbackNetworkAccess(
+					ExecuteWithPermissionTranslation(NetworkInterface.GetIsNetworkAvailable));
+			}
+			catch (PlatformNotSupportedException ex)
+			{
+				Debug.WriteLine($"Unable to determine fallback network availability. Error: {ex.Message}");
+				return NetworkAccess.Unknown;
+			}
+			catch (NotImplementedException ex)
+			{
+				Debug.WriteLine($"Unable to determine fallback network availability. Error: {ex.Message}");
+				return NetworkAccess.Unknown;
+			}
+		}
 	}
 }

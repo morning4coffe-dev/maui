@@ -6,6 +6,8 @@
 	<string>MAUI on Uno</string>
 	<key>CFBundleIdentifier</key>
 	<string>org.unoplatform.mauirenderer</string>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
 	<key>UIDeviceFamily</key>
 	<array>
 		<integer>1</integer>

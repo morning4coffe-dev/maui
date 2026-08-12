@@ -26,6 +26,10 @@
     <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InterfaceDefinition Include="LaunchScreen.storyboard" />
+  </ItemGroup>
+
   <Import Project="..\MauiUnoSample.props" />
 
   <ItemGroup>
