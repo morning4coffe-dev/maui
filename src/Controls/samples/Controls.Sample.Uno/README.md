@@ -75,10 +75,11 @@ which renders through MAUI's Skia-backed `PlatformTouchGraphicsView`.
 The sample exercises labels, formatted text, font images, entry input,
 buttons, stack and scroll layouts, slider, progress bar, window creation,
 resources, focus, property mapper updates, and a package-only
-`CommunityToolkit.Maui` Expander and interactive `DrawingView`.
+`CommunityToolkit.Maui` Expander, interactive `DrawingView`, and a
+file-system probe.
 
 The Essentials compatibility probe uses Uno-specific implementations for
-`AppInfo`, `Clipboard`, `Connectivity`, and `Preferences`. `MainThread` remains
+`AppInfo`, `Clipboard`, `Connectivity`, `Preferences`, and `FileSystem`. `MainThread` remains
 bridged to the MAUI dispatcher. The probe reports APIs that still use the
 portable unsupported implementation instead of hiding the gap.
 
@@ -106,8 +107,8 @@ bounds until Uno exposes a public geometry source for `CompositionPath`.
 - Uno-root MAUI embedding through `MauiHost` is not supported by this
   standalone application bootstrap.
 - MAUI Essentials remains partial. `AppInfo`, `Clipboard`, `Connectivity`,
-  `Preferences`, and `MainThread` have Uno implementations; `DeviceInfo`,
-  `FileSystem`, `SecureStorage`, permissions, and most sensors still use their
+  `Preferences`, `FileSystem`, and `MainThread` have Uno implementations;
+  `DeviceInfo`, `SecureStorage`, permissions, and most sensors still use their
   portable unsupported implementations.
 - Native HWND access is available on the Windows Uno host. Win32 message
   callbacks remain unavailable, and non-Windows heads do not expose native

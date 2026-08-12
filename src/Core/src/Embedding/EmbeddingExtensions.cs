@@ -30,6 +30,8 @@ internal static class EmbeddingExtensions
 	/// <returns>The <see cref="MauiAppBuilder"/> instance.</returns>
 	internal static MauiAppBuilder UseMauiEmbedding(this MauiAppBuilder builder, PlatformApplication? platformApplication = null)
 	{
+		MauiHostGuard.MarkEmbedding(builder);
+
 #if ANDROID
 		platformApplication ??= (global::Android.App.Application)global::Android.App.Application.Context;
 #elif IOS || MACCATALYST

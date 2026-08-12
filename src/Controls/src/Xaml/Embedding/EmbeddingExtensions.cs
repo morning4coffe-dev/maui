@@ -19,6 +19,7 @@ public static class EmbeddingExtensions
 	public static MauiAppBuilder UseMauiEmbeddedApp<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TApp>(this MauiAppBuilder builder)
 		where TApp : class, IApplication
 	{
+		MauiHostGuard.MarkEmbedding(builder);
 		builder.UseMauiApp<TApp>();
 #if ANDROID || IOS || MACCATALYST || WINDOWS
 		builder.UseMauiEmbedding();
@@ -36,6 +37,7 @@ public static class EmbeddingExtensions
 	public static MauiAppBuilder UseMauiEmbeddedApp<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TApp>(this MauiAppBuilder builder, Func<IServiceProvider, TApp> implementationFactory)
 		where TApp : class, IApplication
 	{
+		MauiHostGuard.MarkEmbedding(builder);
 		builder.UseMauiApp<TApp>(implementationFactory);
 #if ANDROID || IOS || MACCATALYST || WINDOWS
 		builder.UseMauiEmbedding();

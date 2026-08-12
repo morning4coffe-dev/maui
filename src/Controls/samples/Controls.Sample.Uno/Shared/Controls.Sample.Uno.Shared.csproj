@@ -9,4 +9,10 @@
 
   <Import Project="..\MauiUnoSample.props" />
 
+  <ItemGroup>
+    <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <Import Project="$(MauiSrcDirectory)Maui.InTree.props" Condition=" '$(UseMaui)' != 'true' " />
+
 </Project>
