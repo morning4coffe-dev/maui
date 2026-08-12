@@ -1,7 +1,9 @@
 <Project>
   <PropertyGroup>
     <MauiUnoTarget>true</MauiUnoTarget>
-    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(UnoSampleRuntimeIdentifier)' != ''">$(UnoSampleRuntimeIdentifier)</RuntimeIdentifier>
+    <_MauiUnoUsesSampleRuntimeIdentifier Condition="'$(UnoSampleRuntimeIdentifier)' != ''">true</_MauiUnoUsesSampleRuntimeIdentifier>
+    <!-- The heads set Debug/Release defaults before this import; re-apply the explicit sample RID afterwards. -->
+    <RuntimeIdentifier Condition="'$(_MauiUnoUsesSampleRuntimeIdentifier)' == 'true' and '$(RuntimeIdentifier)' != '$(UnoSampleRuntimeIdentifier)'">$(UnoSampleRuntimeIdentifier)</RuntimeIdentifier>
     <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">1.0</ApplicationDisplayVersion>
     <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">1</ApplicationVersion>
   </PropertyGroup>

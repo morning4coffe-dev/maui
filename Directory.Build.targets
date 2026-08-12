@@ -138,6 +138,8 @@
 
     <Error Condition="'@(_MauiUnoEligibleProjectReference)' != '' and '$(_MauiUnoProjectReferenceProperties)' == ''"
            Text="MauiUnoTarget requires _MauiUnoProjectReferenceProperties before configuring the Uno project-reference graph." />
+    <Error Condition="'@(_MauiUnoEligibleProjectReference)' != '' and '$(_MauiUnoUsesSampleRuntimeIdentifier)' == 'true' and '$(RuntimeIdentifier)' != '$(UnoSampleRuntimeIdentifier)'"
+           Text="MauiUnoTarget requires UnoSampleRuntimeIdentifier '$(UnoSampleRuntimeIdentifier)' to become the active RuntimeIdentifier before the Uno project-reference graph is configured. Current RuntimeIdentifier: '$(RuntimeIdentifier)'." />
     <Error Condition="'@(_MauiUnoEligibleProjectReference)' != '' and '$(RuntimeIdentifier)' != '' and '$(_MauiUnoProjectReferenceProperties)' != '' and $(_MauiUnoProjectReferenceProperties.Contains('RuntimeIdentifier=$(RuntimeIdentifier)')) != 'True'"
            Text="MauiUnoTarget requires the active RuntimeIdentifier '$(RuntimeIdentifier)' to flow into _MauiUnoProjectReferenceProperties before UnoTargeting.props is imported. Current value: '$(_MauiUnoProjectReferenceProperties)'." />
 
