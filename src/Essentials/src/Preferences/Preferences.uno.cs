@@ -19,6 +19,7 @@ namespace Microsoft.Maui.Storage
 		{
 			lock (Locker)
 			{
+				ArgumentNullException.ThrowIfNull(key);
 				return Values.ContainsKey(GetStorageKey(key, sharedName));
 			}
 		}
@@ -27,6 +28,7 @@ namespace Microsoft.Maui.Storage
 		{
 			lock (Locker)
 			{
+				ArgumentNullException.ThrowIfNull(key);
 				Values.Remove(GetStorageKey(key, sharedName));
 			}
 		}
@@ -49,19 +51,20 @@ namespace Microsoft.Maui.Storage
 
 			lock (Locker)
 			{
-				var storageKey = GetStorageKey(key, sharedName);
-				if (value is null)
-				{
-					Values.Remove(storageKey);
-					return;
-				}
+			ArgumentNullException.ThrowIfNull(key);
+			var storageKey = GetStorageKey(key, sharedName);
+			if (value is null)
+			{
+				Values.Remove(storageKey);
+				return;
+			}
 
-				Values[storageKey] = value switch
-				{
-					DateTime dateTime => dateTime.ToBinary(),
-					DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("O", CultureInfo.InvariantCulture),
-					_ => value,
-				};
+			Values[storageKey] = value switch
+			{
+				DateTime dateTime => dateTime.ToBinary(),
+				DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("O", CultureInfo.InvariantCulture),
+				_ => value,
+			};
 			}
 		}
 
@@ -69,7 +72,9 @@ namespace Microsoft.Maui.Storage
 		{
 			lock (Locker)
 			{
-				if (!Values.TryGetValue(GetStorageKey(key, sharedName), out var storedValue) || storedValue is null)
+				ArgumentNullException.ThrowIfNull(key);
+				if (!Values.TryGetValue(GetStorageKey(key, sharedName), out var storedValue) ||
+					storedValue is null)
 				{
 					return defaultValue;
 				}
@@ -95,11 +100,8 @@ namespace Microsoft.Maui.Storage
 			}
 		}
 
-		static string GetStorageKey(string key, string sharedName)
-		{
-			ArgumentNullException.ThrowIfNull(key);
-			return GetStoragePrefix(sharedName) + key;
-		}
+		static string GetStorageKey(string key, string sharedName) =>
+			GetStoragePrefix(sharedName) + key;
 
 		static string GetStoragePrefix(string sharedName)
 		{

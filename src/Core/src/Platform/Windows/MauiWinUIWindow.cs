@@ -162,7 +162,10 @@ namespace Microsoft.Maui
 
 #if UNO
 		[SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "This property mirrors the instance-based WinUI window API.")]
-		public IntPtr WindowHandle => IntPtr.Zero;
+		public IntPtr WindowHandle =>
+			OperatingSystem.IsWindows()
+				? WinRT.Interop.WindowNative.GetWindowHandle(this)
+				: IntPtr.Zero;
 #else
 		public IntPtr WindowHandle => _windowManager.WindowHandle;
 

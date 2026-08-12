@@ -277,7 +277,7 @@ public sealed class MainPage : ContentPage
 				Probe("Clipboard", () => Clipboard.HasText ? "text available" : "empty"),
 				Probe("Connectivity", () => $"{Connectivity.NetworkAccess}; {string.Join(", ", Connectivity.ConnectionProfiles)}"),
 				Probe("Preferences", RunPreferencesProbe),
-				Probe("MainThread", () => MainThread.IsMainThread ? "dispatcher active" : "not on UI thread"),
+				Probe("MainThread", () => MainThread.IsMainThread ? "current callback is on the main thread" : "dispatcher active; current callback requires dispatch"),
 				Probe("DeviceInfo", () =>
 					DeviceInfo.Platform == DevicePlatform.Unknown && DeviceInfo.Idiom == DeviceIdiom.Unknown
 						? "portable fallback (Unknown)"
@@ -330,13 +330,13 @@ public sealed class MainPage : ContentPage
 		{
 			return $"{name}: {probe()}";
 		}
-		catch (FeatureNotSupportedException)
+		catch (FeatureNotSupportedException ex)
 		{
-			return $"{name}: unsupported";
+			return $"{name}: unsupported ({ex.Message})";
 		}
-		catch (NotImplementedException)
+		catch (NotImplementedException ex)
 		{
-			return $"{name}: unsupported";
+			return $"{name}: unsupported ({ex.Message})";
 		}
 		catch (InvalidOperationException ex)
 		{
