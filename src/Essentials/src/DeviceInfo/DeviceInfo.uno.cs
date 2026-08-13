@@ -38,6 +38,6 @@ namespace Microsoft.Maui.Devices
 				: DeviceIdiom.Unknown;
 
 		public DeviceType DeviceType =>
-			OperatingSystem.IsBrowser() ? DeviceType.Virtual : DeviceType.Unknown;
+			OperatingSystem.IsBrowser() ? DeviceType.Virtual : DeviceType.Physical;
 	}
 }

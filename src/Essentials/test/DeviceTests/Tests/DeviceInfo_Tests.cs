@@ -76,6 +76,14 @@ namespace Microsoft.Maui.Essentials.DeviceTests
 				Assert.Equal("WebAssembly Host", DeviceInfo.Name);
 			}
 		}
+
+		[Fact]
+		public void DeviceType_Is_Conservative_On_Uno()
+		{
+			Assert.Equal(
+				OperatingSystem.IsBrowser() ? DeviceType.Virtual : DeviceType.Physical,
+				DeviceInfo.DeviceType);
+		}
 #endif
 	}
 }

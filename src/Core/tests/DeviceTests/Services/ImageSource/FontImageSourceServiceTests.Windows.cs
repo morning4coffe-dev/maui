@@ -54,23 +54,39 @@ namespace Microsoft.Maui.DeviceTests
 				var sourceWithWrongFamily = actualSource.Replace("#Dokdo", "#Arial", StringComparison.OrdinalIgnoreCase);
 
 				var service = new FontImageSourceService(new StubFontManager(sourceWithWrongFamily));
-				var typeface = (IDisposable)InvokeResolveTypeface(service, Font.OfSize("dokdo", 12, FontWeight.Bold));
+				using var typeface = InvokeResolveTypeface(service, Font.OfSize("dokdo", 12, FontWeight.Bold));
 
-				try
-				{
-					var familyName = (string?)typeface.GetType().GetProperty("FamilyName", BindingFlags.Instance | BindingFlags.Public)?.GetValue(typeface);
-					Assert.Equal("Dokdo", familyName);
-				}
-				finally
-				{
-					typeface.Dispose();
-				}
+				Assert.Equal("Dokdo", GetFamilyName(typeface));
 			});
 
-		static object InvokeResolveTypeface(FontImageSourceService service, Font font) =>
-			typeof(FontImageSourceService)
+		[Fact]
+		[Category(TestCategory.Fonts)]
+		public Task ResolveTypeface_PrefersFileBackedCandidatesBeforeEarlierBareFamilies() =>
+			InvokeOnMainThreadAsync(() =>
+			{
+				var registrar = new FontRegistrar(fontLoader: null);
+				registrar.Register("dokdo_regular.ttf", "dokdo");
+				registrar.Register("ionicons.ttf", "ionicons");
+				var manager = new FontManager(registrar);
+				var dokdoSource = manager.GetFontFamily(Font.OfSize("dokdo", 12, FontWeight.Regular)).Source;
+				var ioniconsSource = manager.GetFontFamily(Font.OfSize("ionicons", 12, FontWeight.Regular)).Source;
+
+				var service = new FontImageSourceService(new StubFontManager($"Arial, {dokdoSource}, {ioniconsSource}"));
+				using var typeface = InvokeResolveTypeface(service, Font.OfSize("dokdo", 12, FontWeight.Bold));
+
+				Assert.Equal("Dokdo", GetFamilyName(typeface));
+			});
+
+		static IDisposable InvokeResolveTypeface(FontImageSourceService service, Font font) =>
+			(IDisposable)typeof(FontImageSourceService)
 				.GetMethod("ResolveTypeface", BindingFlags.Instance | BindingFlags.NonPublic)!
 				.Invoke(service, new object[] { font })!;
+
+		static string? GetFamilyName(IDisposable typeface) =>
+			(string?)typeface
+				.GetType()
+				.GetProperty("FamilyName", BindingFlags.Instance | BindingFlags.Public)?
+				.GetValue(typeface);
 
 		sealed class StubFontManager : IFontManager
 		{
