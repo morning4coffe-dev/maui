@@ -78,10 +78,10 @@ namespace Microsoft.Maui.Platform
 		public void Dispose()
 		{
 			_surface.LoadCompleted -= OnLoadCompleted;
-			_stream?.Dispose();
-			_stream = null;
 			_brush.Dispose();
 			_surface.Dispose();
+			_stream?.Dispose();
+			_stream = null;
 		}
 	}
 #else

@@ -254,16 +254,17 @@ namespace Microsoft.Maui.Platform
 		public static IntPtr GetWindowHandle(this UI.Xaml.Window platformWindow)
 		{
 #if UNO
-			var hwnd = platformWindow is MauiWinUIWindow mauiWindow
-				? mauiWindow.WindowHandle
-				: OperatingSystem.IsWindows()
-					? WindowNative.GetWindowHandle(platformWindow)
-					: IntPtr.Zero;
+			if (!OperatingSystem.IsWindows())
+				return IntPtr.Zero;
 
-			if (OperatingSystem.IsWindows() && hwnd == IntPtr.Zero)
-				throw new InvalidOperationException("The Uno window handle is unavailable.");
-
-			return hwnd;
+			try
+			{
+				return WindowNative.GetWindowHandle(platformWindow);
+			}
+			catch (InvalidOperationException)
+			{
+				return IntPtr.Zero;
+			}
 #else
 			var hwnd = WindowNative.GetWindowHandle(platformWindow);
 

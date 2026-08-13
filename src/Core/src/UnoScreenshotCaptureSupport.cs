@@ -20,17 +20,19 @@ namespace Microsoft.Maui
 			bool isWindows,
 			bool hasCoreWebView)
 		{
+			if (isDirectWebView)
+			{
+				return isWindows && hasCoreWebView
+					? UnoScreenshotCaptureStrategy.DirectWebView
+					: UnoScreenshotCaptureStrategy.Unsupported;
+			}
+
 			if (isWindowCapture && containsWebView)
 				return UnoScreenshotCaptureStrategy.Unsupported;
 
-			if (!isDirectWebView)
-				return containsWebView
-					? UnoScreenshotCaptureStrategy.Unsupported
-					: UnoScreenshotCaptureStrategy.RenderTargetBitmap;
-
-			return isWindows && hasCoreWebView
-				? UnoScreenshotCaptureStrategy.DirectWebView
-				: UnoScreenshotCaptureStrategy.Unsupported;
+			return containsWebView
+				? UnoScreenshotCaptureStrategy.Unsupported
+				: UnoScreenshotCaptureStrategy.RenderTargetBitmap;
 		}
 
 		internal static double GetScaledDpi(double rasterizationScale) =>

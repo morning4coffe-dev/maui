@@ -25,6 +25,17 @@ namespace Microsoft.Maui.DeviceTests
 			});
 		}
 
+		[Fact]
+		public async Task WindowHandleProbeReturnsZeroBeforeReady()
+		{
+			await InvokeOnMainThreadAsync(() =>
+			{
+				var platformWindow = new UI.Xaml.Window();
+
+				Assert.Equal(IntPtr.Zero, platformWindow.GetWindowHandle());
+			});
+		}
+
 		[Fact(DisplayName = "MauiToolbar titleIcon Visibility Toggle")]
 		public async Task MauiToolbarTitleIconVisibilityToggle()
 		{

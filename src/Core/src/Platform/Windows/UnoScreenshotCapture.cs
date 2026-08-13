@@ -91,6 +91,9 @@ namespace Microsoft.Maui
 		static async Task<IScreenshotResult> CaptureWebViewAsync(
 			global::Microsoft.Web.WebView2.Core.CoreWebView2 coreWebView)
 		{
+			const BitmapPixelFormat pixelFormat = BitmapPixelFormat.Bgra8;
+			const BitmapAlphaMode alphaMode = BitmapAlphaMode.Premultiplied;
+
 			using var stream = new InMemoryRandomAccessStream();
 			await coreWebView.CapturePreviewAsync(
 				global::Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png,
@@ -98,13 +101,20 @@ namespace Microsoft.Maui
 			stream.Seek(0);
 
 			var decoder = await BitmapDecoder.CreateAsync(stream);
-			var provider = await decoder.GetPixelDataAsync();
+			var provider = await decoder.GetPixelDataAsync(
+				pixelFormat,
+				alphaMode,
+				new BitmapTransform(),
+				ExifOrientationMode.IgnoreExifOrientation,
+				ColorManagementMode.DoNotColorManage);
 			return new UnoScreenshotResult(
 				(int)decoder.PixelWidth,
 				(int)decoder.PixelHeight,
 				provider.DetachPixelData(),
 				decoder.DpiX,
-				decoder.DpiY);
+				decoder.DpiY,
+				pixelFormat,
+				alphaMode);
 		}
 
 		static bool ContainsWebView(UIElement element) =>
@@ -135,14 +145,12 @@ namespace Microsoft.Maui
 			readonly byte[] _bytes;
 			readonly double _dpiX;
 			readonly double _dpiY;
+			readonly BitmapAlphaMode _alphaMode;
+			readonly BitmapPixelFormat _pixelFormat;
 
 			public UnoScreenshotResult(int width, int height, IBuffer pixels, double dpiX, double dpiY)
+				: this(width, height, pixels.ToArray() ?? throw new ArgumentNullException(nameof(pixels)), dpiX, dpiY)
 			{
-				Width = width;
-				Height = height;
-				_bytes = pixels.ToArray() ?? throw new ArgumentNullException(nameof(pixels));
-				_dpiX = dpiX;
-				_dpiY = dpiY;
 			}
 
 			public UnoScreenshotResult(
@@ -151,12 +159,33 @@ namespace Microsoft.Maui
 				byte[] bytes,
 				double dpiX,
 				double dpiY)
+				: this(
+					width,
+					height,
+					bytes,
+					dpiX,
+					dpiY,
+					BitmapPixelFormat.Bgra8,
+					BitmapAlphaMode.Premultiplied)
+			{
+			}
+
+			public UnoScreenshotResult(
+				int width,
+				int height,
+				byte[] bytes,
+				double dpiX,
+				double dpiY,
+				BitmapPixelFormat pixelFormat,
+				BitmapAlphaMode alphaMode)
 			{
 				Width = width;
 				Height = height;
-				_bytes = bytes;
+				_bytes = bytes ?? throw new ArgumentNullException(nameof(bytes));
 				_dpiX = dpiX;
 				_dpiY = dpiY;
+				_pixelFormat = pixelFormat;
+				_alphaMode = alphaMode;
 			}
 
 			public int Width { get; }
@@ -183,8 +212,8 @@ namespace Microsoft.Maui
 			{
 				var encoder = await CreateEncoderAsync(format, quality, stream).ConfigureAwait(false);
 				encoder.SetPixelData(
-					BitmapPixelFormat.Bgra8,
-					ToBitmapAlphaMode(format),
+					_pixelFormat,
+					GetEncoderAlphaMode(format),
 					(uint)Width,
 					(uint)Height,
 					_dpiX,
@@ -232,9 +261,9 @@ namespace Microsoft.Maui
 				return encoderProperties;
 			}
 
-			static BitmapAlphaMode ToBitmapAlphaMode(ScreenshotFormat format) =>
+			BitmapAlphaMode GetEncoderAlphaMode(ScreenshotFormat format) =>
 				UnoScreenshotCaptureSupport.SupportsAlpha(format)
-					? BitmapAlphaMode.Premultiplied
+					? _alphaMode
 					: BitmapAlphaMode.Ignore;
 
 			static Guid ToBitmapEncoder(ScreenshotFormat format) =>

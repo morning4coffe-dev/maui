@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Maui;
 
 namespace Microsoft.Maui.Controls
 {
@@ -27,7 +29,8 @@ namespace Microsoft.Maui.Controls
 			// Dismiss soft keyboard on Android/iOS to stop background input processing
 			if (!inputView.IsVisible && inputView.IsSoftInputShowing())
 			{
-				inputView.HideSoftInputAsync(CancellationToken.None);
+				Task hideSoftInputTask = inputView.HideSoftInputAsync(CancellationToken.None);
+				hideSoftInputTask.FireAndForget(handler);
 			}
 		}
 #endif

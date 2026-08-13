@@ -19,6 +19,19 @@ namespace Microsoft.Maui.UnitTests.Platform
 			Assert.Equal(UnoScreenshotCaptureStrategy.DirectWebView, strategy);
 		}
 
+		[Fact]
+		public void ResolveStrategy_UsesDirectWebViewCapture_ForSupportedRootWebViewWindow()
+		{
+			var strategy = UnoScreenshotCaptureSupport.ResolveStrategy(
+				isWindowCapture: true,
+				isDirectWebView: true,
+				containsWebView: true,
+				isWindows: true,
+				hasCoreWebView: true);
+
+			Assert.Equal(UnoScreenshotCaptureStrategy.DirectWebView, strategy);
+		}
+
 		[Theory]
 		[InlineData(false, false)]
 		[InlineData(true, true)]
@@ -72,15 +85,18 @@ namespace Microsoft.Maui.UnitTests.Platform
 			Assert.Equal(UnoScreenshotCaptureStrategy.Unsupported, strategy);
 		}
 
-		[Fact]
-		public void ResolveStrategy_ReturnsUnsupported_ForWindowCaptureContainingWebView()
+		[Theory]
+		[InlineData(false)]
+		[InlineData(true)]
+		public void ResolveStrategy_ReturnsUnsupported_ForCompositeWindowCaptureContainingWebView(
+			bool hasCoreWebView)
 		{
 			var strategy = UnoScreenshotCaptureSupport.ResolveStrategy(
 				isWindowCapture: true,
 				isDirectWebView: false,
 				containsWebView: true,
 				isWindows: true,
-				hasCoreWebView: false);
+				hasCoreWebView: hasCoreWebView);
 
 			Assert.Equal(UnoScreenshotCaptureStrategy.Unsupported, strategy);
 		}

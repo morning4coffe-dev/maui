@@ -92,8 +92,9 @@ namespace Microsoft.Maui
 		SKTypeface ResolveTypeface(Font font)
 		{
 			var fontStyle = CreateFontStyle(font);
+			var candidates = GetFontCandidates(font);
 
-			foreach (var candidate in GetFontCandidates(font))
+			foreach (var candidate in candidates)
 			{
 				if (candidate.FilePath is { Length: > 0 } filePath)
 				{
@@ -101,7 +102,10 @@ namespace Microsoft.Maui
 					if (fileTypeface is not null)
 						return fileTypeface;
 				}
+			}
 
+			foreach (var candidate in candidates)
+			{
 				if (candidate.FamilyName is { Length: > 0 } familyName)
 				{
 					var familyTypeface = CreateFamilyTypeface(familyName, fontStyle);
