@@ -24,4 +24,20 @@
       SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
   </ItemGroup>
 
+  <Target Name="_MauiUnoConfigureWasmMainAssembly" AfterTargets="GenerateUnoWasmAssets">
+    <PropertyGroup>
+      <_MauiUnoWasmConfigPath>$([System.IO.Path]::Combine('$(IntermediateOutputPath)', 'unowwwrootassets', 'uno-config.js'))</_MauiUnoWasmConfigPath>
+    </PropertyGroup>
+
+    <Error
+      Condition="!Exists('$(_MauiUnoWasmConfigPath)')"
+      Text="Uno WebAssembly configuration was not generated at '$(_MauiUnoWasmConfigPath)'." />
+    <WriteLinesToFile
+      Condition="$([System.IO.File]::ReadAllText('$(_MauiUnoWasmConfigPath)').Contains('config.uno_main')) != 'True'"
+      File="$(_MauiUnoWasmConfigPath)"
+      Lines="config.uno_main = &quot;$(AssemblyName)&quot;"
+      Overwrite="false"
+      Encoding="UTF-8" />
+  </Target>
+
 </Project>

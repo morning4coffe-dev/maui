@@ -253,7 +253,7 @@
 
     <!-- Collect images from referenced projects -->
     <Target Name="ResizetizeCollectItems"
-        Condition="'$(_ResizetizerIsCompatibleApp)' == 'True' And '$(DisableResizetizer)' != 'true'"
+        Condition="('$(_ResizetizerIsCompatibleApp)' == 'True' Or ('$(_MauiTargetPlatformIsUno)' == 'True' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe'))) And '$(DisableResizetizer)' != 'true'"
         BeforeTargets="$(ResizetizeCollectItemsBeforeTargets)"
         AfterTargets="$(ResizetizeCollectItemsAfterTargets)">
 
@@ -393,6 +393,19 @@
         </ItemGroup>
         <ItemGroup Condition="'$(_ResizetizerIsTizenApp)' == 'True'">
             <TizenResource Include="@(_MauiAssetItemWithMetadata)" />
+        </ItemGroup>
+    </Target>
+
+    <Target Name="ProcessMauiUnoAssets"
+        Condition="'$(_MauiTargetPlatformIsUno)' == 'True' And ('$(OutputType)' == 'Exe' Or '$(OutputType)' == 'WinExe')"
+        BeforeTargets="GenerateUnoWasmAssets;GetCopyToOutputDirectoryItems;GetCopyToPublishDirectoryItems"
+        DependsOnTargets="ResolveProjectReferences;ResizetizeCollectItems;ProcessMauiAssets">
+        <ItemGroup>
+            <ContentWithTargetPath Include="@(_MauiAssetItemWithMetadata)"
+                CopyToOutputDirectory="PreserveNewest"
+                CopyToPublishDirectory="PreserveNewest">
+                <TargetPath>%(Link)</TargetPath>
+            </ContentWithTargetPath>
         </ItemGroup>
     </Target>
 
