@@ -527,6 +527,7 @@ public sealed class MainPage : ContentPage
 	static async Task<string> RunEssentialsProbeAsync()
 	{
 		var clipboard = await ProbeAsync("Clipboard", RunClipboardProbeAsync);
+		var launcher = await ProbeAsync("Launcher", RunLauncherProbeAsync);
 		var fileSystem = await ProbeAsync("FileSystem", RunFileSystemProbeAsync);
 		var secureStorage = await ProbeAsync("SecureStorage", RunSecureStorageProbeAsync);
 
@@ -536,9 +537,11 @@ public sealed class MainPage : ContentPage
 				"AppInfo",
 				() => $"{AppInfo.Name} {AppInfo.VersionString} (build {AppInfo.BuildString}; {AppInfo.PackagingModel})"),
 			clipboard,
+			launcher,
 			Probe("Connectivity", RunConnectivityProbe),
 			Probe("Preferences", RunPreferencesProbe),
 			Probe("MainThread", () => MainThread.IsMainThread ? "current callback is on the main thread" : "dispatcher active; current callback requires dispatch"),
+			Probe("DeviceDisplay", RunDeviceDisplayProbe),
 			Probe("DeviceInfo", () =>
 				DeviceInfo.Platform == DevicePlatform.Unknown && DeviceInfo.Idiom == DeviceIdiom.Unknown
 					? "portable fallback (Unknown)"
@@ -546,6 +549,20 @@ public sealed class MainPage : ContentPage
 			fileSystem,
 			secureStorage,
 			"Permissions: not yet adapted");
+	}
+
+	static async Task<string> RunLauncherProbeAsync()
+	{
+		var supported = await Launcher.CanOpenAsync("https://example.com/");
+		return supported
+			? "HTTPS URI launching available"
+			: "HTTPS URI launching unavailable";
+	}
+
+	static string RunDeviceDisplayProbe()
+	{
+		var display = DeviceDisplay.MainDisplayInfo;
+		return $"{display.Width:0}x{display.Height:0} @ {display.Density:0.##}x; {display.Orientation}; {display.Rotation}";
 	}
 
 	static async Task<string> RunClipboardProbeAsync()
