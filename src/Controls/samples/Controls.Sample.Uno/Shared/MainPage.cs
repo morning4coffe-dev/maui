@@ -1,11 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Maui.Views;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.ApplicationModel.DataTransfer;
 using Microsoft.Maui.Controls.Shapes;
 using Microsoft.Maui.Devices;
+using Microsoft.Maui.Dispatching;
+using Microsoft.Maui.Media;
 using Microsoft.Maui.Networking;
 using Microsoft.Maui.Storage;
 using Microsoft.UI.Windowing;
@@ -75,6 +78,7 @@ public sealed class MainPage : ContentPage
 		var toolkitExpander = CreateToolkitExpander();
 		var toolkitDrawingView = CreateToolkitDrawingView();
 		var essentialsProbe = CreateEssentialsProbe();
+		var runtimeDiagnosticsProbe = CreateRuntimeDiagnosticsProbe(this, entry);
 		var windowOperationsProbe = CreateWindowOperationsProbe();
 		var clipProbe = CreateClipProbe();
 
@@ -106,6 +110,7 @@ public sealed class MainPage : ContentPage
 					toolkitExpander,
 					toolkitDrawingView,
 					essentialsProbe,
+					runtimeDiagnosticsProbe,
 					windowOperationsProbe,
 					clipProbe,
 					new Slider
@@ -122,6 +127,167 @@ public sealed class MainPage : ContentPage
 				},
 			},
 		};
+	}
+
+	static View CreateRuntimeDiagnosticsProbe(MainPage page, Entry entry)
+	{
+		var status = new Label
+		{
+			AutomationId = "RuntimeDiagnosticsStatus",
+			Text = "Runtime diagnostics not run.",
+		};
+
+		var refreshButton = new Button
+		{
+			AutomationId = "RuntimeDiagnosticsRefresh",
+			Text = "Refresh runtime diagnostics",
+		};
+		refreshButton.Clicked += (_, _) =>
+		{
+			status.Text = Probe("Runtime", () => GetRuntimeDiagnostics(page));
+		};
+
+		var screenshotButton = new Button
+		{
+			AutomationId = "RuntimeScreenshotCapture",
+			Text = "Capture MAUI screenshot",
+		};
+		screenshotButton.Clicked += (_, _) => RunSerializedButtonAction(
+			screenshotButton,
+			status,
+			() => ProbeAsync("Screenshot", () => RunScreenshotProbeAsync(page)),
+			"Screenshot");
+
+		var showSoftInputButton = new Button
+		{
+			AutomationId = "RuntimeSoftInputShow",
+			Text = "Show soft input",
+		};
+		showSoftInputButton.Clicked += (_, _) => RunSerializedButtonAction(
+			showSoftInputButton,
+			status,
+			() => ProbeAsync(
+				"Soft input",
+				() => RunSoftInputProbeAsync(entry, show: true)),
+			"Soft input");
+
+		var hideSoftInputButton = new Button
+		{
+			AutomationId = "RuntimeSoftInputHide",
+			Text = "Hide soft input",
+		};
+		hideSoftInputButton.Clicked += (_, _) => RunSerializedButtonAction(
+			hideSoftInputButton,
+			status,
+			() => ProbeAsync(
+				"Soft input",
+				() => RunSoftInputProbeAsync(entry, show: false)),
+			"Soft input");
+
+		var flowDirectionButton = new Button
+		{
+			AutomationId = "RuntimeFlowDirectionToggle",
+			Text = "Toggle RTL/LTR",
+		};
+		flowDirectionButton.Clicked += (_, _) =>
+		{
+			page.FlowDirection = page.FlowDirection == FlowDirection.RightToLeft
+				? FlowDirection.LeftToRight
+				: FlowDirection.RightToLeft;
+			status.Text = Probe("Runtime", () => GetRuntimeDiagnostics(page));
+		};
+
+		var themeButton = new Button
+		{
+			AutomationId = "RuntimeThemeToggle",
+			Text = "Toggle light/dark theme",
+		};
+		themeButton.Clicked += (_, _) =>
+		{
+			var application = Application.Current;
+			if (application is null)
+			{
+				status.Text = "Runtime: failed (Application.Current is unavailable.)";
+				return;
+			}
+
+			application.UserAppTheme = application.UserAppTheme == AppTheme.Dark
+				? AppTheme.Light
+				: AppTheme.Dark;
+			status.Text = Probe("Runtime", () => GetRuntimeDiagnostics(page));
+		};
+
+		return new VerticalStackLayout
+		{
+			Spacing = 8,
+			Children =
+			{
+				new Label
+				{
+					FontAttributes = FontAttributes.Bold,
+					Text = "MAUI runtime diagnostics",
+				},
+				refreshButton,
+				screenshotButton,
+				showSoftInputButton,
+				hideSoftInputButton,
+				flowDirectionButton,
+				themeButton,
+				status,
+			},
+		};
+	}
+
+	static async Task<string> RunScreenshotProbeAsync(MainPage page)
+	{
+		var screenshot = await page.CaptureAsync();
+		if (screenshot is null)
+			throw new FeatureNotSupportedException("The Uno screenshot capture hook is unavailable.");
+
+		using var stream = await screenshot.OpenReadAsync(ScreenshotFormat.Png);
+		var signature = new byte[8];
+		var bytesRead = await stream.ReadAsync(signature.AsMemory());
+		var isPng = bytesRead == signature.Length &&
+			signature[0] == 0x89 &&
+			signature.AsSpan(1).SequenceEqual("PNG\r\n\x1a\n"u8);
+
+		return isPng
+			? $"{screenshot.Width}x{screenshot.Height}; valid PNG stream"
+			: $"{screenshot.Width}x{screenshot.Height}; invalid PNG stream";
+	}
+
+	static async Task<string> RunSoftInputProbeAsync(Entry entry, bool show)
+	{
+		var requested = show
+			? await entry.ShowSoftInputAsync(CancellationToken.None)
+			: await entry.HideSoftInputAsync(CancellationToken.None);
+
+		var showing = await entry.Dispatcher.DispatchAsync(entry.IsSoftInputShowing);
+		for (var attempt = 0; requested && showing != show && attempt < 20; attempt++)
+		{
+			await Task.Delay(100);
+			showing = await entry.Dispatcher.DispatchAsync(entry.IsSoftInputShowing);
+		}
+
+		return $"request={requested}; showing={showing}";
+	}
+
+	static string GetRuntimeDiagnostics(MainPage page)
+	{
+		var platformWindow =
+			Application.Current?.Windows.FirstOrDefault()?.Handler?.PlatformView as MauiWinUIWindow;
+		var xamlRoot = (platformWindow?.Content as Microsoft.UI.Xaml.FrameworkElement)?.XamlRoot;
+		var xamlRootText = xamlRoot is null
+			? "unavailable"
+			: $"{xamlRoot.Size.Width:0}x{xamlRoot.Size.Height:0} @ {xamlRoot.RasterizationScale:0.##}x";
+		var windowHandle = platformWindow?.WindowHandle ?? IntPtr.Zero;
+		var settingsSupport = OperatingSystem.IsWindows() ? "available" : "unsupported";
+
+		return string.Join(
+			Environment.NewLine,
+			$"Device: {DeviceInfo.Platform}; {DeviceInfo.Idiom}; {DeviceInfo.DeviceType}; {DeviceInfo.Model}; {DeviceInfo.VersionString}",
+			$"XamlRoot: {xamlRootText}; HWND: 0x{windowHandle.ToInt64():X}",
+			$"Theme: {Application.Current?.UserAppTheme}; FlowDirection: {page.FlowDirection}; App settings: {settingsSupport}");
 	}
 
 	static View CreateClipProbe()
@@ -276,39 +442,11 @@ public sealed class MainPage : ContentPage
 			AutomationId = "EssentialsProbeRun",
 			Text = "Run Essentials compatibility probe",
 		};
-		var probeRunning = false;
-		runButton.Clicked += async (_, _) =>
-		{
-			if (probeRunning)
-				return;
-
-			probeRunning = true;
-			runButton.IsEnabled = false;
-			try
-			{
-				results.Text = string.Join(
-					Environment.NewLine,
-					Probe(
-						"AppInfo",
-						() => $"{AppInfo.Name} {AppInfo.VersionString} (build {AppInfo.BuildString}; {AppInfo.PackagingModel})"),
-					Probe("Clipboard", () => Clipboard.HasText ? "text available" : "empty"),
-					Probe("Connectivity", RunConnectivityProbe),
-					Probe("Preferences", RunPreferencesProbe),
-					Probe("MainThread", () => MainThread.IsMainThread ? "current callback is on the main thread" : "dispatcher active; current callback requires dispatch"),
-					Probe("DeviceInfo", () =>
-						DeviceInfo.Platform == DevicePlatform.Unknown && DeviceInfo.Idiom == DeviceIdiom.Unknown
-							? "portable fallback (Unknown)"
-							: $"{DeviceInfo.Platform}; {DeviceInfo.Idiom}"),
-					await ProbeAsync("FileSystem", RunFileSystemProbeAsync),
-					await ProbeAsync("SecureStorage", RunSecureStorageProbeAsync),
-					"Permissions: not yet adapted");
-			}
-			finally
-			{
-				runButton.IsEnabled = true;
-				probeRunning = false;
-			}
-		};
+		runButton.Clicked += (_, _) => RunSerializedButtonAction(
+			runButton,
+			results,
+			RunEssentialsProbeAsync,
+			"Essentials");
 
 		return new VerticalStackLayout
 		{
@@ -324,6 +462,105 @@ public sealed class MainPage : ContentPage
 				results,
 			},
 		};
+	}
+
+	static void RunSerializedButtonAction(
+		Button button,
+		Label status,
+		Func<Task<string>> action,
+		string failureName)
+	{
+		if (button.Dispatcher.IsDispatchRequired)
+		{
+			if (!button.Dispatcher.Dispatch(() =>
+				RunSerializedButtonAction(button, status, action, failureName)))
+			{
+				System.Diagnostics.Debug.WriteLine(
+					$"Unable to dispatch the {failureName} probe.");
+			}
+
+			return;
+		}
+
+		if (!button.IsEnabled)
+			return;
+
+		button.IsEnabled = false;
+		_ = CompleteSerializedButtonActionAsync(button, status, action, failureName);
+	}
+
+	static async Task CompleteSerializedButtonActionAsync(
+		Button button,
+		Label status,
+		Func<Task<string>> action,
+		string failureName)
+	{
+		string result;
+		try
+		{
+			result = await action().ConfigureAwait(false);
+		}
+		catch (Exception ex)
+		{
+			result = $"{failureName}: failed ({ex.Message})";
+		}
+
+		if (!button.Dispatcher.Dispatch(() =>
+		{
+			try
+			{
+				button.IsEnabled = true;
+				status.Text = result;
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine(
+					$"Unable to update the {failureName} probe UI: {ex}");
+			}
+		}))
+		{
+			System.Diagnostics.Debug.WriteLine(
+				$"Unable to dispatch the {failureName} probe result.");
+		}
+	}
+
+	static async Task<string> RunEssentialsProbeAsync()
+	{
+		var clipboard = await ProbeAsync("Clipboard", RunClipboardProbeAsync);
+		var fileSystem = await ProbeAsync("FileSystem", RunFileSystemProbeAsync);
+		var secureStorage = await ProbeAsync("SecureStorage", RunSecureStorageProbeAsync);
+
+		return string.Join(
+			Environment.NewLine,
+			Probe(
+				"AppInfo",
+				() => $"{AppInfo.Name} {AppInfo.VersionString} (build {AppInfo.BuildString}; {AppInfo.PackagingModel})"),
+			clipboard,
+			Probe("Connectivity", RunConnectivityProbe),
+			Probe("Preferences", RunPreferencesProbe),
+			Probe("MainThread", () => MainThread.IsMainThread ? "current callback is on the main thread" : "dispatcher active; current callback requires dispatch"),
+			Probe("DeviceInfo", () =>
+				DeviceInfo.Platform == DevicePlatform.Unknown && DeviceInfo.Idiom == DeviceIdiom.Unknown
+					? "portable fallback (Unknown)"
+					: $"{DeviceInfo.Platform}; {DeviceInfo.Idiom}"),
+			fileSystem,
+			secureStorage,
+			"Permissions: not yet adapted");
+	}
+
+	static async Task<string> RunClipboardProbeAsync()
+	{
+		if (OperatingSystem.IsBrowser())
+		{
+			_ = await Clipboard.GetTextAsync();
+			return "unexpected browser clipboard support";
+		}
+
+		if (!Clipboard.HasText)
+			return "empty";
+
+		var text = await Clipboard.GetTextAsync();
+		return text is null ? "empty" : $"text available ({text.Length} characters)";
 	}
 
 	static string RunPreferencesProbe()
@@ -420,6 +657,14 @@ public sealed class MainPage : ContentPage
 		{
 			return $"{name}: unsupported ({ex.Message})";
 		}
+		catch (NotSupportedException ex)
+		{
+			return $"{name}: unsupported ({ex.Message})";
+		}
+		catch (DllNotFoundException ex)
+		{
+			return $"{name}: unsupported ({ex.Message})";
+		}
 		catch (InvalidOperationException ex)
 		{
 			return $"{name}: failed ({ex.Message})";
@@ -445,6 +690,14 @@ public sealed class MainPage : ContentPage
 			return $"{name}: unsupported ({ex.Message})";
 		}
 		catch (NotImplementedException ex)
+		{
+			return $"{name}: unsupported ({ex.Message})";
+		}
+		catch (NotSupportedException ex)
+		{
+			return $"{name}: unsupported ({ex.Message})";
+		}
+		catch (DllNotFoundException ex)
 		{
 			return $"{name}: unsupported ({ex.Message})";
 		}

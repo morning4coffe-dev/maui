@@ -116,6 +116,15 @@ namespace Microsoft.Maui
 
 		void OnClosedPrivate(object sender, UI.Xaml.WindowEventArgs args)
 		{
+#if UNO
+			if (UnoWindowLifecycleSupport.ShouldPreserveWindowOnClose(OperatingSystem.IsAndroid()))
+			{
+				// Uno reparents the logical window when Android recreates its activity.
+				_isActivated = false;
+				return;
+			}
+#endif
+
 			OnClosed(sender, args);
 
 			Activated -= OnActivated;
