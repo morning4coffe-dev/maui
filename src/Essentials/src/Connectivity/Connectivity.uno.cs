@@ -14,6 +14,12 @@ namespace Microsoft.Maui.Networking
 	{
 		void StartListeners()
 		{
+			if (OperatingSystem.IsAndroid())
+			{
+				throw new FeatureNotSupportedException(
+					"ConnectivityChanged notifications are not supported by the Uno Android host.");
+			}
+
 			try
 			{
 				ExecuteWithPermissionTranslation(

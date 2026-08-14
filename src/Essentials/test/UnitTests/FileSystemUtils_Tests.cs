@@ -272,6 +272,20 @@ namespace Tests
 			Assert.Equal(expected, result);
 		}
 
+		[Theory]
+		[InlineData("file.txt", "file.txt")]
+		[InlineData("folder/file.txt", "folder/file.txt")]
+		[InlineData("folder\\file.txt", "folder/file.txt")]
+		[InlineData("./file.txt", "file.txt")]
+		[InlineData("folder/./file.txt", "folder/file.txt")]
+		[InlineData("folder\\.\\file.txt", "folder/file.txt")]
+		[InlineData("file.txt/.", "file.txt/.")]
+		[InlineData("folder/./.", "folder/.")]
+		public void NormalizePackageAssetPath_NormalizesSeparators(string path, string expected)
+		{
+			Assert.Equal(expected, FileSystemUtils.NormalizePackageAssetPath(path));
+		}
+
 		// ============================================================
 		// EnsureFileName
 		// ============================================================

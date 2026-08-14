@@ -13,6 +13,8 @@
     <AndroidManifest>AndroidManifest.xml</AndroidManifest>
     <RuntimeIdentifier Condition="'$(Configuration)' == 'Debug'">android-x64</RuntimeIdentifier>
     <RuntimeIdentifier Condition="'$(Configuration)' == 'Release'">android-arm64</RuntimeIdentifier>
+    <!-- MAUI's default profile stalls Uno Skia startup; retain full AOT until an Uno-specific profile is available. -->
+    <AndroidEnableProfiledAot Condition="'$(Configuration)' == 'Release'">false</AndroidEnableProfiledAot>
     <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
     <IsUnoHead>true</IsUnoHead>
   </PropertyGroup>
