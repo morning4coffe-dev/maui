@@ -56,7 +56,7 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="Microsoft.Graphics.Win2D" />
   </ItemGroup>
-  <PropertyGroup Condition="'$(_MauiTargetPlatformIsUno)' == 'True'">
+  <PropertyGroup Condition="'$(TargetFramework)' == '$(_MauiDotNetTfm)'">
     <TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
   </PropertyGroup>
   <ItemGroup Condition="'$(_MauiTargetPlatformIsUno)' == 'True'">
