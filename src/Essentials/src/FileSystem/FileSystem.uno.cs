@@ -49,10 +49,15 @@ namespace Microsoft.Maui.Storage
 			var uri = CreateAppPackageUri(normalized);
 			try
 			{
-				await StorageFile.GetFileFromApplicationUriAsync(uri);
+				var file = await StorageFile.GetFileFromApplicationUriAsync(uri);
+				using var stream = await file.OpenStreamForReadAsync();
 				return true;
 			}
 			catch (FileNotFoundException)
+			{
+				return false;
+			}
+			catch (DirectoryNotFoundException)
 			{
 				return false;
 			}

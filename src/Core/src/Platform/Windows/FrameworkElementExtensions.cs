@@ -310,7 +310,14 @@ namespace Microsoft.Maui.Platform
 		{
 			if (element.TryGetInputPane(out var inputPane))
 			{
+#if UNO
+				return UnoSoftInputSupport.IsShowing(
+					inputPane.Visible,
+					OperatingSystem.IsAndroid(),
+					inputPane.OccludedRect.Height);
+#else
 				return inputPane.Visible;
+#endif
 			}
 
 			return false;

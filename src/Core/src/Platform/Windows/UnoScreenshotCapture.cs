@@ -8,6 +8,7 @@ using Microsoft.Maui.Media;
 using Microsoft.Maui.Platform;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
+using SkiaSharp;
 using Windows.Foundation;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
@@ -196,19 +197,34 @@ namespace Microsoft.Maui
 				ScreenshotFormat format = ScreenshotFormat.Png,
 				int quality = 100)
 			{
-				var stream = new InMemoryRandomAccessStream();
-				await EncodeAsync(format, quality, stream).ConfigureAwait(false);
-				stream.Seek(0);
-				return stream.AsStreamForRead();
+				var stream = new MemoryStream();
+				await CopyToAsync(stream, format, quality).ConfigureAwait(false);
+				stream.Position = 0;
+				return stream;
 			}
 
-			public Task CopyToAsync(
+			public async Task CopyToAsync(
 				Stream destination,
 				ScreenshotFormat format = ScreenshotFormat.Png,
-				int quality = 100) =>
-				EncodeAsync(format, quality, destination.AsRandomAccessStream());
+				int quality = 100)
+			{
+				ArgumentNullException.ThrowIfNull(destination);
 
-			async Task EncodeAsync(ScreenshotFormat format, int quality, IRandomAccessStream stream)
+				if (OperatingSystem.IsWindows())
+				{
+					await EncodeWithBitmapEncoderAsync(format, quality, destination.AsRandomAccessStream())
+						.ConfigureAwait(false);
+					return;
+				}
+
+				EncodeWithSkia(format, quality, destination);
+				await destination.FlushAsync().ConfigureAwait(false);
+			}
+
+			async Task EncodeWithBitmapEncoderAsync(
+				ScreenshotFormat format,
+				int quality,
+				IRandomAccessStream stream)
 			{
 				var encoder = await CreateEncoderAsync(format, quality, stream).ConfigureAwait(false);
 				encoder.SetPixelData(
@@ -220,6 +236,29 @@ namespace Microsoft.Maui
 					_dpiY,
 					_bytes);
 				await encoder.FlushAsync().AsTask().ConfigureAwait(false);
+			}
+
+			void EncodeWithSkia(ScreenshotFormat format, int quality, Stream destination)
+			{
+				if (_pixelFormat != BitmapPixelFormat.Bgra8)
+					throw new NotSupportedException($"Uno screenshot pixel format {_pixelFormat} is not supported.");
+
+				var alphaType = GetEncoderAlphaMode(format) switch
+				{
+					BitmapAlphaMode.Ignore => SKAlphaType.Opaque,
+					BitmapAlphaMode.Premultiplied => SKAlphaType.Premul,
+					BitmapAlphaMode.Straight => SKAlphaType.Unpremul,
+					var alphaMode => throw new NotSupportedException(
+						$"Uno screenshot alpha mode {alphaMode} is not supported."),
+				};
+				var imageInfo = new SKImageInfo(Width, Height, SKColorType.Bgra8888, alphaType);
+				using var image = SKImage.FromPixelCopy(imageInfo, _bytes, imageInfo.RowBytes)
+					?? throw new InvalidOperationException("Unable to create an image from the Uno screenshot pixels.");
+				using var data = image.Encode(
+					ToSkiaFormat(format),
+					Math.Clamp(quality, 0, 100))
+					?? throw new InvalidOperationException("Unable to encode the Uno screenshot.");
+				data.SaveTo(destination);
 			}
 
 			static async Task<BitmapEncoder> CreateEncoderAsync(
@@ -271,6 +310,14 @@ namespace Microsoft.Maui
 				{
 					ScreenshotFormat.Jpeg => BitmapEncoder.JpegEncoderId,
 					ScreenshotFormat.Png => BitmapEncoder.PngEncoderId,
+					_ => throw new ArgumentOutOfRangeException(nameof(format)),
+				};
+
+			static SKEncodedImageFormat ToSkiaFormat(ScreenshotFormat format) =>
+				format switch
+				{
+					ScreenshotFormat.Jpeg => SKEncodedImageFormat.Jpeg,
+					ScreenshotFormat.Png => SKEncodedImageFormat.Png,
 					_ => throw new ArgumentOutOfRangeException(nameof(format)),
 				};
 		}

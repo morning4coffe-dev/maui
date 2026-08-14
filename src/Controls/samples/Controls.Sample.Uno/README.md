@@ -78,19 +78,22 @@ The sample exercises labels, formatted text, font images, entry input,
 buttons, stack and scroll layouts, slider, progress bar, window creation,
 resources, focus, property mapper updates, and a package-only
 `CommunityToolkit.Maui` Expander, interactive `DrawingView`, and a
-file-system probe.
+file-system probe. A runtime diagnostics section also exercises the keyed Uno
+screenshot backend, soft-input show/hide, XamlRoot metrics, theme propagation,
+flow direction, and native window-handle availability.
 
 The Essentials compatibility probe uses Uno-specific implementations for
 `AppInfo`, `Clipboard`, `Connectivity`, `Preferences`, `FileSystem`, and
 `SecureStorage`. `Connectivity.NetworkAccess` falls back to
 `NetworkInterface.GetIsNetworkAvailable()` when a host does not project the
 WinRT internet profile, while `ConnectivityChanged` reports unsupported
-notifications explicitly on those heads. `SecureStorage` uses Uno's
-`PasswordVault` on Windows, Android API 23+, iOS, and Mac Catalyst, and
-intentionally throws on browser and desktop Linux/macOS hosts instead of
-silently falling back to plain-text storage. `MainThread` remains bridged to
-the MAUI dispatcher. The probe reports APIs that still use the portable
-unsupported implementation instead of hiding the gap.
+notifications explicitly on those heads. Browser clipboard operations report
+unsupported behavior consistently instead of touching incomplete projections.
+`SecureStorage` uses Uno's `PasswordVault` on Windows, iOS, and Mac Catalyst,
+and intentionally throws on Android, browser, and desktop Linux/macOS hosts
+instead of silently falling back to plain-text storage. `MainThread` remains
+bridged to the MAUI dispatcher. The probe reports APIs that still use the
+portable unsupported implementation instead of hiding the gap.
 
 The window operations probe exercises MAUI minimum and maximum dimensions
 through Uno's `OverlappedPresenter` constraints and verifies maximize/restore
@@ -105,8 +108,8 @@ bounds until Uno exposes a public geometry source for `CompositionPath`.
 | Target | Status |
 | --- | --- |
 | Windows Desktop | Builds, launches, and handles input |
-| Android x64 emulator | Builds, installs, launches, and toggles the Toolkit Expander |
-| WebAssembly | Builds, renders, and toggles the Toolkit Expander without browser errors |
+| Android x64 emulator | Builds, installs, relaunches in-process, handles input and DrawingView, and completes screenshot/runtime/Essentials probes |
+| WebAssembly | Builds, renders, handles input and DrawingView, and completes screenshot/runtime/Essentials probes without browser errors |
 | iOS simulator | Compiles; runtime requires macOS |
 | Mac Catalyst x64 | Compiles; runtime requires macOS |
 | X11, Linux framebuffer, macOS Desktop | Host registrations compile; runtime not yet exercised |
@@ -117,10 +120,10 @@ bounds until Uno exposes a public geometry source for `CompositionPath`.
   standalone application bootstrap.
 - MAUI Essentials remains partial. `AppInfo`, `Clipboard`, `Connectivity`,
   `Preferences`, `FileSystem`, `SecureStorage`, and `MainThread` have Uno
-  implementations. `SecureStorage` is available on Windows, Android API 23+,
-  iOS, and Mac Catalyst, and stays unsupported on browser and desktop
-  Linux/macOS hosts. `DeviceInfo` is conservative; permissions and most
-  sensors still use their portable unsupported implementations.
+  implementations. `SecureStorage` is available on Windows, iOS, and Mac
+  Catalyst, and stays unsupported on Android, browser, and desktop Linux/macOS
+  hosts. `DeviceInfo` is conservative; permissions and most sensors still use
+  their portable unsupported implementations.
 - Native HWND access is available on the Windows Uno host. Win32 message
   callbacks remain unavailable, and non-Windows heads do not expose native
   window handles. Window position, size, constraints, minimize, maximize, and
