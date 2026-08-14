@@ -105,7 +105,6 @@ namespace Microsoft.Maui.Storage
 		static void EnsurePasswordVaultSupport()
 		{
 			if (OperatingSystem.IsWindows() ||
-				(OperatingSystem.IsAndroid() && OperatingSystem.IsAndroidVersionAtLeast(23)) ||
 				OperatingSystem.IsIOS() ||
 				OperatingSystem.IsMacCatalyst())
 			{
@@ -124,7 +123,7 @@ namespace Microsoft.Maui.Storage
 
 			if (OperatingSystem.IsAndroid())
 			{
-				return new FeatureNotSupportedException("SecureStorage requires Android API level 23 or later on the Uno Android host.");
+				return new FeatureNotSupportedException("SecureStorage is not supported by the Uno Android host.");
 			}
 
 			if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())

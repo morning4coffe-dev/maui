@@ -1,5 +1,6 @@
 ﻿#nullable enable
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Microsoft.Maui.Storage
@@ -42,6 +43,25 @@ namespace Microsoft.Maui.Storage
 			filename
 				.Replace('\\', Path.DirectorySeparatorChar)
 				.Replace('/', Path.DirectorySeparatorChar);
+
+		internal static string NormalizePackageAssetPath(string filename)
+		{
+			var segments = NormalizePath(filename)
+				.Replace(Path.DirectorySeparatorChar, '/')
+				.Split('/');
+			var normalizedSegments = new List<string>(segments.Length);
+
+			for (var i = 0; i < segments.Length; i++)
+			{
+				var segment = segments[i];
+				if (segment == "." && i < segments.Length - 1)
+					continue;
+
+				normalizedSegments.Add(segment);
+			}
+
+			return string.Join("/", normalizedSegments);
+		}
 
 		/// <summary>
 		/// Validates that a relative path does not resolve to an absolute or rooted
