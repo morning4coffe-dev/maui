@@ -46,18 +46,24 @@
   </ItemGroup>
   <ItemGroup Condition="'$(MauiUnoTarget)' == 'true' and '$(TargetFramework)' == '$(_MauiDotNetTfm)'">
     <Compile Remove="AppInfo\AppInfo.netstandard.cs" />
+    <Compile Remove="Browser\Browser.netstandard.tvos.watchos.cs" />
     <Compile Remove="Clipboard\Clipboard.netstandard.tvos.watchos.tizen.cs" />
     <Compile Remove="Connectivity\Connectivity.netstandard.watchos.cs" />
+    <Compile Remove="DeviceDisplay\DeviceDisplay.netstandard.tvos.watchos.cs" />
     <Compile Remove="DeviceInfo\DeviceInfo.netstandard.cs" />
     <Compile Remove="FileSystem\FileSystem.netstandard.cs" />
+    <Compile Remove="Launcher\Launcher.netstandard.watchos.cs" />
     <Compile Remove="Preferences\Preferences.netstandard.cs" />
     <Compile Remove="SecureStorage\SecureStorage.netstandard.cs" />
     <Compile Include="GlobalStaticResources.ApiSuppressions.Uno.cs" />
     <Compile Include="AppInfo\AppInfo.uno.cs" />
+    <Compile Include="Browser\Browser.uno.cs" />
     <Compile Include="Clipboard\Clipboard.uno.cs" />
     <Compile Include="Connectivity\Connectivity.uno.cs" />
+    <Compile Include="DeviceDisplay\DeviceDisplay.uno.cs" />
     <Compile Include="DeviceInfo\DeviceInfo.uno.cs" />
     <Compile Include="FileSystem\FileSystem.uno.cs" />
+    <Compile Include="Launcher\Launcher.uno.cs" />
     <Compile Include="Preferences\Preferences.uno.cs" />
     <Compile Include="SecureStorage\SecureStorage.uno.cs" />
     <Compile Include="Platform\PlatformUtils.windows.cs" />

@@ -83,12 +83,14 @@ screenshot backend, soft-input show/hide, XamlRoot metrics, theme propagation,
 flow direction, and native window-handle availability.
 
 The Essentials compatibility probe uses Uno-specific implementations for
-`AppInfo`, `Clipboard`, `Connectivity`, `Preferences`, `FileSystem`, and
-`SecureStorage`. `Connectivity.NetworkAccess` falls back to
+`AppInfo`, `Browser`, `Clipboard`, `Connectivity`, `DeviceDisplay`, `Launcher`,
+`Preferences`, `FileSystem`, and `SecureStorage`. `Connectivity.NetworkAccess` falls back to
 `NetworkInterface.GetIsNetworkAvailable()` when a host does not project the
 WinRT internet profile, while `ConnectivityChanged` reports unsupported
 notifications explicitly on those heads. Browser clipboard operations report
 unsupported behavior consistently instead of touching incomplete projections.
+The Android head declares an HTTPS intent query so `Launcher.CanOpenAsync`
+can report browser availability under Android package-visibility rules.
 `SecureStorage` uses Uno's `PasswordVault` on Windows, iOS, and Mac Catalyst,
 and intentionally throws on Android, browser, and desktop Linux/macOS hosts
 instead of silently falling back to plain-text storage. `MainThread` remains
@@ -119,11 +121,13 @@ bounds until Uno exposes a public geometry source for `CompositionPath`.
 - Uno-root MAUI embedding through `MauiHost` is not supported by this
   standalone application bootstrap.
 - MAUI Essentials remains partial. `AppInfo`, `Clipboard`, `Connectivity`,
-  `Preferences`, `FileSystem`, `SecureStorage`, and `MainThread` have Uno
-  implementations. `SecureStorage` is available on Windows, iOS, and Mac
+  `Browser`, `DeviceDisplay`, `Launcher`, `Preferences`, `FileSystem`,
+  `SecureStorage`, and `MainThread` have Uno implementations. `SecureStorage` is available on Windows, iOS, and Mac
   Catalyst, and stays unsupported on Android, browser, and desktop Linux/macOS
-  hosts. `DeviceInfo` is conservative; permissions and most sensors still use
-  their portable unsupported implementations.
+  hosts. `DeviceDisplay` metrics are projected on every Uno head, while
+  `KeepScreenOn` remains unsupported on desktop hosts. `DeviceInfo` is
+  conservative; permissions, share/picker UI, communication APIs, and most
+  sensors still use their portable unsupported implementations.
 - Native HWND access is available on the Windows Uno host. Win32 message
   callbacks remain unavailable, and non-Windows heads do not expose native
   window handles. Window position, size, constraints, minimize, maximize, and
