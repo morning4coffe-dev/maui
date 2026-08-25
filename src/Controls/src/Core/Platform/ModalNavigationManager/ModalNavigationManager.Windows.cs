@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Graphics;
 
 namespace Microsoft.Maui.Controls.Platform
@@ -8,6 +9,12 @@ namespace Microsoft.Maui.Controls.Platform
 	internal partial class ModalNavigationManager
 	{
 		WindowRootViewContainer Container =>
+#if UNO
+			// An embedded window does not own the native window's content, so the container is registered
+			// on the window-scoped context by ToPlatformEmbeddedWindowRoot. Fall through to the standalone
+			// lookup when MAUI owns the window.
+			_window.Handler?.MauiContext?.Services.GetService<WindowRootViewContainer>() ??
+#endif
 			_window.NativeWindow.Content as WindowRootViewContainer ??
 			throw new InvalidOperationException("Root container Panel not found");
 

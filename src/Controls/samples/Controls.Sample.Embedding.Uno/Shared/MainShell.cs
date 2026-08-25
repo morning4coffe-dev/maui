@@ -21,6 +21,7 @@ internal sealed class MainShell : UserControl
 	readonly PlatformBorder _secondHostContainer;
 	readonly StackPanel _hostPanel;
 	readonly TextBlock _diagnostics;
+	readonly TextBlock _probeResults;
 
 	int _replacementCount;
 
@@ -44,6 +45,16 @@ internal sealed class MainShell : UserControl
 
 		var toggleButton = new Button { Content = "Detach island 2" };
 		toggleButton.Click += OnToggleClicked;
+
+		var probeButton = new Button { Content = "Run Tier 2 probe" };
+		probeButton.Click += OnProbeClicked;
+
+		_probeResults = new TextBlock
+		{
+			TextWrapping = TextWrapping.Wrap,
+			Opacity = 0.8,
+			Margin = new Thickness(0, 4, 0, 0),
+		};
 
 		_hostPanel = new StackPanel
 		{
@@ -82,9 +93,10 @@ internal sealed class MainShell : UserControl
 				{
 					Orientation = Orientation.Horizontal,
 					Spacing = 8,
-					Children = { replaceButton, toggleButton },
+					Children = { replaceButton, toggleButton, probeButton },
 				},
 				_diagnostics,
+				_probeResults,
 			},
 		};
 
@@ -119,10 +131,13 @@ internal sealed class MainShell : UserControl
 			Background = backgroundBrush;
 		}
 
-		// Assigned only once the whole tree exists: setting MauiContent realizes it synchronously and
-		// raises MauiContentRealized, which reads the fields initialized above.
-		_firstHost.MauiContent = new MyMauiContent("First MAUI island");
-		_secondHost.MauiContent = new MyMauiContent("Second MAUI island");
+		// Island 1 is a real MAUI Page promoted to the embedded window's Window.Page, which is what enables
+		// window-scoped services (alerts, modal navigation). Island 2 stays a plain view to show that
+		// view-level embedding still works alongside it.
+		_firstHost.MauiContent = new MauiIslandPage("First MAUI island (window-level)");
+		_secondHost.MauiContent = new MyMauiContent("Second MAUI island (view-level)");
+
+		Loaded += OnLoaded;
 
 		UpdateDiagnostics();
 	}
@@ -145,12 +160,46 @@ internal sealed class MainShell : UserControl
 
 	void OnMauiContentRealized(object? sender, MauiContentRealizedEventArgs args) => UpdateDiagnostics();
 
+	void OnLoaded(object sender, RoutedEventArgs args)
+	{
+		if (Tier2Probe.IsEnabled)
+		{
+			RunTier2Probe();
+		}
+	}
+
+	void OnProbeClicked(object sender, RoutedEventArgs args) => RunTier2Probe();
+
+	void RunTier2Probe()
+	{
+		if (_firstHost.MauiContent is not MauiIslandPage page)
+		{
+			_probeResults.Text = "Tier 2 probe needs the page-based island.";
+			return;
+		}
+
+		_probeResults.Text = "Tier 2 probe running...";
+		_ = RunTier2ProbeAsync(page);
+	}
+
+	async Task RunTier2ProbeAsync(MauiIslandPage page)
+	{
+		try
+		{
+			_probeResults.Text = await Tier2Probe.RunAsync(_session, page, XamlRoot);
+		}
+		catch (Exception ex)
+		{
+			_probeResults.Text = $"Tier 2 probe failed: {ex.GetType().Name}: {ex.Message}";
+		}
+	}
+
 	void OnReplaceClicked(object sender, RoutedEventArgs args)
 	{
 		_replacementCount++;
 
 		// Exercises handler disconnection and logical-child removal for the previous content.
-		_firstHost.MauiContent = new MyMauiContent(
+		_firstHost.MauiContent = new MauiIslandPage(
 			string.Format(CultureInfo.CurrentCulture, "First MAUI island (replaced {0}x)", _replacementCount));
 	}
 

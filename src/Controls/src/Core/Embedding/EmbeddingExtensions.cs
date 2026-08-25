@@ -7,6 +7,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.Embedding;
 using Microsoft.Maui.Hosting;
+#if UNO
+using Microsoft.Maui.Platform;
+#endif
 
 #if ANDROID
 using PlatformView = Android.Views.View;
@@ -120,6 +123,41 @@ public static class EmbeddingExtensions
 		var windowContext = mauiApp.CreateEmbeddedWindowContext(platformWindow);
 		return element.ToPlatformEmbedded(windowContext);
 	}
+
+#if UNO
+	/// <summary>
+	/// Realizes <paramref name="page"/> as a window-level embedded root, so that window-scoped MAUI features
+	/// such as modal navigation and window overlays work inside the embedded content.
+	/// </summary>
+	/// <param name="page">The page to host. It should already be the embedded window's <c>Page</c>.</param>
+	/// <param name="windowContext">The window-scoped context created for the hosting native window.</param>
+	/// <returns>The native view to insert into the host visual tree.</returns>
+	/// <remarks>
+	/// A standalone MAUI app puts a <c>WindowRootViewContainer</c> in the native window's content, and
+	/// window-scoped features locate it from there. An embedded window does not own the native window's
+	/// content, so the container is created here, registered on the window-scoped context, and returned for
+	/// the host to display. This keeps modals and overlays inside the embedded region instead of covering
+	/// the whole hosting window.
+	/// </remarks>
+	public static PlatformView ToPlatformEmbeddedWindowRoot(this Page page, IMauiContext windowContext)
+	{
+		ArgumentNullException.ThrowIfNull(page);
+		ArgumentNullException.ThrowIfNull(windowContext);
+
+		var container = new WindowRootViewContainer();
+
+		if (windowContext is MauiContext mauiContext)
+		{
+			mauiContext.AddSpecific(container);
+		}
+
+		var rootManager = windowContext.GetNavigationRootManager();
+		rootManager.Connect(page.ToPlatform(windowContext));
+		container.AddPage(rootManager.RootView);
+
+		return container;
+	}
+#endif
 }
 
 #endif
