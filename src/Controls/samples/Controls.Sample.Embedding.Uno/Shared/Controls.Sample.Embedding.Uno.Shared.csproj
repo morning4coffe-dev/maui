@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Maui.Controls.Sample.Uno.Shared</RootNamespace>
+  </PropertyGroup>
+
+  <Import Project="..\MauiUnoSample.props" />
+
+  <Import Project="$(MauiSrcDirectory)Maui.InTree.props" Condition=" '$(UseMaui)' != 'true' " />
+
+  <!--
+    Must come after the MAUI SDK import, which is what adds these.
+
+    The MAUI SDK injects global usings for Microsoft.Maui, Microsoft.Maui.Controls and
+    Microsoft.Maui.Graphics. In an Uno-root app most of those names collide with their WinUI equivalents
+    (Application, Window, Grid, Button, Border, Thickness, CornerRadius, GridLength, Colors, ...), so this
+    project imports the MAUI namespaces explicitly in the files that need them instead.
+  -->
+  <ItemGroup>
+    <Using Remove="Microsoft.Maui" />
+    <Using Remove="Microsoft.Maui.Controls" />
+    <Using Remove="Microsoft.Maui.Graphics" />
+  </ItemGroup>
+
+</Project>
