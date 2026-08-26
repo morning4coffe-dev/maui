@@ -18,7 +18,18 @@
     <!-- NOTE: By default the UseMaterial3 flag value is false. If you change the UseMaterial3 flag, you MUST delete the artifacts folder 
        and rebuild the entire codebase using: dotnet build ./Microsoft.Maui.BuildTasks.slnf -->
     <UseMaterial3>false</UseMaterial3>
+    <UnoMauiAppFactoryType>Maui.Controls.Sample.MauiProgram</UnoMauiAppFactoryType>
+    <UnoMauiApplicationId>com.microsoft.maui.sample.uno</UnoMauiApplicationId>
+    <UnoMauiApplicationTitle>.NET MAUI Samples Gallery on Uno</UnoMauiApplicationTitle>
+    <UnoMauiSkipSourceProjectReferences>true</UnoMauiSkipSourceProjectReferences>
+    <UnoMauiGenerateStaticWebAssets>true</UnoMauiGenerateStaticWebAssets>
+    <StaticWebAssetProjectMode Condition="'$(MauiUnoTarget)' == 'true'">Default</StaticWebAssetProjectMode>
+    <BuildDependsOn Condition="'$(MauiUnoTarget)' == 'true'">$(BuildDependsOn);GenerateStaticWebAssetsManifest</BuildDependsOn>
+    <NoWarn Condition="'$(MauiUnoTarget)' == 'true'">$(NoWarn);IL2026;IL2091</NoWarn>
+    <UnoMauiTrimmerNoWarn>IL2065%3BIL2067%3BIL2091%3BIL2110</UnoMauiTrimmerNoWarn>
   </PropertyGroup>
+
+  <Import Project="..\..\..\Workload\Uno.Maui.Sdk\Sdk\Uno.Maui.Sdk.props" />
 
   <PropertyGroup>
     <ApplicationTitle>.NET MAUI</ApplicationTitle>
@@ -72,6 +83,21 @@
     <ProjectReference Include="..\..\..\Controls\Maps\src\Controls.Maps.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(MauiUnoTarget)' == 'true'">
+    <ProjectReference
+      Include="..\..\..\Core\maps\src\Maps.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <MauiXaml Remove="Platforms\Windows\App.xaml" />
+    <Page Remove="Platforms\Windows\App.xaml" />
+    <ApplicationDefinition Remove="Platforms\Windows\App.xaml" />
+    <Content Remove="Platforms\Windows\App.xaml" />
+    <EmbeddedResource Remove="Platforms\Windows\App.xaml" />
+    <Compile Remove="Platforms\Windows\App.xaml.cs" />
+    <None Include="Platforms\Windows\App.xaml" />
+    <None Include="Platforms\Windows\App.xaml.cs" />
+  </ItemGroup>
+
   <ItemGroup Condition=" '$(UseMaui)' == 'true' ">
     <PackageReference Include="Microsoft.Maui.Controls.Foldable" Version="$(MauiVersion)" />
     <PackageReference Include="Microsoft.Maui.Controls.Maps" Version="$(MauiVersion)" />
@@ -91,5 +117,18 @@
   <Import Condition=" '$(UseMaui)' != 'true' " Project="..\..\..\BlazorWebView\src\Maui\build\Microsoft.AspNetCore.Components.WebView.Maui.targets" />
 
   <Import Project="$(MauiSrcDirectory)Maui.InTree.props" Condition=" '$(UseMaui)' != 'true' " />
+  <PropertyGroup Condition="'$(MauiUnoTarget)' == 'true'">
+    <StaticWebAssetProjectMode>Default</StaticWebAssetProjectMode>
+    <StaticWebAssetBasePath>_content/Maui.Controls.Sample</StaticWebAssetBasePath>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MauiUnoTarget)' == 'true'">
+    <MauiXaml Remove="Platforms\Windows\App.xaml" />
+    <Page Remove="Platforms\Windows\App.xaml" />
+    <ApplicationDefinition Remove="Platforms\Windows\App.xaml" />
+    <Content Remove="Platforms\Windows\App.xaml" />
+    <EmbeddedResource Remove="Platforms\Windows\App.xaml" />
+    <Compile Remove="Platforms\Windows\App.xaml.cs" />
+  </ItemGroup>
+  <Import Project="..\..\..\Workload\Uno.Maui.Sdk\Sdk\Uno.Maui.Sdk.targets" />
 
 </Project>

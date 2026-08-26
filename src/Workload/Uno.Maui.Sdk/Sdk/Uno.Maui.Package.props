@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <UnoMauiSdkRoot Condition="'$(UnoMauiSdkRoot)' == ''">$(MSBuildThisFileDirectory)..\</UnoMauiSdkRoot>
+    <UnoMauiUseSource>false</UnoMauiUseSource>
+    <UnoMauiPackageReferencesProvided>true</UnoMauiPackageReferencesProvided>
+    <UnoMauiPackageVersion Condition="'$(UnoMauiPackageVersion)' == ''">10.0.100-dev</UnoMauiPackageVersion>
+    <UnoMauiUnoVersion Condition="'$(UnoMauiUnoVersion)' == ''">6.7.0-dev.704</UnoMauiUnoVersion>
+    <UnoMauiWasmBootstrapVersion Condition="'$(UnoMauiWasmBootstrapVersion)' == ''">10.0.96</UnoMauiWasmBootstrapVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CompilerVisibleProperty Include="MSBuildProjectFullPath" />
+    <CompilerVisibleProperty Include="MSBuildProjectDirectory" />
+  </ItemGroup>
+</Project>

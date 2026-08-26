@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
   <PropertyGroup>
     <TargetFrameworks>netstandard2.1;netstandard2.0;$(_MauiDotNetTfm);$(MauiPlatforms)</TargetFrameworks>
     <TargetFrameworks Condition="'$(IncludePreviousTfms)' == 'true'">$(TargetFrameworks);$(_MauiPreviousDotNetTfm);$(MauiPreviousPlatforms)</TargetFrameworks>
@@ -10,6 +12,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);RS0041;RS0026;RS0027</NoWarn>
     <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
+    <NoWarn Condition="'$(_MauiTargetPlatformIsUno)' == 'True'">$(NoWarn);RS0016</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="!$(TargetFramework.StartsWith('netstandard'))">
@@ -41,6 +44,10 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\src\Core.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\..\..\Essentials\src\Essentials.csproj" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(_MauiTargetPlatformIsUno)' == 'True'">
+    <PackageReference Include="Uno.WinUI" />
   </ItemGroup>
 
   <ItemGroup>

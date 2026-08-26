@@ -1,0 +1,104 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)Uno.Maui.Source.props" Condition="'$(UnoMauiSkipSourceImport)' != 'true'" />
+
+  <PropertyGroup>
+    <UnoMauiTarget Condition="'$(UnoMauiTarget)' == ''">Desktop</UnoMauiTarget>
+    <UnoMauiTargets Condition="'$(UnoMauiTargets)' == ''">Desktop;WebAssembly;Android</UnoMauiTargets>
+    <UnoMauiGeneratedRoot Condition="'$(UnoMauiGeneratedRoot)' == ''">$(BaseIntermediateOutputPath)uno-maui-hosts\</UnoMauiGeneratedRoot>
+    <UnoMauiUseSource Condition="'$(UnoMauiUseSource)' == ''">true</UnoMauiUseSource>
+    <UnoMauiUnoVersion Condition="'$(UnoMauiUnoVersion)' == ''">6.7.0-dev.704</UnoMauiUnoVersion>
+    <UnoMauiWasmBootstrapVersion Condition="'$(UnoMauiWasmBootstrapVersion)' == ''">10.0.96</UnoMauiWasmBootstrapVersion>
+    <UnoMauiRuntimeIdentifier Condition="'$(UnoMauiTarget)' == 'WebAssembly' and '$(UnoMauiRuntimeIdentifier)' == ''">browser-wasm</UnoMauiRuntimeIdentifier>
+    <_UnoMauiGeneratedFactoryFile>$(IntermediateOutputPath)UnoMauiAppFactory.g.cs</_UnoMauiGeneratedFactoryFile>
+    <_UnoMauiHostRoot>$(UnoMauiGeneratedRoot)$(UnoMauiTarget)\</_UnoMauiHostRoot>
+    <_UnoMauiHostProject>$(_UnoMauiHostRoot)Uno.Maui.Generated.$(UnoMauiTarget).csproj</_UnoMauiHostProject>
+    <_UnoMauiTemplateRoot Condition="'$(UnoMauiHostTemplateRoot)' != ''">$(UnoMauiHostTemplateRoot)</_UnoMauiTemplateRoot>
+    <_UnoMauiTemplateRoot Condition="'$(_UnoMauiTemplateRoot)' == ''">$(UnoMauiSdkRoot)templates\$(UnoMauiTarget)\</_UnoMauiTemplateRoot>
+    <_UnoMauiGeneratedProjectName>Uno.Maui.Generated.$(UnoMauiTarget).$(MSBuildProjectName)</_UnoMauiGeneratedProjectName>
+    <_UnoMauiGeneratedBaseOutputPath>$(ArtifactsBinDir)uno\$(_UnoMauiGeneratedProjectName)\</_UnoMauiGeneratedBaseOutputPath>
+    <_UnoMauiGeneratedBaseIntermediatePath>$(ArtifactsObjDir)uno\$(_UnoMauiGeneratedProjectName)\</_UnoMauiGeneratedBaseIntermediatePath>
+    <_UnoMauiRestoreNoWarn Condition="'$(RestoreIgnoreFailedSources)' == 'true'">NU1801%3BNU1900</_UnoMauiRestoreNoWarn>
+  </PropertyGroup>
+
+  <Target Name="_UnoMauiGenerateAppFactory" BeforeTargets="CoreCompile" Condition="'$(UnoMauiDisableAppFactoryGeneration)' != 'true'">
+    <ItemGroup>
+      <_UnoMauiFactorySource Include="namespace Uno.Maui.Generated %7B" />
+      <_UnoMauiFactorySource Include="public static class AppFactory %7B" />
+      <_UnoMauiFactorySource Include="public static global::Microsoft.Maui.Hosting.MauiApp Create() =&gt; global::$(UnoMauiAppFactoryType).CreateMauiApp()%3B" />
+      <_UnoMauiFactorySource Include="%7D" />
+      <_UnoMauiFactorySource Include="%7D" />
+      <Compile Include="$(_UnoMauiGeneratedFactoryFile)" Visible="false" />
+    </ItemGroup>
+    <WriteLinesToFile
+      File="$(_UnoMauiGeneratedFactoryFile)"
+      Lines="@(_UnoMauiFactorySource)"
+      Overwrite="true"
+      Encoding="UTF-8" />
+  </Target>
+
+  <Target Name="_UnoMauiValidateTarget">
+    <Error
+      Condition="'$(UnoMauiTarget)' != 'Desktop' and '$(UnoMauiTarget)' != 'WebAssembly' and '$(UnoMauiTarget)' != 'Android'"
+      Text="UnoMauiTarget must be Desktop, WebAssembly, or Android." />
+    <Error
+      Condition="!$([System.String]::Copy(';$(UnoMauiTargets);').Contains(';$(UnoMauiTarget);'))"
+      Text="UnoMauiTarget '$(UnoMauiTarget)' is not enabled by UnoMauiTargets='$(UnoMauiTargets)'." />
+    <Error
+      Condition="'$(UnoMauiAppFactoryType)' == ''"
+      Text="UnoMauiAppFactoryType must name the public type containing CreateMauiApp()." />
+    <Error
+      Condition="!Exists('$(_UnoMauiTemplateRoot)Uno.Maui.Generated.$(UnoMauiTarget).csproj')"
+      Text="The Uno MAUI host template was not found at '$(_UnoMauiTemplateRoot)'." />
+  </Target>
+
+  <Target Name="_UnoMauiPrepareHost" DependsOnTargets="_UnoMauiValidateTarget">
+    <ItemGroup>
+      <_UnoMauiTemplateFiles Include="$(_UnoMauiTemplateRoot)**\*" />
+    </ItemGroup>
+    <RemoveDir Directories="$(_UnoMauiHostRoot)" />
+    <MakeDir Directories="$(_UnoMauiHostRoot)" />
+    <Copy
+      SourceFiles="@(_UnoMauiTemplateFiles)"
+      DestinationFiles="@(_UnoMauiTemplateFiles->'$(_UnoMauiHostRoot)%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+
+  <Target Name="RestoreUnoMaui" DependsOnTargets="_UnoMauiPrepareHost">
+    <MSBuild
+      Projects="$(_UnoMauiHostProject)"
+      Targets="Restore"
+      BuildInParallel="false"
+      Properties="Configuration=$(Configuration);MauiUnoTarget=true;UnoMauiGeneratedProjectName=$(_UnoMauiGeneratedProjectName);UnoMauiAppProject=$(MSBuildProjectFullPath);UnoMauiAppFactoryType=$(UnoMauiAppFactoryType);UnoMauiApplicationId=$(UnoMauiApplicationId);UnoMauiApplicationTitle=$(UnoMauiApplicationTitle);UnoMauiTrimmerNoWarn=$(UnoMauiTrimmerNoWarn);UnoMauiSdkRoot=$(UnoMauiSdkRoot);UnoMauiUseSource=$(UnoMauiUseSource);UnoMauiPackageVersion=$(UnoMauiPackageVersion);UnoMauiUnoVersion=$(UnoMauiUnoVersion);UnoMauiWasmBootstrapVersion=$(UnoMauiWasmBootstrapVersion);MauiSrcDirectory=$(MauiSrcDirectory);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);RestoreIgnoreFailedSources=$(RestoreIgnoreFailedSources);NuGetAudit=$(NuGetAudit);NoWarn=$(_UnoMauiRestoreNoWarn);WarningsNotAsErrors=$(_UnoMauiRestoreNoWarn)" />
+  </Target>
+
+  <Target Name="_UnoMauiBuildApplication">
+    <MSBuild
+      Projects="$(MSBuildProjectFullPath)"
+      Targets="Build"
+      BuildInParallel="false"
+      Properties="Configuration=$(Configuration);MauiUnoTarget=true;TargetFramework=net10.0;RuntimeIdentifier=$(UnoMauiRuntimeIdentifier);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);TypeScriptCompileBlocked=true" />
+  </Target>
+
+  <Target Name="_UnoMauiPrepareStaticWebAssets" DependsOnTargets="_UnoMauiBuildApplication" Condition="'$(UnoMauiGenerateStaticWebAssets)' == 'true'">
+    <MSBuild
+      Projects="$(MSBuildProjectFullPath)"
+      Targets="GenerateStaticWebAssetsManifest"
+      BuildInParallel="false"
+      Properties="Configuration=$(Configuration);MauiUnoTarget=true;TargetFramework=net10.0;RuntimeIdentifier=$(UnoMauiRuntimeIdentifier);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier)" />
+  </Target>
+
+  <Target Name="BuildUnoMaui" DependsOnTargets="RestoreUnoMaui;_UnoMauiBuildApplication;_UnoMauiPrepareStaticWebAssets">
+    <MSBuild
+      Projects="$(_UnoMauiHostProject)"
+      Targets="Build"
+      BuildInParallel="false"
+      Properties="Configuration=$(Configuration);BuildProjectReferences=false;MauiUnoTarget=true;UnoMauiGeneratedProjectName=$(_UnoMauiGeneratedProjectName);UnoMauiAppProject=$(MSBuildProjectFullPath);UnoMauiAppFactoryType=$(UnoMauiAppFactoryType);UnoMauiApplicationId=$(UnoMauiApplicationId);UnoMauiApplicationTitle=$(UnoMauiApplicationTitle);UnoMauiTrimmerNoWarn=$(UnoMauiTrimmerNoWarn);UnoMauiSdkRoot=$(UnoMauiSdkRoot);UnoMauiUseSource=$(UnoMauiUseSource);UnoMauiPackageVersion=$(UnoMauiPackageVersion);UnoMauiUnoVersion=$(UnoMauiUnoVersion);UnoMauiWasmBootstrapVersion=$(UnoMauiWasmBootstrapVersion);MauiSrcDirectory=$(MauiSrcDirectory);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);TypeScriptCompileBlocked=true" />
+  </Target>
+
+  <Target Name="PublishUnoMaui" DependsOnTargets="RestoreUnoMaui;_UnoMauiBuildApplication;_UnoMauiPrepareStaticWebAssets">
+    <MSBuild
+      Projects="$(_UnoMauiHostProject)"
+      Targets="Publish"
+      BuildInParallel="false"
+      Properties="Configuration=$(Configuration);BuildProjectReferences=false;MauiUnoTarget=true;UnoMauiGeneratedProjectName=$(_UnoMauiGeneratedProjectName);UnoMauiAppProject=$(MSBuildProjectFullPath);UnoMauiAppFactoryType=$(UnoMauiAppFactoryType);UnoMauiApplicationId=$(UnoMauiApplicationId);UnoMauiApplicationTitle=$(UnoMauiApplicationTitle);UnoMauiTrimmerNoWarn=$(UnoMauiTrimmerNoWarn);UnoMauiSdkRoot=$(UnoMauiSdkRoot);UnoMauiUseSource=$(UnoMauiUseSource);UnoMauiPackageVersion=$(UnoMauiPackageVersion);UnoMauiUnoVersion=$(UnoMauiUnoVersion);UnoMauiWasmBootstrapVersion=$(UnoMauiWasmBootstrapVersion);MauiSrcDirectory=$(MauiSrcDirectory);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);TypeScriptCompileBlocked=true" />
+  </Target>
+</Project>

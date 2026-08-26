@@ -129,6 +129,9 @@
     </ItemGroup>
 
     <PropertyGroup Condition="'@(_MauiUnoEligibleProjectReference)' != ''">
+      <MauiUnoRenderer Condition="'$(MauiUnoRenderer)' == ''">WinUI</MauiUnoRenderer>
+      <MauiUnoHostPlatform Condition="'$(MauiUnoHostPlatform)' == ''">Neutral</MauiUnoHostPlatform>
+      <_MauiUnoProjectReferenceProperties Condition="'$(_MauiUnoProjectReferenceProperties)' == ''">MauiUnoTarget=true;MauiUnoRenderer=$(MauiUnoRenderer);MauiUnoHostPlatform=$(MauiUnoHostPlatform);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false;BuildInParallel=false;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false</_MauiUnoProjectReferenceProperties>
       <_MauiUnoCanonicalSetTargetFramework>TargetFramework=$(_MauiDotNetTfm);$(_MauiUnoProjectReferenceProperties)</_MauiUnoCanonicalSetTargetFramework>
       <_GenerateRestoreGraphProjectEntryInputProperties>
         $(_GenerateRestoreGraphProjectEntryInputProperties);

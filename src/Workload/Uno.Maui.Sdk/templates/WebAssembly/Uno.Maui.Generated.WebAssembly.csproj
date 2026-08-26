@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>$(UnoMauiGeneratedProjectName)</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsUnoHead>true</IsUnoHead>
+    <UnoMauiDisableAppFactoryGeneration>true</UnoMauiDisableAppFactoryGeneration>
+    <WasmBuildNative>true</WasmBuildNative>
+    <NoWarn>$(NoWarn);IL2026;$(UnoMauiTrimmerNoWarn)</NoWarn>
+  </PropertyGroup>
+
+  <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.Source.props" />
+
+  <ItemGroup>
+    <PackageReference Include="Uno.Wasm.Bootstrap" Version="$(UnoMauiWasmBootstrapVersion)" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.WebAssembly.Browser" Version="$(UnoMauiUnoVersion)" />
+    <TrimmerRootAssembly Include="$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)'))" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="$(UnoMauiAppProject)"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+
+  <Target Name="_UnoMauiConfigureWasmMainAssembly" AfterTargets="GenerateUnoWasmAssets">
+    <PropertyGroup>
+      <_UnoMauiWasmConfigPath>$([System.IO.Path]::Combine('$(IntermediateOutputPath)', 'unowwwrootassets', 'uno-config.js'))</_UnoMauiWasmConfigPath>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(_UnoMauiWasmConfigPath)')" Text="Uno WebAssembly configuration was not generated." />
+    <WriteLinesToFile
+      Condition="$([System.IO.File]::ReadAllText('$(_UnoMauiWasmConfigPath)').Contains('config.uno_main')) != 'True'"
+      File="$(_UnoMauiWasmConfigPath)"
+      Lines="config.uno_main = &quot;$(AssemblyName)&quot;"
+      Overwrite="false"
+      Encoding="UTF-8" />
+  </Target>
+</Project>

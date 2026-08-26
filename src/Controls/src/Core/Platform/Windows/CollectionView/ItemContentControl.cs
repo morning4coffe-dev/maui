@@ -365,6 +365,13 @@ namespace Microsoft.Maui.Controls.Platform
 
 			var measureSize = base.MeasureOverride(new WSize(width, height));
 
+#if UNO
+			var virtualViewMeasure = _handler.VirtualView.Measure(width, height);
+			measureSize = new WSize(
+				Max(measureSize.Width, virtualViewMeasure.Width),
+				Max(measureSize.Height, virtualViewMeasure.Height));
+#endif
+
 			return new WSize(Max(measureSize.Width, width), Max(measureSize.Height, height));
 		}
 
