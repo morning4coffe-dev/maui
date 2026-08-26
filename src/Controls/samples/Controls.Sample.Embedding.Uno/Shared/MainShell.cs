@@ -58,6 +58,14 @@ internal sealed class MainShell : UserControl
 			Margin = new Thickness(0, 4, 0, 0),
 		};
 
+		// Capped so the report cannot squeeze the MAUI islands out of view.
+		var probeResultsHost = new ScrollViewer
+		{
+			MaxHeight = 150,
+			VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+			Content = _probeResults,
+		};
+
 		_hostPanel = new StackPanel
 		{
 			Spacing = 12,
@@ -98,7 +106,7 @@ internal sealed class MainShell : UserControl
 					Children = { replaceButton, toggleButton, probeButton },
 				},
 				_diagnostics,
-				_probeResults,
+				probeResultsHost,
 			},
 		};
 
