@@ -1,9 +1,11 @@
 <Project>
   <PropertyGroup Condition="'$(MauiUnoTarget)' == 'true'">
+    <MauiUnoRenderer Condition="'$(MauiUnoRenderer)' == ''">WinUI</MauiUnoRenderer>
+    <MauiUnoHostPlatform Condition="'$(MauiUnoHostPlatform)' == ''">Neutral</MauiUnoHostPlatform>
     <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);https://api.nuget.org/v3/index.json</RestoreAdditionalProjectSources>
-    <_MauiUnoProjectReferenceProperties>MauiUnoTarget=true;RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false;BuildInParallel=false;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false;RestoreAdditionalProjectSources=https://api.nuget.org/v3/index.json</_MauiUnoProjectReferenceProperties>
+    <_MauiUnoProjectReferenceProperties>MauiUnoTarget=true;MauiUnoRenderer=$(MauiUnoRenderer);MauiUnoHostPlatform=$(MauiUnoHostPlatform);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false;BuildInParallel=false;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false;RestoreAdditionalProjectSources=https://api.nuget.org/v3/index.json</_MauiUnoProjectReferenceProperties>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(MauiUnoTarget)' == 'true' and '$(TargetFramework)' == '$(_MauiDotNetTfm)'">
+  <PropertyGroup Condition="'$(MauiUnoTarget)' == 'true' and '$(MauiUnoRenderer)' == 'WinUI' and '$(TargetFramework)' == '$(_MauiDotNetTfm)'">
     <_MauiTargetPlatformIsUno>True</_MauiTargetPlatformIsUno>
     <_MauiTargetPlatformIsWindows>True</_MauiTargetPlatformIsWindows>
     <_MauiNoTargetPlatform>False</_MauiNoTargetPlatform>
@@ -12,6 +14,9 @@
     <!-- Uno0001 tracks known API gaps in this experiment; the other diagnostics originate in generated XAML. -->
     <NoWarn>$(NoWarn);Uno0001;IL2072;IL2111;RS0030</NoWarn>
   </PropertyGroup>
+  <Target Name="_ValidateMauiUnoRenderer" BeforeTargets="PrepareForBuild" Condition="'$(MauiUnoTarget)' == 'true'">
+    <Error Condition="'$(MauiUnoRenderer)' != 'WinUI'" Text="MauiUnoRenderer must be 'WinUI' for the current renderer implementation." />
+  </Target>
   <ItemGroup Condition="'$(MauiUnoTarget)' == 'true' and '$(ApplicationVersion)' != ''">
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>Microsoft.Maui.ApplicationModel.AppInfo.BuildString</_Parameter1>

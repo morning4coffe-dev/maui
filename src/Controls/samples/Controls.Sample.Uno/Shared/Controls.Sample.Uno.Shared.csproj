@@ -5,6 +5,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Microsoft.Maui.Controls.Sample.Uno.Shared</RootNamespace>
+    <UnoMauiAppFactoryType>Microsoft.Maui.Controls.Sample.Uno.MauiProgram</UnoMauiAppFactoryType>
+    <UnoMauiApplicationId>org.unoplatform.mauirenderer.automatic</UnoMauiApplicationId>
+    <UnoMauiApplicationTitle>MAUI on Uno</UnoMauiApplicationTitle>
+    <UnoMauiSdkRoot>$(MSBuildThisFileDirectory)..\..\..\..\Workload\Uno.Maui.Sdk\</UnoMauiSdkRoot>
+    <UnoMauiSkipSourceImport>true</UnoMauiSkipSourceImport>
   </PropertyGroup>
 
   <Import Project="..\MauiUnoSample.props" />
@@ -14,5 +19,6 @@
   </ItemGroup>
 
   <Import Project="$(MauiSrcDirectory)Maui.InTree.props" Condition=" '$(UseMaui)' != 'true' " />
+  <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.Sdk.targets" />
 
 </Project>

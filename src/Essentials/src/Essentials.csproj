@@ -66,6 +66,7 @@
     <Compile Include="Launcher\Launcher.uno.cs" />
     <Compile Include="Preferences\Preferences.uno.cs" />
     <Compile Include="SecureStorage\SecureStorage.uno.cs" />
+    <Compile Include="Platform\Platform.uno.cs" />
     <Compile Include="Platform\PlatformUtils.windows.cs" />
     <PackageReference Include="Uno.WinUI" />
   </ItemGroup>

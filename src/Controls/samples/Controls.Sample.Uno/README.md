@@ -43,6 +43,19 @@ override the default RID, for example:
 .\Build.ps1 -Target iOS -RuntimeIdentifier iossimulator-arm64 -Run
 ```
 
+The automatic SDK path generates platform heads from one MAUI application
+project:
+
+```powershell
+.\Build.ps1 -Sample Automatic -Target Desktop
+.\Build.ps1 -Sample Automatic -Target Android -RuntimeIdentifier android-x64
+.\Build.ps1 -Sample Automatic -Target WebAssembly -Publish
+.\Build.ps1 -Sample Gallery -Target WebAssembly -Publish
+```
+
+The generated projects live under `obj/uno-maui-hosts`; applications do not
+need to add or maintain Uno host projects.
+
 Release publishing is currently available for the heads that do not require
 signing:
 
