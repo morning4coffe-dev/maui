@@ -127,7 +127,7 @@ public static class EmbeddingExtensions
 #if UNO
 	/// <summary>
 	/// Realizes <paramref name="page"/> as a window-level embedded root, so that window-scoped MAUI features
-	/// such as modal navigation and window overlays work inside the embedded content.
+	/// such as modal navigation work inside the embedded content.
 	/// </summary>
 	/// <param name="page">The page to host. It should already be the embedded window's <c>Page</c>.</param>
 	/// <param name="windowContext">The window-scoped context created for the hosting native window.</param>
