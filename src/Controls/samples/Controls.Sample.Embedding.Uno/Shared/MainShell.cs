@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Linq;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -196,11 +197,83 @@ internal sealed class MainShell : UserControl
 	{
 		try
 		{
-			_probeResults.Text = await Tier2Probe.RunAsync(_session, page, XamlRoot);
+			var report = await Tier2Probe.RunAsync(_session, page, XamlRoot);
+			report += await ProbeReplaceAsync();
+			_probeResults.Text = report;
+
+			try
+			{
+				System.IO.File.WriteAllText(Tier2Probe.LogPath, report);
+			}
+			catch (Exception)
+			{
+				// Diagnostics only.
+			}
 		}
 		catch (Exception ex)
 		{
 			_probeResults.Text = $"Tier 2 probe failed: {ex.GetType().Name}: {ex.Message}";
+		}
+	}
+
+	// ToPlatformEmbeddedWindowRoot builds a fresh WindowRootViewContainer per call, while
+	// NavigationRootManager.RootView is a single instance for the whole window scope. Replacing page
+	// content therefore re-parents an already-parented element, which XAML forbids.
+	async Task<string> ProbeReplaceAsync()
+	{
+		var report = new System.Text.StringBuilder();
+
+		for (var i = 1; i <= 3; i++)
+		{
+			try
+			{
+				_firstHost.MauiContent = new NavigationPage(new MauiIslandPage($"replace probe {i}"));
+				await Task.Delay(500);
+
+				var realized = _firstHost.Content as FrameworkElement;
+				var texts = new System.Collections.Generic.List<string>();
+				CollectTexts(realized, texts, 0);
+
+				var expected = $"replace probe {i}";
+				var stale = texts.Any(t => t.StartsWith("replace probe ", StringComparison.Ordinal) && t != expected);
+
+				report.AppendLine(string.Format(
+					CultureInfo.InvariantCulture,
+					"replace #{0}: container={1} rendered={2} showsCurrent={3} showsStale={4}",
+					i,
+					realized?.GetType().Name ?? "null",
+					realized is not null && realized.ActualHeight > 0,
+					texts.Contains(expected),
+					stale));
+			}
+			catch (Exception ex)
+			{
+				report.AppendLine($"replace #{i} FAILED: {ex.GetType().Name}: {ex.Message}");
+				break;
+			}
+		}
+
+		return report.ToString();
+	}
+
+	// Reads what is genuinely on screen, so a stale page left behind by a bad replace cannot pass.
+	static void CollectTexts(DependencyObject? node, System.Collections.Generic.List<string> texts, int depth)
+	{
+		if (node is null || depth > 40)
+		{
+			return;
+		}
+
+		if (node is TextBlock block && !string.IsNullOrEmpty(block.Text))
+		{
+			texts.Add(block.Text);
+		}
+
+		var count = VisualTreeHelper.GetChildrenCount(node);
+
+		for (var i = 0; i < count; i++)
+		{
+			CollectTexts(VisualTreeHelper.GetChild(node, i), texts, depth + 1);
 		}
 	}
 
