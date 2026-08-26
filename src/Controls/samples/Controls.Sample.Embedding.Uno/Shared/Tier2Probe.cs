@@ -4,10 +4,12 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
 using MauiContentPage = Microsoft.Maui.Controls.ContentPage;
 using MauiLabel = Microsoft.Maui.Controls.Label;
+using MauiNavigationPage = Microsoft.Maui.Controls.NavigationPage;
 using MauiPage = Microsoft.Maui.Controls.Page;
 
 namespace Maui.Controls.Sample.Uno;
@@ -33,7 +35,13 @@ internal static class Tier2Probe
 	{
 		var report = new StringBuilder();
 
-		void Log(string line) => report.AppendLine(line);
+		// Flushed after every section: the off-UI-thread check intentionally leaves a dialog on screen,
+		// so a single write at the end would lose everything before it.
+		void Log(string line)
+		{
+			report.AppendLine(line);
+			Flush(report);
+		}
 
 		try
 		{
@@ -44,24 +52,29 @@ internal static class Tier2Probe
 
 			await ProbeAlertAsync(page, xamlRoot, Log);
 			await ProbeModalAsync(page, Log);
+			await ProbeNavigationAsync(page, Log);
+
+			// Last: this one cannot dismiss its own dialog, so anything after it would never run.
+			await ProbeAlertOffUiThreadAsync(page, xamlRoot, Log);
 		}
 		catch (Exception ex)
 		{
 			Log($"probe aborted: {ex.GetType().Name}: {ex.Message}");
 		}
 
-		var text = report.ToString();
+		return report.ToString();
+	}
 
+	static void Flush(StringBuilder report)
+	{
 		try
 		{
-			File.WriteAllText(LogPath, text);
+			File.WriteAllText(LogPath, report.ToString());
 		}
 		catch (Exception)
 		{
 			// Diagnostics only, and the browser head has no writable temp directory.
 		}
-
-		return text;
 	}
 
 	static async Task ProbeAlertAsync(MauiPage page, XamlRoot? xamlRoot, Action<string> log)
@@ -87,6 +100,43 @@ internal static class Tier2Probe
 		catch (Exception ex)
 		{
 			log($"alert FAILED: {ex.GetType().Name}: {ex.Message}");
+		}
+	}
+
+	// Regression test for a crash found during QA: requesting an alert whose state machine runs on a
+	// thread-pool thread made Uno materialize the ContentDialog template off the UI thread. Because
+	// AlertManager.OnAlertRequested is async void, the resulting exception was unhandled and killed the
+	// process rather than surfacing on the awaited call.
+	static async Task ProbeAlertOffUiThreadAsync(MauiPage page, XamlRoot? xamlRoot, Action<string> log)
+	{
+		try
+		{
+			Task? alertTask = null;
+
+			// Block body on purpose: an expression body returns the Task, which binds Task.Run's
+			// Func<Task> overload and unwraps it, so the await would block until the dialog is dismissed.
+			await Task.Run(() =>
+			{
+				alertTask = page.DisplayAlertAsync("off-thread probe", "requested off the UI thread", "OK");
+			});
+
+			await Task.Delay(1500);
+
+			var openPopups = xamlRoot is null ? 0 : CountOpenPopups(xamlRoot, log);
+			log($"off-UI-thread alert opened a popup: {openPopups > 0}");
+
+			if (xamlRoot is not null)
+			{
+				ClosePopups(xamlRoot);
+			}
+
+			var completed = alertTask is not null && await Task.WhenAny(alertTask, Task.Delay(3000)) == alertTask;
+			log($"off-UI-thread alert completed without crashing: {completed}");
+			log("(the off-UI-thread dialog is left on screen; dismiss it with OK)");
+		}
+		catch (Exception ex)
+		{
+			log($"off-UI-thread alert FAILED: {ex.GetType().Name}: {ex.Message}");
 		}
 	}
 
@@ -121,6 +171,45 @@ internal static class Tier2Probe
 		}
 	}
 
+	static async Task ProbeNavigationAsync(MauiPage page, Action<string> log)
+	{
+		var navigationPage = page as MauiNavigationPage;
+
+		if (navigationPage is null)
+		{
+			log("stack navigation: skipped (window page is not a NavigationPage)");
+			return;
+		}
+
+		try
+		{
+			var pushed = new MauiContentPage
+			{
+				Title = "probe pushed page",
+				Content = new MauiLabel { Text = "probe pushed content" },
+			};
+
+			await navigationPage.Navigation.PushAsync(pushed);
+			log($"PushAsync returned: OK (stack depth {navigationPage.Navigation.NavigationStack.Count})");
+
+			// NavigationPage runs a transition, so the pushed page is not measured on the frame the push
+			// completes. Give the layout pass a chance before judging whether it rendered.
+			await Task.Delay(750);
+
+			var platformView = pushed.Handler?.PlatformView as FrameworkElement;
+			log($"pushed page handler created: {pushed.Handler is not null}");
+			log($"pushed page attached to XamlRoot: {platformView?.XamlRoot is not null}");
+			log($"pushed page actually rendered: {platformView is not null && platformView.ActualHeight > 0}");
+
+			await navigationPage.Navigation.PopAsync();
+			log("PopAsync: OK");
+		}
+		catch (Exception ex)
+		{
+			log($"stack navigation FAILED: {ex.GetType().Name}: {ex.Message}");
+		}
+	}
+
 	static int CountOpenPopups(XamlRoot xamlRoot, Action<string> log)
 	{
 		try
@@ -138,14 +227,46 @@ internal static class Tier2Probe
 	{
 		try
 		{
+			// ContentDialog must be dismissed through Hide(); closing the hosting popup leaves the awaited
+			// ShowAsync task pending, which would stall everything queued behind it.
+			HideDialogs(xamlRoot.Content, 0);
+
 			foreach (var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(xamlRoot))
 			{
-				popup.IsOpen = false;
+				if (popup.Child is ContentDialog dialog)
+				{
+					dialog.Hide();
+				}
+				else
+				{
+					popup.IsOpen = false;
+				}
 			}
 		}
 		catch (Exception)
 		{
 			// Best effort only.
+		}
+	}
+
+	static void HideDialogs(DependencyObject? node, int depth)
+	{
+		if (node is null || depth > 40)
+		{
+			return;
+		}
+
+		if (node is ContentDialog dialog)
+		{
+			dialog.Hide();
+			return;
+		}
+
+		var count = VisualTreeHelper.GetChildrenCount(node);
+
+		for (var i = 0; i < count; i++)
+		{
+			HideDialogs(VisualTreeHelper.GetChild(node, i), depth + 1);
 		}
 	}
 }

@@ -38,6 +38,9 @@ public sealed class MauiIslandPage : ContentPage
 		var modalButton = new Button { Text = "PushModalAsync" };
 		modalButton.Clicked += OnModalClicked;
 
+		var pushButton = new Button { Text = "PushAsync (stack navigation)" };
+		pushButton.Clicked += OnPushClicked;
+
 		Content = new ScrollView
 		{
 			Content = new VerticalStackLayout
@@ -53,6 +56,7 @@ public sealed class MauiIslandPage : ContentPage
 					actionSheetButton,
 					promptButton,
 					modalButton,
+					pushButton,
 					_result,
 				},
 			},
@@ -115,6 +119,40 @@ public sealed class MauiIslandPage : ContentPage
 			await Navigation.PopModalAsync();
 
 			return "Modal pushed and popped";
+		});
+
+	void OnPushClicked(object? sender, EventArgs args) =>
+		RunAsync(async () =>
+		{
+			if (Navigation.NavigationStack.Count == 0)
+			{
+				return "PushAsync needs a NavigationPage host";
+			}
+
+			var backButton = new Button { Text = "Go back" };
+			var pushed = new ContentPage
+			{
+				Title = "Pushed page",
+				Content = new VerticalStackLayout
+				{
+					Spacing = 12,
+					Padding = new Thickness(24),
+					Children =
+					{
+						new Label { Text = "This page was pushed onto the embedded navigation stack." },
+						backButton,
+					},
+				},
+			};
+
+			var popped = new TaskCompletionSource();
+			backButton.Clicked += (_, _) => popped.TrySetResult();
+
+			await Navigation.PushAsync(pushed);
+			await popped.Task;
+			await Navigation.PopAsync();
+
+			return "Pushed and popped a page";
 		});
 
 	// Button.Clicked is a synchronous event; awaiting inside it without this wrapper would be async void

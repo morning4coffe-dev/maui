@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -40,6 +40,11 @@ namespace Microsoft.Maui.Controls.Platform
 
 			public async partial void OnAlertRequested(Page sender, AlertArguments arguments)
 			{
+#if UNO
+				if (TryDispatchToUiThread(() => OnAlertRequested(sender, arguments)))
+					return;
+#endif
+
 				if (!PageIsInThisWindow(sender))
 					return;
 
@@ -102,6 +107,11 @@ namespace Microsoft.Maui.Controls.Platform
 
 			public async partial void OnPromptRequested(Page sender, PromptArguments arguments)
 			{
+#if UNO
+				if (TryDispatchToUiThread(() => OnPromptRequested(sender, arguments)))
+					return;
+#endif
+
 				if (!PageIsInThisWindow(sender))
 					return;
 
@@ -146,6 +156,11 @@ namespace Microsoft.Maui.Controls.Platform
 
 			public partial void OnActionSheetRequested(Page sender, ActionSheetArguments arguments)
 			{
+#if UNO
+				if (TryDispatchToUiThread(() => OnActionSheetRequested(sender, arguments)))
+					return;
+#endif
+
 				if (!PageIsInThisWindow(sender))
 					return;
 
@@ -223,6 +238,25 @@ namespace Microsoft.Maui.Controls.Platform
 
 				return null;
 			}
+
+#if UNO
+			// Every dialog path builds XAML objects and materializes templates, which Uno only allows on
+			// the UI thread. These handlers are async void, so an off-thread call does not surface as a
+			// faulted task - it terminates the process. The dialog cannot supply the dispatcher because it
+			// would itself have been constructed on the wrong thread, so the platform window provides it.
+			bool TryDispatchToUiThread(Action request)
+			{
+				var dispatcher = PlatformView?.DispatcherQueue;
+
+				if (dispatcher is null || dispatcher.HasThreadAccess)
+				{
+					return false;
+				}
+
+				dispatcher.TryEnqueue(() => request());
+				return true;
+			}
+#endif
 
 			bool PageIsInThisWindow(Page page) =>
 				page?.Window == VirtualView;
