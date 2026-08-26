@@ -79,8 +79,9 @@ services. Verified working on Windows Desktop:
 | `DisplayActionSheetAsync` | Works |
 | `DisplayPromptAsync` | Works |
 | `PushModalAsync` / `PopModalAsync` | Works — the modal is really realized and rendered |
+| `PushAsync` / `PopAsync` (`NavigationPage`) | Works — the pushed page is really realized and rendered |
 
-Two things were required:
+Three things were required:
 
 1. **`Window.Page` must be set.** `AlertManager.Subscribe()` only runs from `Window.OnPageHandlerChanged`,
    so without a page the awaited dialog task never completes. `MauiEmbeddingSession` promotes the first
@@ -91,10 +92,15 @@ Two things were required:
    it for an embedded window, so modals stay queued in the virtual stack forever — `PushModalAsync` even
    returns successfully while nothing renders. The session raises `IWindow.Created()` and
    `IWindow.Activated()` once.
+3. **Dialogs must be marshalled to the UI thread.** Uno materializes the `ContentDialog` template inside
+   `ShowAsync`, which touches the dependency property system, so it is only legal on the UI thread. MAUI's
+   `AlertManager` handlers are `async void`, so an off-thread request did not fail the awaited call — it
+   terminated the process. This was found by clicking the button during QA, not by the probe, because the
+   probe happened to request its alerts from the UI thread.
 
-Alerts needed no MAUI change at all. Modals needed one, described below.
+Alerts needed no MAUI change to *function*. Modals and the dialog threading fix needed the changes below.
 
-## The one MAUI change Tier 2 required
+## The MAUI changes Tier 2 required
 
 A standalone MAUI app puts an internal `WindowRootViewContainer` in the *native window's* content, and
 modal navigation locates it from there:
@@ -114,6 +120,10 @@ window-scoped `MauiContext`:
   for `MauiHost` to display.
 - `ModalNavigationManager.Container` (`#if UNO`) prefers the context-registered container and falls back
   to the standalone lookup, so MAUI-root apps are unaffected.
+- `AlertManager.AlertRequestHelper` (`#if UNO`) re-dispatches `OnAlertRequested`, `OnPromptRequested` and
+  `OnActionSheetRequested` to the platform window's dispatcher when they are entered off the UI thread.
+  The dispatcher has to come from the platform window rather than the dialog, because the dialog would
+  itself have been constructed on the wrong thread and reports thread access for it.
 
 The upshot is that modals and overlays stay inside the embedded region instead of covering the whole
 hosting window.
@@ -146,11 +156,19 @@ modal platform view: ContentPanel
 modal attached to XamlRoot: True
 modal actually rendered: True
 PopModalAsync: OK
+PushAsync returned: OK (stack depth 2)
+pushed page handler created: True
+pushed page attached to XamlRoot: True
+pushed page actually rendered: True
+PopAsync: OK
+off-UI-thread alert opened a popup: True
+off-UI-thread alert completed without crashing: True
 ```
 
-The modal assertions deliberately check the platform view rather than the stack depth: MAUI records a
-push in the virtual stack even when the platform never realizes the page, so `PushModalAsync` succeeding
-proves nothing on its own.
+The modal and navigation assertions deliberately check the platform view rather than the stack depth:
+MAUI records a push in the virtual stack even when the platform never realizes the page, so
+`PushModalAsync` succeeding proves nothing on its own. The off-UI-thread check is a regression test for
+the dialog threading crash; it runs last because it cannot dismiss its own dialog.
 
 
 ## Build and run

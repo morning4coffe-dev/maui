@@ -5,6 +5,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
+using MauiPage = Microsoft.Maui.Controls.Page;
+using NavigationPage = Microsoft.Maui.Controls.NavigationPage;
 using PlatformBorder = Microsoft.UI.Xaml.Controls.Border;
 
 namespace Maui.Controls.Sample.Uno;
@@ -132,9 +134,9 @@ internal sealed class MainShell : UserControl
 		}
 
 		// Island 1 is a real MAUI Page promoted to the embedded window's Window.Page, which is what enables
-		// window-scoped services (alerts, modal navigation). Island 2 stays a plain view to show that
-		// view-level embedding still works alongside it.
-		_firstHost.MauiContent = new MauiIslandPage("First MAUI island (window-level)");
+		// window-scoped services (alerts, modal and stack navigation). Island 2 stays a plain view to show
+		// that view-level embedding still works alongside it.
+		_firstHost.MauiContent = new NavigationPage(new MauiIslandPage("First MAUI island (window-level)"));
 		_secondHost.MauiContent = new MyMauiContent("Second MAUI island (view-level)");
 
 		Loaded += OnLoaded;
@@ -172,7 +174,7 @@ internal sealed class MainShell : UserControl
 
 	void RunTier2Probe()
 	{
-		if (_firstHost.MauiContent is not MauiIslandPage page)
+		if (_firstHost.MauiContent is not MauiPage page)
 		{
 			_probeResults.Text = "Tier 2 probe needs the page-based island.";
 			return;
@@ -182,7 +184,7 @@ internal sealed class MainShell : UserControl
 		_ = RunTier2ProbeAsync(page);
 	}
 
-	async Task RunTier2ProbeAsync(MauiIslandPage page)
+	async Task RunTier2ProbeAsync(MauiPage page)
 	{
 		try
 		{
