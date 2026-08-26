@@ -15,7 +15,7 @@ namespace Microsoft.Maui.ApplicationModel
 	/// <summary>
 	/// A static class that contains platform-specific helper methods.
 	/// </summary>
-	public static class Platform
+	public static partial class Platform
 	{
 #if ANDROID
 		/// <summary>

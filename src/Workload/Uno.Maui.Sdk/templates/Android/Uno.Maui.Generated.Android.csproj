@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android36.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>$(UnoMauiGeneratedProjectName)</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationTitle Condition="'$(UnoMauiApplicationTitle)' != ''">$(UnoMauiApplicationTitle)</ApplicationTitle>
+    <ApplicationTitle Condition="'$(ApplicationTitle)' == ''">MAUI on Uno</ApplicationTitle>
+    <ApplicationId>$(UnoMauiApplicationId)</ApplicationId>
+    <ApplicationId Condition="'$(ApplicationId)' == ''">org.unoplatform.maui.generated</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <AndroidManifest>AndroidManifest.xml</AndroidManifest>
+    <RuntimeIdentifier Condition="'$(UnoMauiRuntimeIdentifier)' != ''">$(UnoMauiRuntimeIdentifier)</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">android-x64</RuntimeIdentifier>
+    <AndroidEnableProfiledAot Condition="'$(Configuration)' == 'Release'">false</AndroidEnableProfiledAot>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+    <IsUnoHead>true</IsUnoHead>
+    <UnoMauiDisableAppFactoryGeneration>true</UnoMauiDisableAppFactoryGeneration>
+  </PropertyGroup>
+
+  <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.Source.props" />
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.Android" Version="$(UnoMauiUnoVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="$(UnoMauiAppProject)"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+</Project>

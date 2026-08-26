@@ -21,8 +21,6 @@
 *REMOVED*Microsoft.Maui.Media.IPlatformScreenshot.CaptureAsync(Microsoft.UI.Xaml.UIElement! element) -> System.Threading.Tasks.Task<Microsoft.Maui.Media.IScreenshotResult?>!
 *REMOVED*Microsoft.Maui.Media.IPlatformScreenshot.CaptureAsync(Microsoft.UI.Xaml.Window! window) -> System.Threading.Tasks.Task<Microsoft.Maui.Media.IScreenshotResult!>!
 *REMOVED*static Microsoft.Maui.ApplicationModel.AppActionsExtensions.OnLaunched(this Microsoft.Maui.ApplicationModel.IAppActions! appActions, Microsoft.UI.Xaml.LaunchActivatedEventArgs! e) -> System.Threading.Tasks.Task!
-*REMOVED*static Microsoft.Maui.ApplicationModel.Platform.MapServiceToken.get -> string?
-*REMOVED*static Microsoft.Maui.ApplicationModel.Platform.MapServiceToken.set -> void
 *REMOVED*static Microsoft.Maui.ApplicationModel.Platform.OnActivated(Microsoft.UI.Xaml.Window! window, Microsoft.UI.Xaml.WindowActivatedEventArgs! args) -> void
 *REMOVED*static Microsoft.Maui.ApplicationModel.Platform.OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs! e) -> void
 *REMOVED*static Microsoft.Maui.ApplicationModel.Platform.OnPlatformWindowInitialized(Microsoft.UI.Xaml.Window! window) -> void

@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
   <PropertyGroup>
     <TargetFrameworks>netstandard2.1;netstandard2.0;$(_MauiDotNetTfm);$(MauiPlatforms)</TargetFrameworks>
     <TargetFrameworks Condition="'$(IncludePreviousTfms)' == 'true'">$(TargetFrameworks);$(_MauiPreviousDotNetTfm);$(MauiPreviousPlatforms)</TargetFrameworks>
@@ -9,6 +11,7 @@
     <Nullable>enable</Nullable>
     <_MauiDesignDllBuild Condition=" '$(OS)' != 'Unix' ">True</_MauiDesignDllBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn Condition="'$(_MauiTargetPlatformIsUno)' == 'True'">$(NoWarn);RS0016</NoWarn>
     <NoWarn>$(NoWarn);RS0041;RS0026;RS0027;RS0022</NoWarn>
     <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
   </PropertyGroup>
