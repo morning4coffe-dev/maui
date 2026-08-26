@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.Build.NoTargets">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>Uno.Maui.Sdk</PackageId>
+    <Version>0.1.0-dev</Version>
+    <Description>Automatic Uno Platform hosts for .NET MAUI applications.</Description>
+    <PackageType>MSBuildSdk</PackageType>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IsPackable>true</IsPackable>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
+    <PackageReference Include="Uno.Maui.Runtime" Version="10.0.100-dev" />
+    <PackageReference Include="Microsoft.Maui.Controls.Build.Tasks" Version="10.0.100-dev" />
+    <PackageReference Include="Microsoft.Maui.Resizetizer" Version="10.0.100-dev" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Sdk\**\*" Pack="true" PackagePath="Sdk\%(RecursiveDir)%(Filename)%(Extension)" />
+    <None Include="Sdk\Uno.Maui.Package.props" Pack="true" PackagePath="buildTransitive\Uno.Maui.Sdk.props" />
+    <None Include="Sdk\Uno.Maui.Source.props" Pack="true" PackagePath="buildTransitive\Uno.Maui.Source.props" />
+    <None Include="Sdk\Uno.Maui.Sdk.targets" Pack="true" PackagePath="buildTransitive\Uno.Maui.Sdk.targets" />
+    <None Include="templates\**\*" Pack="true" PackagePath="templates\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

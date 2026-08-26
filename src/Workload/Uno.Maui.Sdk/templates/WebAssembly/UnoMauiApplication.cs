@@ -1,0 +1,15 @@
+using Microsoft.Maui;
+using Microsoft.Maui.Hosting;
+using Microsoft.UI.Xaml.Controls;
+
+namespace Uno.Maui.Generated;
+
+public sealed class UnoMauiApplication : MauiWinUIApplication
+{
+	public UnoMauiApplication()
+	{
+		Resources.MergedDictionaries.Add(new XamlControlsResources());
+	}
+
+	protected override MauiApp CreateMauiApp() => AppFactory.Create();
+}

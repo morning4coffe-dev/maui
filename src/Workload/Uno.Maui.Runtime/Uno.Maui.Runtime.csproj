@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>Uno.Maui.Runtime</PackageId>
+    <Version>0.1.0-dev</Version>
+    <Description>Uno-backed neutral .NET MAUI runtime assemblies.</Description>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IsPackable>true</IsPackable>
+    <MauiUnoTarget>true</MauiUnoTarget>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
+  <ItemGroup>
+    <ProjectReference Include="$(MauiSrcDirectory)Core\src\Core.csproj" PrivateAssets="all" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoProjectReferenceProperties)" />
+    <ProjectReference Include="$(MauiSrcDirectory)Essentials\src\Essentials.csproj" PrivateAssets="all" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoProjectReferenceProperties)" />
+    <ProjectReference Include="$(MauiSrcDirectory)Graphics\src\Graphics\Graphics.csproj" PrivateAssets="all" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoProjectReferenceProperties)" />
+    <ProjectReference Include="$(MauiSrcDirectory)Graphics\src\Graphics.Skia\Graphics.Skia.csproj" PrivateAssets="all" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoProjectReferenceProperties)" />
+    <ProjectReference Include="$(MauiSrcDirectory)Controls\src\Core\Controls.Core.csproj" PrivateAssets="all" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoProjectReferenceProperties)" />
+    <ProjectReference Include="$(MauiSrcDirectory)Controls\src\Xaml\Controls.Xaml.csproj" PrivateAssets="all" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoProjectReferenceProperties)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Uno.WinUI" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.Views.Uno.WinUI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="nuget\_._" Pack="true" PackagePath="lib\netstandard2.0\_._" />
+    <None Include="$(ArtifactsBinDir)uno\Core\$(Configuration)\net10.0\Microsoft.Maui.dll" Pack="true" PackagePath="lib\net10.0" />
+    <None Include="$(ArtifactsBinDir)uno\Essentials\$(Configuration)\net10.0\Microsoft.Maui.Essentials.dll" Pack="true" PackagePath="lib\net10.0" />
+    <None Include="$(ArtifactsBinDir)uno\Graphics\$(Configuration)\net10.0\Microsoft.Maui.Graphics.dll" Pack="true" PackagePath="lib\net10.0" />
+    <None Include="$(ArtifactsBinDir)uno\Graphics.Skia\$(Configuration)\net10.0\Microsoft.Maui.Graphics.Skia.dll" Pack="true" PackagePath="lib\net10.0" />
+    <None Include="$(ArtifactsBinDir)uno\Controls.Core\$(Configuration)\net10.0\Microsoft.Maui.Controls.dll" Pack="true" PackagePath="lib\net10.0" />
+    <None Include="$(ArtifactsBinDir)uno\Controls.Xaml\$(Configuration)\net10.0\Microsoft.Maui.Controls.Xaml.dll" Pack="true" PackagePath="lib\net10.0" />
+  </ItemGroup>
+
+  <Target Name="_ValidateUnoMauiRuntimePackFiles" BeforeTargets="Pack">
+    <Error Condition="!Exists('%(None.Identity)')" Text="Uno MAUI runtime pack input does not exist: %(None.Identity)" />
+  </Target>
+</Project>

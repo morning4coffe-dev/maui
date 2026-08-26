@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>$(UnoMauiGeneratedProjectName)</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RollForward>Major</RollForward>
+    <IsUnoHead>true</IsUnoHead>
+    <UnoMauiDisableAppFactoryGeneration>true</UnoMauiDisableAppFactoryGeneration>
+  </PropertyGroup>
+
+  <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.Source.props" />
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.Linux.FrameBuffer" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.MacOS" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.Win32" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.X11" Version="$(UnoMauiUnoVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="$(UnoMauiAppProject)"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+</Project>

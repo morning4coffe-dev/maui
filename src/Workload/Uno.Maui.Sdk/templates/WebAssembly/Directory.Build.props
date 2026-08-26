@@ -1,0 +1,10 @@
+<Project>
+  <Import Project="$(MauiSrcDirectory)..\Directory.Build.props" />
+  <PropertyGroup>
+    <BaseOutputPath>$(ArtifactsBinDir)uno\$(UnoMauiGeneratedProjectName)\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(ArtifactsObjDir)uno\$(UnoMauiGeneratedProjectName)\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\</IntermediateOutputPath>
+    <OutputPath>$(BaseOutputPath)$(Configuration)\</OutputPath>
+  </PropertyGroup>
+</Project>

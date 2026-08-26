@@ -1,0 +1,86 @@
+<Project>
+  <PropertyGroup>
+    <UnoMauiUseSource Condition="'$(UnoMauiUseSource)' == '' and Exists('$(MauiSrcDirectory)Core\src\Core.csproj')">true</UnoMauiUseSource>
+    <UnoMauiUseSource Condition="'$(UnoMauiUseSource)' == ''">false</UnoMauiUseSource>
+    <UnoMauiPackageVersion Condition="'$(UnoMauiPackageVersion)' == ''">10.0.100-dev</UnoMauiPackageVersion>
+    <MauiUnoTarget>true</MauiUnoTarget>
+    <MauiUnoRenderer Condition="'$(MauiUnoRenderer)' == ''">WinUI</MauiUnoRenderer>
+    <MauiUnoHostPlatform Condition="'$(MauiUnoHostPlatform)' == '' and '$(UnoMauiTarget)' != ''">$(UnoMauiTarget)</MauiUnoHostPlatform>
+    <_MauiUnoUsesRuntimeIdentifier Condition="'$(UnoMauiRuntimeIdentifier)' != ''">true</_MauiUnoUsesRuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(_MauiUnoUsesRuntimeIdentifier)' == 'true'">$(UnoMauiRuntimeIdentifier)</RuntimeIdentifier>
+    <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">1.0</ApplicationDisplayVersion>
+    <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">1</ApplicationVersion>
+  </PropertyGroup>
+
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" Condition="'$(UnoMauiUseSource)' == 'true'" />
+
+  <PropertyGroup>
+    <_MauiUnoProjectReferenceProperties Condition="'$(_MauiUnoProjectReferenceProperties)' == ''">MauiUnoTarget=true;MauiUnoRenderer=$(MauiUnoRenderer);MauiUnoHostPlatform=$(MauiUnoHostPlatform);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false;BuildInParallel=false;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false</_MauiUnoProjectReferenceProperties>
+    <_MauiUnoBuildProperties>$(_MauiUnoProjectReferenceProperties)</_MauiUnoBuildProperties>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+    <BuildInParallel>false</BuildInParallel>
+    <UnoDisableHotRestartHelperGeneration>true</UnoDisableHotRestartHelperGeneration>
+    <NoWarn>$(NoWarn);Uno0001;IL2062;IL2072;IL2089;IL2092;IL2111;IL2112;RS0030</NoWarn>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ProjectReference>
+      <GlobalPropertiesToRemove>TargetFrameworks;RuntimeIdentifiers;SelfContained;BaseOutputPath;BaseIntermediateOutputPath;MSBuildProjectExtensionsPath;UnoMauiGeneratedProjectName</GlobalPropertiesToRemove>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+
+  <ItemGroup Condition="'$(UnoMauiUseSource)' == 'true' and '$(UnoMauiSkipSourceProjectReferences)' != 'true'">
+    <PackageReference Include="Uno.WinUI" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UnoMauiUseSource)' != 'true' and '$(UnoMauiPackageReferencesProvided)' != 'true'">
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
+    <PackageReference Include="Uno.Maui.Runtime" Version="$(UnoMauiPackageVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UnoMauiUseSource)' != 'true' and '$(UnoMauiPackageReferencesProvided)' != 'true' and '$(IsUnoHead)' != 'true'">
+    <PackageReference Include="Microsoft.Maui.Controls.Build.Tasks" Version="$(UnoMauiPackageVersion)" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Maui.Resizetizer" Version="$(UnoMauiPackageVersion)" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UnoMauiUseSource)' == 'true'">
+    <ProjectReference
+      Include="$(MauiSrcDirectory)Core\src\Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MauiSrcDirectory)Essentials\src\Essentials.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MauiSrcDirectory)Graphics\src\Graphics\Graphics.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MauiSrcDirectory)Graphics\src\Graphics.Skia\Graphics.Skia.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MauiSrcDirectory)Controls\src\Core\Controls.Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MauiSrcDirectory)Controls\src\Xaml\Controls.Xaml.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+
+  <Target Name="_ValidateUnoMauiAssemblyGraph" AfterTargets="ResolveReferences" Condition="'$(IsUnoHead)' == 'true'">
+    <ItemGroup>
+      <_UnoMauiForbiddenReference
+        Include="@(ReferenceCopyLocalPaths)"
+        Condition="$([System.String]::Copy('%(ReferenceCopyLocalPaths.FullPath)').Contains('Microsoft.WindowsAppSDK')) or $([System.String]::Copy('%(ReferenceCopyLocalPaths.FullPath)').Contains('Microsoft.Graphics.Win2D'))" />
+    </ItemGroup>
+    <Error
+      Condition="'@(_UnoMauiForbiddenReference)' != ''"
+      Text="Uno MAUI heads must not contain native Windows App SDK or Win2D references: @(_UnoMauiForbiddenReference)" />
+  </Target>
+</Project>

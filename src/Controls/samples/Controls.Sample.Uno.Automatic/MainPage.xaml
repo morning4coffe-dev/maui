@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="Microsoft.Maui.Controls.Sample.Uno.Automatic.MainPage">
+    <VerticalStackLayout
+        Padding="24"
+        Spacing="16">
+        <Label
+            FontAttributes="Bold"
+            FontSize="32"
+            Text="Automatic MAUI targeting on Uno" />
+        <Label
+            Text="This project contains no Desktop, Android, or WebAssembly host." />
+        <Entry
+            Placeholder="Type into the package-only MAUI app" />
+        <Button
+            Clicked="OnButtonClicked"
+            Text="Click me" />
+        <Label
+            x:Name="ResultLabel"
+            Text="Not clicked" />
+    </VerticalStackLayout>
+</ContentPage>

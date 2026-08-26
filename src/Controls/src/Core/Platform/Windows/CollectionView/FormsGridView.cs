@@ -14,6 +14,9 @@ namespace Microsoft.Maui.Controls.Platform
 	{
 		int _span;
 		ItemsWrapGrid _wrapGrid;
+#if UNO
+		FormsGridPanel _unoGridPanel;
+#endif
 		ContentControl _emptyViewContentControl;
 		ScrollViewer _scrollViewer;
 		FrameworkElement _emptyView;
@@ -37,10 +40,15 @@ namespace Microsoft.Maui.Controls.Platform
 			set
 			{
 				_span = value;
+#if UNO
+				_unoGridPanel?.InvalidateMeasure();
+				_unoGridPanel?.InvalidateArrange();
+#else
 				if (_wrapGrid != null)
 				{
 					UpdateItemSize();
 				}
+#endif
 			}
 		}
 
@@ -70,6 +78,15 @@ namespace Microsoft.Maui.Controls.Platform
 			set
 			{
 				_orientation = value;
+#if UNO
+				// Uno's managed ItemsWrapGrid materializes containers without measuring them.
+				ItemsPanel = new ItemsPanelTemplate(() => _unoGridPanel = new FormsGridPanel(this));
+				if (_orientation == Orientation.Horizontal)
+				{
+					ScrollViewer.SetHorizontalScrollMode(this, WScrollMode.Auto);
+					ScrollViewer.SetHorizontalScrollBarVisibility(this, UWPControls.ScrollBarVisibility.Auto);
+				}
+#else
 				if (_orientation == Orientation.Horizontal)
 				{
 					ItemsPanel = (ItemsPanelTemplate)UWPApp.Current.Resources["HorizontalGridItemsPanel"];
@@ -80,6 +97,7 @@ namespace Microsoft.Maui.Controls.Platform
 				{
 					ItemsPanel = (ItemsPanelTemplate)UWPApp.Current.Resources["VerticalGridItemsPanel"];
 				}
+#endif
 			}
 		}
 
@@ -100,7 +118,9 @@ namespace Microsoft.Maui.Controls.Platform
 
 		void OnChoosingItemContainer(ListViewBase sender, ChoosingItemContainerEventArgs args)
 		{
+#if !UNO
 			FindItemsWrapGrid();
+#endif
 		}
 
 		void WrapGridSizeChanged(object sender, SizeChangedEventArgs e)
@@ -132,7 +152,11 @@ namespace Microsoft.Maui.Controls.Platform
 
 		void ItemsPanelChanged(DependencyObject sender, DependencyProperty dp)
 		{
+#if UNO
+			_unoGridPanel?.InvalidateMeasure();
+#else
 			FindItemsWrapGrid();
+#endif
 		}
 
 		public void SetEmptyView(FrameworkElement emptyView, View formsEmptyView)
