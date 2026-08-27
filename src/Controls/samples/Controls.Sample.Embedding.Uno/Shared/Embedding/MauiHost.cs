@@ -45,6 +45,7 @@ public sealed partial class MauiHost : ContentControl
 		new PropertyMetadata(null, OnMauiContentChanged));
 
 	MauiEmbeddingSession? _session;
+	MauiEmbeddingSession? _realizedSession;
 	MauiVisualElement? _realizedContent;
 	bool _isLoaded;
 
@@ -111,7 +112,10 @@ public sealed partial class MauiHost : ContentControl
 
 	void UpdateContent()
 	{
-		if (_session is not { } session || ReferenceEquals(_realizedContent, MauiContent))
+		// Compare against the session that actually realized the content, not the assigned one. Otherwise
+		// reassigning Session is a no-op, clearing it never detaches, and a later content change releases
+		// through a session that does not own the element.
+		if (ReferenceEquals(_realizedSession, _session) && ReferenceEquals(_realizedContent, MauiContent))
 		{
 			return;
 		}
@@ -124,20 +128,24 @@ public sealed partial class MauiHost : ContentControl
 			}
 
 			Content = null;
+
+			var owner = _realizedSession;
 			_realizedContent = null;
+			_realizedSession = null;
 
 			// Releasing unparents the element and disconnects its handlers. Without it, replaced content
 			// stays rooted in the embedded window for the lifetime of the Uno window.
-			session.Release(previous);
+			owner?.Release(previous);
 		}
 
-		if (MauiContent is not { } content)
+		if (_session is not { } session || MauiContent is not { } content)
 		{
 			return;
 		}
 
 		Content = session.Embed(content);
 		_realizedContent = content;
+		_realizedSession = session;
 
 		if (_isLoaded && content is MauiPage page)
 		{

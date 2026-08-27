@@ -70,18 +70,37 @@ public static class EmbeddingExtensions
 	/// </remarks>
 	public static IMauiContext CreateEmbeddedWindowContext(this MauiApp mauiApp, PlatformWindow platformWindow)
 	{
-		var window = new EmbeddedWindow();
+		return mauiApp.CreateEmbeddedWindowContext(platformWindow, out _);
+	}
+
+	/// <summary>
+	/// Creates a window-scoped <see cref="IMauiContext"/> for the provided native platform window, and hands
+	/// back the synthetic window it created.
+	/// </summary>
+	/// <param name="mauiApp">The <see cref="MauiApp"/> instance.</param>
+	/// <param name="platformWindow">The native platform window instance to create the context for.</param>
+	/// <param name="window">The synthetic window that was created and attached to the application.</param>
+	/// <returns>The window-scoped <see cref="IMauiContext"/> instance.</returns>
+	/// <remarks>
+	/// Hosts need the created window in order to set <see cref="Window.Page"/> and to drive the window
+	/// lifecycle. Without this overload the only way to reach it is to guess at
+	/// <c>Application.Windows</c>, which is not reliable.
+	/// </remarks>
+	public static IMauiContext CreateEmbeddedWindowContext(this MauiApp mauiApp, PlatformWindow platformWindow, out Window window)
+	{
+		var embeddedWindow = new EmbeddedWindow();
 
 		// Create the Core embedded window scope.
-		var windowContext = mauiApp.CreateEmbeddedWindowContext(platformWindow, window);
+		var windowContext = mauiApp.CreateEmbeddedWindowContext(platformWindow, embeddedWindow);
 
 		// If the app is an embedded app then we need to add the window to the app.
 		var embeddedApp = mauiApp.Services.GetRequiredService<EmbeddedPlatformApplication>();
-		if (embeddedApp.Application is Application app && !app.Windows.Contains(window))
+		if (embeddedApp.Application is Application app && !app.Windows.Contains(embeddedWindow))
 		{
-			app.AddWindow(window);
+			app.AddWindow(embeddedWindow);
 		}
 
+		window = embeddedWindow;
 		return windowContext;
 	}
 
@@ -129,35 +148,111 @@ public static class EmbeddingExtensions
 	/// Realizes <paramref name="page"/> as a window-level embedded root, so that window-scoped MAUI features
 	/// such as modal navigation work inside the embedded content.
 	/// </summary>
-	/// <param name="page">The page to host. It should already be the embedded window's <c>Page</c>.</param>
+	/// <param name="page">The page to host. It must already be the embedded window's <c>Page</c>.</param>
 	/// <param name="windowContext">The window-scoped context created for the hosting native window.</param>
-	/// <returns>The native view to insert into the host visual tree.</returns>
+	/// <returns>A disposable root whose <see cref="EmbeddedWindowRoot.PlatformView"/> the host displays.</returns>
+	/// <exception cref="ArgumentException">
+	/// <paramref name="page"/> is not the embedded window's page, or <paramref name="windowContext"/> is not
+	/// a window-scoped context created by <c>CreateEmbeddedWindowContext</c>.
+	/// </exception>
 	/// <remarks>
 	/// A standalone MAUI app puts a <c>WindowRootViewContainer</c> in the native window's content, and
 	/// window-scoped features locate it from there. An embedded window does not own the native window's
 	/// content, so the container is created here, registered on the window-scoped context, and returned for
-	/// the host to display. This keeps modals and overlays inside the embedded region instead of covering
-	/// the whole hosting window.
+	/// the host to display. Disposing the result unwinds all of that.
 	/// </remarks>
-	public static PlatformView ToPlatformEmbeddedWindowRoot(this Page page, IMauiContext windowContext)
+	public static EmbeddedWindowRoot CreateEmbeddedWindowRoot(this Page page, IMauiContext windowContext)
 	{
 		ArgumentNullException.ThrowIfNull(page);
 		ArgumentNullException.ThrowIfNull(windowContext);
 
-		var container = new WindowRootViewContainer();
-
-		if (windowContext is MauiContext mauiContext)
+		// Silently skipping the registration would return a view that looks fine until the first modal push
+		// fails deep inside ModalNavigationManager.
+		if (windowContext is not MauiContext mauiContext)
 		{
-			mauiContext.AddSpecific(container);
+			throw new ArgumentException(
+				$"An embedded window root requires a {nameof(MauiContext)}, but got {windowContext.GetType()}.",
+				nameof(windowContext));
 		}
+
+		if (page.GetParentWindow() is not Window window || !ReferenceEquals(window.Page, page))
+		{
+			throw new ArgumentException(
+				"The page must already be assigned to the embedded window's Page before its root is created.",
+				nameof(page));
+		}
+
+		var container = new WindowRootViewContainer();
+		mauiContext.AddSpecific(container);
 
 		var rootManager = windowContext.GetNavigationRootManager();
 		rootManager.Connect(page.ToPlatform(windowContext));
 		container.AddPage(rootManager.RootView);
 
-		return container;
+		return new EmbeddedWindowRoot(mauiContext, container, rootManager, window);
 	}
 #endif
 }
+
+#if UNO
+/// <summary>
+/// The window-level root created for embedded MAUI content. Disposing it unwinds the modal stack, the
+/// navigation root, and the container registration for the window scope.
+/// </summary>
+public sealed class EmbeddedWindowRoot : IDisposable
+{
+	readonly MauiContext _context;
+	readonly WindowRootViewContainer _container;
+	readonly NavigationRootManager _rootManager;
+	readonly Window _window;
+	bool _isDisposed;
+
+	internal EmbeddedWindowRoot(
+		MauiContext context,
+		WindowRootViewContainer container,
+		NavigationRootManager rootManager,
+		Window window)
+	{
+		_context = context;
+		_container = container;
+		_rootManager = rootManager;
+		_window = window;
+	}
+
+	/// <summary>Gets the native view the host should display.</summary>
+	public PlatformView PlatformView => _container;
+
+	/// <summary>
+	/// Releases the embedded root. Modal pages are torn down first, because they are parented to this
+	/// container and would otherwise be stranded in a detached tree while the modal stack still believes
+	/// they are live.
+	/// </summary>
+	public void Dispose()
+	{
+		if (_isDisposed)
+		{
+			return;
+		}
+
+		_isDisposed = true;
+
+		try
+		{
+			foreach (var modal in _window.Navigation.ModalStack.ToArray())
+			{
+				((IView)modal).DisconnectHandlers();
+			}
+
+			_window.ModalNavigationManager.ClearModalPages(xplat: true, platform: true);
+			_rootManager.Disconnect();
+			_container.CachedChildren.Clear();
+		}
+		finally
+		{
+			_context.RemoveSpecific<WindowRootViewContainer>();
+		}
+	}
+}
+#endif
 
 #endif
