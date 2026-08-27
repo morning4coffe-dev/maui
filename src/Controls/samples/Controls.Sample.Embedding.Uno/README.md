@@ -139,120 +139,44 @@ Window overlays are a separate mechanism and remain unsupported; see below.
 - **One window page per Uno window.** A window has exactly one `Page`, so only the first page-based
   island gets Tier 2 treatment. See gap G3 below — this currently degrades silently and incorrectly.
 
-## Remaining gaps and the plan to close them
+## Remaining gaps
 
-This sample is a verified proof of the architecture on Desktop. It is **not yet consumer-usable**. The
-gaps below came out of two independent reviews plus targeted testing, and are ordered by the sequence
-they should be fixed in.
+P1–P4 of the original gap list are now closed; the details of what changed are in the commit history.
+What remains is **P5 — productization**:
 
-### P1 — correctness bugs a consumer hits immediately
+- **G10. There is no consumable package.** `MauiEmbeddingSession` and `MauiHost` are sample code, and
+  `MauiUnoSample.props` references MAUI source projects by repository-relative path. A consumer has no
+  package, SDK target or reusable host library, so using this means building the fork from source.
+- **G11. `MauiHost` lacks parity with Uno's `MauiHost`** — no `DataContext` → `BindingContext` bridge, no
+  theme bridging, and no `Source` property, so XAML usage needs code-behind. `Source` is omitted
+  deliberately because type activation is not trim-safe; the binding-context bridge is simply missing.
+- **G12. Only Desktop and WebAssembly heads exist.** Android, iOS and Skia-desktop heads should also work
+  and are untested.
 
-**G1. `MauiHost.Session` reassignment is broken.**
-The setter replaces `_session` before calling `UpdateContent`, and `UpdateContent` returns early when the
-realized content is unchanged. So assigning a different session does nothing, assigning `null` does not
-detach, and a later content change calls `Release` on the *new* session, which does not own the element.
-Reparenting a host between windows corrupts state.
-*Fix:* track the session that actually realized the content (`_realizedSession`) separately from the
-assigned one; release through the realizing session; handle `null` by detaching; on `Loaded`, validate
-that the host's `XamlRoot`/window still matches the session.
-*Verify:* probe step that moves a host between two sessions and asserts the old session no longer tracks
-the content.
+WebAssembly still has no *runtime* verification of the window-scoped features. The probe can now be
+enabled from the command line or query string rather than only an environment variable, but a browser run
+that fails CI on a false result does not exist yet, and the WASM build still suppresses trimming warnings.
 
-**G2. The embedded window is located by guesswork.**
-`MauiEmbeddingSession` takes `MauiApplication.Current.Windows[^1]` immediately after
-`CreateEmbeddedWindowContext`, assuming nothing else appended a window. Anything that touches
-`Application.Windows` during initialization, or a future change to when MAUI appends the window, silently
-selects the wrong window — after which `Page`, `Created`/`Activated` and `Destroying` are applied to it.
-*Fix:* use the exact lookup that already exists — `WindowExtensions.GetWindow(this UI.Xaml.Window)`
-matches by `Handler.PlatformView` — and throw if it cannot be correlated instead of degrading to
-view-level.
-*Verify:* assert the located window's handler `PlatformView` is the session's platform window.
+### What was closed, and how
 
-**G3. A second `Page` island cross-wires into the first island.**
-Only the first page becomes `Window.Page`. Later page islands are still parented to the same
-`EmbeddedWindow` by `ToPlatformEmbedded`, so they inherit its navigation proxy and alert manager: their
-`DisplayAlertAsync` and `PushModalAsync` render into the **first** island's region. That is worse than
-being unsupported, because it looks like it works.
-*Fix:* throw from `MauiEmbeddingSession.Embed` when a second distinct `Page` is supplied, until per-island
-window scopes exist.
-*Verify:* probe step asserting the second page island throws rather than rendering into island one.
-
-### P2 — lifetime and teardown
-
-**G4. Root release is incomplete.**
-`Release` clears `Window.Page` but never calls `NavigationRootManager.Disconnect()`, never unregisters the
-`WindowRootViewContainer` from the window scope, and never drains the modal stack. Replacing a root while
-a modal is open strands the modal in a detached container while `PopModalAsync` targets the new one.
-*Fix:* make the container a session-owned root lease whose release disconnects the root manager, drains
-and cancels the modal stack, clears the container's children, and only then clears `Window.Page`.
-*Verify:* replace the root with zero, one and nested active modals.
-
-**G5. Window lifecycle is synthetic and fires too early.**
-`IWindow.Created()`/`Activated()` are raised from `Embed`, which on startup runs while the shell is still
-being constructed — before `Window.Content` is assigned and before native activation. Deactivate, resume
-and visibility changes are never relayed, and view-only sessions never receive them at all.
-*Fix:* raise `Created` when the context is ready and `Activated` from the real native activation event,
-then relay subsequent transitions; track each transition separately so a failure cannot leave the session
-half-initialized.
-
-**G6. `AlertManager` dispatch is not failure-safe.**
-`TryEnqueue`'s return value is ignored, so a failed enqueue leaves the caller awaiting forever. A page
-released while a request is queued never completes its arguments. `CurrentAlert`/`CurrentPrompt` are
-cleared outside `finally`, so a `ShowAsync` failure can poison the queue, and action sheets are not
-serialized with either queue. These affect MAUI-root Uno apps too, because the change is `#if UNO` rather
-than embedding-only.
-*Fix:* honour the enqueue result and fault or cancel the arguments; serialize all dialog types through one
-window-owned queue; clear queue state in `finally`.
-
-### P3 — API shape, required before any of this is upstreamable
-
-**G7. `ToPlatformEmbeddedWindowRoot` is not a defensible public API yet.**
-Its documented precondition — that the page is already the embedded window's `Page` — cannot be satisfied
-through public API, because `CreateEmbeddedWindowContext` does not return the window it created. It also
-silently no-ops its DI registration when `IMauiContext` is not a `MauiContext`, leaving a valid-looking
-view whose modal push later throws, and it has no inverse for releasing the container it creates.
-*Fix:* have `CreateEmbeddedWindowContext` return the created `EmbeddedWindow` (or expose
-`EmbeddedWindowProvider`); throw rather than no-op on an unexpected `IMauiContext`; provide a disposable
-handle for the created root. Consider making the primitive internal and shipping a higher-level
-`session.EmbedWindowPage(page)` that returns the view plus an `IDisposable`.
-
-### P4 — verification
-
-**G8. The probe reports; it does not assert.**
-`Tier2Probe` logs `False` and swallows exceptions rather than failing, has no timeouts around pushes, and
-does not automatically cover prompts, action sheets or two-button alerts.
-*Fix:* turn it into a pass/fail harness with timeouts that exits non-zero, and cover the whole dialog and
-navigation surface.
-
-**G9. WebAssembly window-level behaviour is unverified at runtime.**
-The probe is enabled by an environment variable, which the browser head cannot set, and the WASM build
-suppresses trimming warnings (`IL2xxx` in `MauiUnoSample.props`), so a clean build is weak evidence.
-The most likely WASM-only failure is `ContentDialog.ShowAsync` never completing, which would hang every
-dialog silently.
-*Fix:* enable the probe from a query string or host configuration, and add a Release/trimmed WebAssembly
-smoke run that fails on any false result.
-
-### P5 — productization
-
-**G10. There is no consumable package.** `MauiEmbeddingSession` and `MauiHost` are sample code, and
-`MauiUnoSample.props` references MAUI source projects by repository-relative path. A consumer has no
-package, SDK target or reusable host library.
-
-**G11. `MauiHost` lacks parity with Uno's `MauiHost`** — no `DataContext` → `BindingContext` bridge, no
-theme bridging, and no `Source` property, so XAML usage needs code-behind. `Source` was omitted
-deliberately for trim safety; the binding-context bridge is simply missing.
-
-**G12. Only Desktop and WebAssembly heads exist.** Android, iOS and Skia-desktop heads should also work
-and are untested.
+| Gap | Resolution |
+| --- | --- |
+| G1 `MauiHost.Session` reassignment | The host tracks the session that actually realized the content, so reassigning or clearing `Session` releases through the owner rather than the newly assigned one. |
+| G2 window located by position | `CreateEmbeddedWindowContext` now has an overload returning the window it created; the guess at `Application.Windows` is gone. |
+| G3 second page island | `MauiEmbeddingSession.Embed` throws instead of silently routing a second page's dialogs and modals through the first island. |
+| G4 incomplete root release | `CreateEmbeddedWindowRoot` returns a disposable `EmbeddedWindowRoot` whose disposal tears down modal pages, disconnects the navigation root, clears the container and unregisters it from the window scope. |
+| G5 synthetic lifecycle | `Created`/`Activated`/`Deactivated` are relayed from the real native window events instead of being raised while the host is still being constructed. |
+| G6 alert dispatch | A failed `TryEnqueue` now completes the caller's arguments instead of hanging it, and the alert and prompt queue slots are cleared in `finally` so a failed dialog cannot poison later ones. |
+| G7 API shape | `ToPlatformEmbeddedWindowRoot` is replaced by `CreateEmbeddedWindowRoot`, which validates its context and its page-is-the-window-page precondition, and returns a disposable root. |
+| G8 probe asserted nothing | `Tier2Probe` is now a pass/fail harness with per-operation timeouts, and covers two-button alerts, prompts, action sheets and the second-page rejection. |
 
 ### Checked and found not to be a problem
 
 Content replacement was reported as unsound, on the theory that a fresh `WindowRootViewContainer` per call
-re-parents the single `NavigationRootManager.RootView` and violates XAML's single-parent rule. Testing
-three consecutive page replacements shows the current page rendering each time with no stale content and
-no exception — Uno's collection re-parents rather than throwing. The assertion is now part of the probe so
-this cannot regress silently. It has **not** been checked on WebAssembly, where the collection may be
-stricter.
+re-parents the single `NavigationRootManager.RootView` and violates XAML's single-parent rule. Three
+consecutive page replacements render the current page each time with no stale content and no exception —
+Uno's collection re-parents rather than throwing. That is asserted by the probe. It has **not** been
+checked on WebAssembly, where the collection may be stricter.
 
 
 ## Verifying Tier 2

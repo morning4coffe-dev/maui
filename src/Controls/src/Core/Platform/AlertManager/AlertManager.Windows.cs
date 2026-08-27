@@ -41,7 +41,7 @@ namespace Microsoft.Maui.Controls.Platform
 			public async partial void OnAlertRequested(Page sender, AlertArguments arguments)
 			{
 #if UNO
-				if (TryDispatchToUiThread(() => OnAlertRequested(sender, arguments)))
+				if (TryDispatchToUiThread(() => OnAlertRequested(sender, arguments), () => arguments.SetResult(false)))
 					return;
 #endif
 
@@ -101,14 +101,30 @@ namespace Microsoft.Maui.Controls.Platform
 				}
 
 				CurrentAlert = ShowAlert(alertDialog);
+#if UNO
+				try
+				{
+					arguments.SetResult(await CurrentAlert.ConfigureAwait(false));
+				}
+				catch (Exception)
+				{
+					// async void: a rethrow here would terminate the process instead of failing the call.
+					arguments.SetResult(false);
+				}
+				finally
+				{
+					CurrentAlert = null;
+				}
+#else
 				arguments.SetResult(await CurrentAlert.ConfigureAwait(false));
 				CurrentAlert = null;
+#endif
 			}
 
 			public async partial void OnPromptRequested(Page sender, PromptArguments arguments)
 			{
 #if UNO
-				if (TryDispatchToUiThread(() => OnPromptRequested(sender, arguments)))
+				if (TryDispatchToUiThread(() => OnPromptRequested(sender, arguments), () => arguments.SetResult(null)))
 					return;
 #endif
 
@@ -150,14 +166,29 @@ namespace Microsoft.Maui.Controls.Platform
 					throw new InvalidOperationException("The window content must have a XamlRoot before showing a prompt.");
 
 				CurrentPrompt = ShowPrompt(promptDialog);
+#if UNO
+				try
+				{
+					arguments.SetResult(await CurrentPrompt.ConfigureAwait(false));
+				}
+				catch (Exception)
+				{
+					arguments.SetResult(null);
+				}
+				finally
+				{
+					CurrentPrompt = null;
+				}
+#else
 				arguments.SetResult(await CurrentPrompt.ConfigureAwait(false));
 				CurrentPrompt = null;
+#endif
 			}
 
 			public partial void OnActionSheetRequested(Page sender, ActionSheetArguments arguments)
 			{
 #if UNO
-				if (TryDispatchToUiThread(() => OnActionSheetRequested(sender, arguments)))
+				if (TryDispatchToUiThread(() => OnActionSheetRequested(sender, arguments), () => arguments.SetResult(null)))
 					return;
 #endif
 
@@ -240,11 +271,7 @@ namespace Microsoft.Maui.Controls.Platform
 			}
 
 #if UNO
-			// Every dialog path builds XAML objects and materializes templates, which Uno only allows on
-			// the UI thread. These handlers are async void, so an off-thread call does not surface as a
-			// faulted task - it terminates the process. The dialog cannot supply the dispatcher because it
-			// would itself have been constructed on the wrong thread, so the platform window provides it.
-			bool TryDispatchToUiThread(Action request)
+			bool TryDispatchToUiThread(Action request, Action onCannotDispatch)
 			{
 				var dispatcher = PlatformView?.DispatcherQueue;
 
@@ -253,7 +280,13 @@ namespace Microsoft.Maui.Controls.Platform
 					return false;
 				}
 
-				dispatcher.TryEnqueue(() => request());
+				// A dropped enqueue would otherwise leave the caller awaiting a result that can never
+				// arrive, because these handlers are async void and cannot fault the awaited task.
+				if (!dispatcher.TryEnqueue(() => request()))
+				{
+					onCannotDispatch();
+				}
+
 				return true;
 			}
 #endif

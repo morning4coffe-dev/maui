@@ -197,13 +197,17 @@ internal sealed class MainShell : UserControl
 	{
 		try
 		{
-			var report = await Tier2Probe.RunAsync(_session, page, XamlRoot);
-			report += await ProbeReplaceAsync();
-			_probeResults.Text = report;
+			var result = await Tier2Probe.RunAsync(_session, page, XamlRoot);
+			var replace = await ProbeReplaceAsync();
+
+			var report = result.Report + replace.Report;
+			var passed = result.Passed && replace.Passed;
+
+			_probeResults.Text = (passed ? "TIER 2: PASS" : "TIER 2: FAIL") + Environment.NewLine + report;
 
 			try
 			{
-				System.IO.File.WriteAllText(Tier2Probe.LogPath, report);
+				System.IO.File.WriteAllText(Tier2Probe.LogPath, _probeResults.Text);
 			}
 			catch (Exception)
 			{
@@ -212,48 +216,58 @@ internal sealed class MainShell : UserControl
 		}
 		catch (Exception ex)
 		{
-			_probeResults.Text = $"Tier 2 probe failed: {ex.GetType().Name}: {ex.Message}";
+			_probeResults.Text = $"TIER 2: FAIL — probe threw {ex.GetType().Name}: {ex.Message}";
 		}
 	}
 
-	// ToPlatformEmbeddedWindowRoot builds a fresh WindowRootViewContainer per call, while
-	// NavigationRootManager.RootView is a single instance for the whole window scope. Replacing page
-	// content therefore re-parents an already-parented element, which XAML forbids.
-	async Task<string> ProbeReplaceAsync()
+	// Replacement goes through the window-root path, which builds a fresh container while the navigation
+	// root view is shared for the whole window scope. Asserting on the rendered text is what proves the
+	// new page is really shown and the old one is really gone.
+	async Task<Tier2ProbeResult> ProbeReplaceAsync()
 	{
 		var report = new System.Text.StringBuilder();
+		var failures = 0;
 
 		for (var i = 1; i <= 3; i++)
 		{
+			var expected = $"replace probe {i}";
+
 			try
 			{
-				_firstHost.MauiContent = new NavigationPage(new MauiIslandPage($"replace probe {i}"));
-				await Task.Delay(500);
+				_firstHost.MauiContent = new NavigationPage(new MauiIslandPage(expected));
+				await Task.Delay(600);
 
 				var realized = _firstHost.Content as FrameworkElement;
 				var texts = new System.Collections.Generic.List<string>();
 				CollectTexts(realized, texts, 0);
 
-				var expected = $"replace probe {i}";
-				var stale = texts.Any(t => t.StartsWith("replace probe ", StringComparison.Ordinal) && t != expected);
+				var showsCurrent = texts.Contains(expected);
+				var showsStale = texts.Any(t => t.StartsWith("replace probe ", StringComparison.Ordinal) && t != expected);
+				var passed = realized is not null && realized.ActualHeight > 0 && showsCurrent && !showsStale;
+
+				if (!passed)
+				{
+					failures++;
+				}
 
 				report.AppendLine(string.Format(
 					CultureInfo.InvariantCulture,
-					"replace #{0}: container={1} rendered={2} showsCurrent={3} showsStale={4}",
+					"{0} replace #{1} shows the current page — container={2} showsCurrent={3} showsStale={4}",
+					passed ? "PASS" : "FAIL",
 					i,
 					realized?.GetType().Name ?? "null",
-					realized is not null && realized.ActualHeight > 0,
-					texts.Contains(expected),
-					stale));
+					showsCurrent,
+					showsStale));
 			}
 			catch (Exception ex)
 			{
-				report.AppendLine($"replace #{i} FAILED: {ex.GetType().Name}: {ex.Message}");
+				failures++;
+				report.AppendLine($"FAIL replace #{i} — {ex.GetType().Name}: {ex.Message}");
 				break;
 			}
 		}
 
-		return report.ToString();
+		return new Tier2ProbeResult(failures == 0, report.ToString());
 	}
 
 	// Reads what is genuinely on screen, so a stale page left behind by a bad replace cannot pass.

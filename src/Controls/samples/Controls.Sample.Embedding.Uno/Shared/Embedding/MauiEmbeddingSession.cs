@@ -5,7 +5,6 @@ using Microsoft.Maui.Controls.Embedding;
 using Microsoft.Maui.Hosting;
 using Microsoft.Maui.Platform;
 
-using MauiApplication = Microsoft.Maui.Controls.Application;
 using MauiPage = Microsoft.Maui.Controls.Page;
 using MauiVisualElement = Microsoft.Maui.Controls.VisualElement;
 using MauiWindow = Microsoft.Maui.Controls.Window;
@@ -19,12 +18,10 @@ namespace Maui.Controls.Sample.Uno;
 /// per Uno <see cref="PlatformWindow"/>.
 /// </summary>
 /// <remarks>
-/// <para>
 /// MAUI creates its window scope once per native window, retains it on the <c>MauiContext</c>, and releases
 /// it from <see cref="IWindow.Destroying"/>. Every <see cref="MauiHost"/> inside one Uno window therefore
 /// shares a single context, and hosts must not tear that scope down when they unload — unloading also
 /// happens during navigation, reparenting, virtualization, and template changes.
-/// </para>
 /// </remarks>
 public sealed class MauiEmbeddingSession : IDisposable
 {
@@ -36,8 +33,11 @@ public sealed class MauiEmbeddingSession : IDisposable
 	readonly List<MauiVisualElement> _embeddedContent = new();
 	MauiWindow? _embeddedWindow;
 	IMauiContext? _windowContext;
-	bool _windowActivated;
+	EmbeddedWindowRoot? _windowRoot;
+	bool _isCreated;
+	bool _isActivated;
 	bool _isDisposed;
+
 	MauiEmbeddingSession(PlatformWindow platformWindow) => _platformWindow = platformWindow;
 
 	/// <summary>
@@ -98,25 +98,22 @@ public sealed class MauiEmbeddingSession : IDisposable
 
 			if (_windowContext is null)
 			{
-				_windowContext = SharedApp.CreateEmbeddedWindowContext(_platformWindow);
-
-				// CreateEmbeddedWindowContext creates the synthetic EmbeddedWindow and appends it to the
-				// application. EmbeddedWindowProvider is internal, so this is the supported way to reach it.
-				var windows = MauiApplication.Current?.Windows;
-				if (windows is { Count: > 0 })
-				{
-					_embeddedWindow = windows[windows.Count - 1];
-				}
+				// The out parameter hands back exactly the window that was created. Locating it by position
+				// in Application.Windows would silently pick the wrong one if anything else registered a
+				// window while this context was being built.
+				_windowContext = SharedApp.CreateEmbeddedWindowContext(_platformWindow, out var window);
+				_embeddedWindow = window;
 			}
 
 			return _windowContext;
 		}
 	}
 
-	/// <summary>
-	/// Gets the synthetic MAUI window backing this Uno window, once the context has been created.
-	/// </summary>
+	/// <summary>Gets the synthetic MAUI window backing this Uno window, once the context has been created.</summary>
 	public MauiWindow? EmbeddedWindow => _embeddedWindow;
+
+	/// <summary>Gets a value indicating whether this session already hosts a window-level page.</summary>
+	public bool HasWindowPage => _windowRoot is not null;
 
 	/// <summary>
 	/// Realizes <paramref name="content"/> as an Uno <see cref="PlatformView"/> and parents it to this
@@ -125,10 +122,14 @@ public sealed class MauiEmbeddingSession : IDisposable
 	/// <remarks>
 	/// A <see cref="MauiPage"/> is promoted to the embedded window's <see cref="MauiWindow.Page"/>, which is
 	/// what wires up window-scoped services such as <c>AlertManager</c> and modal navigation. Setting
-	/// <c>Window.Page</c> already parents the page, so <c>ToPlatform</c> is used rather than
-	/// <c>ToPlatformEmbedded</c> to avoid adding it as a logical child twice. Only the first page-based
-	/// island becomes the window page; a window has exactly one.
+	/// <c>Window.Page</c> already parents the page, so the window root path is used rather than
+	/// <c>ToPlatformEmbedded</c>, which would add it as a logical child twice.
 	/// </remarks>
+	/// <exception cref="InvalidOperationException">
+	/// A second page is supplied. A window has exactly one <c>Page</c>, and a second page would silently
+	/// inherit the first page's navigation proxy and alert manager, so its dialogs and modals would render
+	/// in the first island's region.
+	/// </exception>
 	public PlatformView Embed(MauiVisualElement content)
 	{
 		ArgumentNullException.ThrowIfNull(content);
@@ -138,11 +139,19 @@ public sealed class MauiEmbeddingSession : IDisposable
 
 		PlatformView platformView;
 
-		if (content is MauiPage page && _embeddedWindow is { Page: null })
+		if (content is MauiPage page)
 		{
-			_embeddedWindow.Page = page;
-			platformView = page.ToPlatformEmbeddedWindowRoot(context);
-			ActivateEmbeddedWindow(_embeddedWindow);
+			if (_windowRoot is not null)
+			{
+				throw new InvalidOperationException(
+					"This window already hosts a page-based MAUI island. A window has a single Page, so a " +
+					"second page would route its dialogs and modal navigation through the first island. " +
+					"Host additional islands as views, or use a separate Uno window.");
+			}
+
+			_embeddedWindow!.Page = page;
+			_windowRoot = page.CreateEmbeddedWindowRoot(context);
+			platformView = _windowRoot.PlatformView;
 		}
 		else
 		{
@@ -150,32 +159,52 @@ public sealed class MauiEmbeddingSession : IDisposable
 		}
 
 		_embeddedContent.Add(content);
-		_embeddedWindow ??= content.Window;
 
 		return platformView;
 	}
 
 	/// <summary>
-	/// Raises the window lifecycle events that MAUI's window-scoped services wait on.
+	/// Reports that the hosting Uno window was activated, which is what unblocks MAUI's window-scoped
+	/// services.
 	/// </summary>
 	/// <remarks>
-	/// A standalone app gets these from <c>MauiWinUIWindow</c>. Nothing raises them for an embedded window,
-	/// and modal navigation stays permanently queued until the window reports that it was activated.
-	/// Both calls throw if repeated, and <c>Window.IsCreated</c>/<c>IsActivated</c> are internal, so the
-	/// session tracks it.
+	/// A standalone app gets this from <c>MauiWinUIWindow</c>. Nothing raises it for an embedded window, and
+	/// modal navigation stays permanently queued until the window reports activation. This must come from
+	/// the real native activation event: raising it while the host is still being constructed would tell
+	/// MAUI the window is live before the Uno window has any content or XamlRoot.
 	/// </remarks>
-	void ActivateEmbeddedWindow(MauiWindow window)
+	public void NotifyWindowActivated()
 	{
-		if (_windowActivated)
+		if (_isDisposed || _embeddedWindow is not { } window)
 		{
 			return;
 		}
 
-		_windowActivated = true;
-
 		var embedded = (IWindow)window;
-		embedded.Created();
-		embedded.Activated();
+
+		if (!_isCreated)
+		{
+			_isCreated = true;
+			embedded.Created();
+		}
+
+		if (!_isActivated)
+		{
+			_isActivated = true;
+			embedded.Activated();
+		}
+	}
+
+	/// <summary>Reports that the hosting Uno window was deactivated.</summary>
+	public void NotifyWindowDeactivated()
+	{
+		if (_isDisposed || !_isActivated || _embeddedWindow is not { } window)
+		{
+			return;
+		}
+
+		_isActivated = false;
+		((IWindow)window).Deactivated();
 	}
 
 	/// <summary>
@@ -191,20 +220,27 @@ public sealed class MauiEmbeddingSession : IDisposable
 			return;
 		}
 
-		if (_embeddedWindow is { } window && ReferenceEquals(window.Page, content))
+		try
 		{
-			// Clearing Window.Page unparents the page and unsubscribes the window-scoped services that
-			// setting it wired up.
-			window.Page = null;
+			if (_embeddedWindow is { } window && ReferenceEquals(window.Page, content))
+			{
+				// Order matters: the root owns the modal stack and the navigation root, and both are
+				// reached through the page. Unwind them before the page is detached.
+				_windowRoot?.Dispose();
+				_windowRoot = null;
+				window.Page = null;
+			}
+			else
+			{
+				// ToPlatformEmbedded parents the element to the embedded window. Leaving it there would
+				// keep the element and its handlers alive for the lifetime of the window.
+				content.Window?.RemoveLogicalChild(content);
+			}
 		}
-		else
+		finally
 		{
-			// ToPlatformEmbedded parents the element to the embedded window. Leaving it there would keep
-			// the element and its handlers alive for the lifetime of the window.
-			content.Window?.RemoveLogicalChild(content);
+			((IView)content).DisconnectHandlers();
 		}
-
-		((IView)content).DisconnectHandlers();
 	}
 
 	/// <summary>Destroys the embedded MAUI window for this Uno window exactly once.</summary>
@@ -221,15 +257,30 @@ public sealed class MauiEmbeddingSession : IDisposable
 			Sessions.Remove(_platformWindow);
 		}
 
-		foreach (var content in _embeddedContent.ToArray())
+		try
 		{
-			Release(content);
+			foreach (var content in _embeddedContent.ToArray())
+			{
+				try
+				{
+					Release(content);
+				}
+				catch (Exception)
+				{
+					// One failing item must not strand the window scope destroyed below.
+				}
+			}
+
+			_windowRoot?.Dispose();
+			_windowRoot = null;
 		}
+		finally
+		{
+			// Destroying disposes the window service scope that MakeWindowScope created.
+			(_embeddedWindow as IWindow)?.Destroying();
 
-		// Destroying disposes the window service scope that MakeWindowScope created.
-		(_embeddedWindow as IWindow)?.Destroying();
-
-		_embeddedWindow = null;
-		_windowContext = null;
+			_embeddedWindow = null;
+			_windowContext = null;
+		}
 	}
 }
