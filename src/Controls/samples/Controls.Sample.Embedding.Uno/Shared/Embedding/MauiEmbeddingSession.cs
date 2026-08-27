@@ -109,6 +109,9 @@ public sealed class MauiEmbeddingSession : IDisposable
 		}
 	}
 
+	/// <summary>Gets the Uno window this session is bound to.</summary>
+	public PlatformWindow PlatformWindow => _platformWindow;
+
 	/// <summary>Gets the synthetic MAUI window backing this Uno window, once the context has been created.</summary>
 	public MauiWindow? EmbeddedWindow => _embeddedWindow;
 

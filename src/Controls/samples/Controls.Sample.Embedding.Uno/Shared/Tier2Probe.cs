@@ -41,7 +41,7 @@ public sealed class Tier2ProbeResult
 /// MAUI's virtual stacks, because MAUI records a modal or navigation push even when the platform never
 /// realized the page.
 /// </remarks>
-internal static class Tier2Probe
+public static class Tier2Probe
 {
 	/// <summary>Records the verdict of a single check. A custom delegate so the detail stays optional.</summary>
 	delegate void CheckResult(string name, bool passed, string? detail = null);
