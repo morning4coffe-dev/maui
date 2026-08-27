@@ -153,9 +153,35 @@ What remains is **P5 — productization**:
 - **G12. Only Desktop and WebAssembly heads exist.** Android, iOS and Skia-desktop heads should also work
   and are untested.
 
-WebAssembly still has no *runtime* verification of the window-scoped features. The probe can now be
-enabled from the command line or query string rather than only an environment variable, but a browser run
-that fails CI on a false result does not exist yet, and the WASM build still suppresses trimming warnings.
+WebAssembly window-scoped behaviour is now verified by a **real browser run**: the probe is enabled by the
+`MauiUnoTier2Probe` build switch, publishes its verdict to the document title, and a headless Chromium run
+reads that title over the DevTools endpoint. The current Debug WebAssembly result is `TIER2-RESULT PASS`,
+which covers alerts, prompts, action sheets, modal navigation, stack navigation, second-page rejection,
+the off-UI-thread alert regression, and content replacement.
+
+A **trimmed Release** WebAssembly run is still outstanding. It is blocked on the environment rather than
+the code: the Emscripten native cache under `%TEMP%\emsdk-cache` is shared by every build on the machine
+and by every installed emsdk version, and a concurrent build re-linking it leaves it half-populated
+(`unable to find library -lsockets`, then a missing `sysroot/include/emscripten/version.h`). Uno's emsdk
+wrapper does not honour `EM_CACHE`, so the cache cannot be isolated per build. Run it on a machine with no
+competing WebAssembly build, or after clearing that cache.
+
+### Verifying
+
+```powershell
+# Desktop
+.\Build.ps1 -Sample Embedding -Target Desktop -Run     # then press "Run Tier 2 probe"
+
+# WebAssembly, headless
+dotnet build WebAssembly\Controls.Sample.Embedding.Uno.WebAssembly.csproj -p:MauiUnoTier2Probe=true
+dotnet run --project WebAssembly\Controls.Sample.Embedding.Uno.WebAssembly.csproj --no-build
+chrome --headless=new --remote-debugging-port=9222 http://127.0.0.1:<port>/
+# poll http://127.0.0.1:9222/json/list until the page title reports TIER2-RESULT PASS or FAIL
+```
+
+The probe writes `tier2-probe.log` to the temp directory where a filesystem is available, shows its report
+in the app, and always publishes `TIER2-RESULT PASS`/`FAIL` to the document title and standard output so a
+headless run can collect it.
 
 ### What was closed, and how
 

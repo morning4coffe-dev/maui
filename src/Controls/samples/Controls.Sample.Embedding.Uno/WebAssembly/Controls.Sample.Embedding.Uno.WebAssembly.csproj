@@ -12,6 +12,15 @@
 
   <Import Project="..\MauiUnoSample.props" />
 
+  <!--
+    Opt-in verification build: the browser head cannot read an environment variable, so the probe is
+    enabled by a build switch instead. Set as its own property rather than DefineConstants on the command
+    line, which would replace the project's constants instead of adding to them.
+  -->
+  <PropertyGroup Condition="'$(MauiUnoTier2Probe)' == 'true'">
+    <DefineConstants>$(DefineConstants);TIER2_PROBE</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Uno.Wasm.Bootstrap" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.WebAssembly.Browser" />

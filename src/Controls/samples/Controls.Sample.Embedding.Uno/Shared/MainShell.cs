@@ -202,8 +202,13 @@ internal sealed class MainShell : UserControl
 
 			var report = result.Report + replace.Report;
 			var passed = result.Passed && replace.Passed;
+			var verdict = passed ? "TIER 2: PASS" : "TIER 2: FAIL";
 
-			_probeResults.Text = (passed ? "TIER 2: PASS" : "TIER 2: FAIL") + Environment.NewLine + report;
+			_probeResults.Text = verdict + Environment.NewLine + report;
+
+			// The browser head has no readable temp directory and no console the harness can collect, so
+			// the verdict is published where an automated run can always see it: the document title.
+			PublishVerdict(passed, report);
 
 			try
 			{
@@ -217,6 +222,24 @@ internal sealed class MainShell : UserControl
 		catch (Exception ex)
 		{
 			_probeResults.Text = $"TIER 2: FAIL — probe threw {ex.GetType().Name}: {ex.Message}";
+			PublishVerdict(false, ex.ToString());
+		}
+	}
+
+	void PublishVerdict(bool passed, string report)
+	{
+		var verdict = passed ? "TIER2-RESULT PASS" : "TIER2-RESULT FAIL";
+
+		Console.WriteLine(verdict);
+		Console.WriteLine(report);
+
+		try
+		{
+			_session.PlatformWindow.Title = verdict;
+		}
+		catch (Exception)
+		{
+			// Title publication is diagnostics only.
 		}
 	}
 
