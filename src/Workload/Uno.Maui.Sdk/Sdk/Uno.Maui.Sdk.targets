@@ -17,6 +17,11 @@
     <_UnoMauiGeneratedProjectName>Uno.Maui.Generated.$(UnoMauiTarget).$(MSBuildProjectName)</_UnoMauiGeneratedProjectName>
     <_UnoMauiGeneratedBaseOutputPath>$(ArtifactsBinDir)uno\$(_UnoMauiGeneratedProjectName)\</_UnoMauiGeneratedBaseOutputPath>
     <_UnoMauiGeneratedBaseIntermediatePath>$(ArtifactsObjDir)uno\$(_UnoMauiGeneratedProjectName)\</_UnoMauiGeneratedBaseIntermediatePath>
+    <_UnoMauiResourceManifest>$(IntermediateOutputPath)uno-maui\Uno.Maui.Generated.Resources.props</_UnoMauiResourceManifest>
+    <_UnoMauiApplicationOptimize>$(Optimize)</_UnoMauiApplicationOptimize>
+    <_UnoMauiApplicationDebugSymbols>$(DebugSymbols)</_UnoMauiApplicationDebugSymbols>
+    <_UnoMauiApplicationOptimize Condition="'$(UnoMauiTarget)' == 'WebAssembly' and '$(UnoMauiOptimizeWasmRuntime)' == 'true'">true</_UnoMauiApplicationOptimize>
+    <_UnoMauiApplicationDebugSymbols Condition="'$(UnoMauiTarget)' == 'WebAssembly' and '$(UnoMauiOptimizeWasmRuntime)' == 'true'">false</_UnoMauiApplicationDebugSymbols>
     <_UnoMauiRestoreNoWarn Condition="'$(RestoreIgnoreFailedSources)' == 'true'">NU1801%3BNU1900</_UnoMauiRestoreNoWarn>
   </PropertyGroup>
 
@@ -51,7 +56,151 @@
       Text="The Uno MAUI host template was not found at '$(_UnoMauiTemplateRoot)'." />
   </Target>
 
-  <Target Name="_UnoMauiPrepareHost" DependsOnTargets="_UnoMauiValidateTarget">
+  <Target Name="_UnoMauiDisableExportedResourcesForGeneratedHost"
+          BeforeTargets="GetMauiItems"
+          Condition="'$(UnoMauiDisableResourceItems)' == 'true'">
+    <ItemGroup>
+      <MauiImage Remove="@(MauiImage)" />
+      <MauiIcon Remove="@(MauiIcon)" />
+      <MauiSplashScreen Remove="@(MauiSplashScreen)" />
+      <MauiAsset Remove="@(MauiAsset)" />
+      <MauiFont Remove="@(MauiFont)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_UnoMauiGetApplicationTargetDirectory"
+          Returns="@(_UnoMauiApplicationTargetDirectory)">
+    <ItemGroup>
+      <_UnoMauiApplicationTargetDirectory Include="$(TargetDir)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_UnoMauiCollectApplicationResources">
+    <ItemGroup>
+      <_UnoMauiImage Include="@(MauiImage)">
+        <Source>%(MauiImage.FullPath)</Source>
+        <LogicalName Condition="'%(MauiImage.Link)' != ''">%(MauiImage.Link)</LogicalName>
+        <LogicalName Condition="'%(MauiImage.Link)' == ''">%(MauiImage.Filename)%(MauiImage.Extension)</LogicalName>
+        <ForegroundFile Condition="'%(MauiImage.ForegroundFile)' != ''">$([System.IO.Path]::GetFullPath('%(MauiImage.ForegroundFile)'))</ForegroundFile>
+      </_UnoMauiImage>
+      <_UnoMauiIcon Include="@(MauiIcon)">
+        <Source>%(MauiIcon.FullPath)</Source>
+        <LogicalName Condition="'%(MauiIcon.Link)' != ''">%(MauiIcon.Link)</LogicalName>
+        <LogicalName Condition="'%(MauiIcon.Link)' == ''">%(MauiIcon.Filename)%(MauiIcon.Extension)</LogicalName>
+        <ForegroundFile Condition="'%(MauiIcon.ForegroundFile)' != ''">$([System.IO.Path]::GetFullPath('%(MauiIcon.ForegroundFile)'))</ForegroundFile>
+      </_UnoMauiIcon>
+      <_UnoMauiSplashScreen Include="@(MauiSplashScreen)">
+        <Source>%(MauiSplashScreen.FullPath)</Source>
+        <LogicalName Condition="'%(MauiSplashScreen.Link)' != ''">%(MauiSplashScreen.Link)</LogicalName>
+        <LogicalName Condition="'%(MauiSplashScreen.Link)' == ''">%(MauiSplashScreen.Filename)%(MauiSplashScreen.Extension)</LogicalName>
+      </_UnoMauiSplashScreen>
+      <_UnoMauiAsset Include="@(MauiAsset)">
+        <Source>%(MauiAsset.FullPath)</Source>
+        <LogicalName Condition="'%(MauiAsset.LogicalName)' != ''">%(MauiAsset.LogicalName)</LogicalName>
+        <LogicalName Condition="'%(MauiAsset.LogicalName)' == '' and '%(MauiAsset.Link)' != ''">%(MauiAsset.Link)</LogicalName>
+        <LogicalName Condition="'%(MauiAsset.LogicalName)' == '' and '%(MauiAsset.Link)' == ''">%(MauiAsset.RecursiveDir)%(MauiAsset.Filename)%(MauiAsset.Extension)</LogicalName>
+      </_UnoMauiAsset>
+      <_UnoMauiFont Include="@(MauiFont)">
+        <Source>%(MauiFont.FullPath)</Source>
+        <LogicalName Condition="'%(MauiFont.Link)' != ''">%(MauiFont.Link)</LogicalName>
+        <LogicalName Condition="'%(MauiFont.Link)' == ''">%(MauiFont.Filename)%(MauiFont.Extension)</LogicalName>
+      </_UnoMauiFont>
+      <_UnoMauiImageLogicalName Include="@(_UnoMauiImage->'%(LogicalName)');@(_UnoMauiIcon->'%(LogicalName)');@(_UnoMauiSplashScreen->'%(LogicalName)')" />
+      <_UnoMauiAssetLogicalName Include="@(_UnoMauiAsset->'%(LogicalName)')" />
+      <_UnoMauiFontLogicalName Include="@(_UnoMauiFont->'%(LogicalName)')" />
+      <_UnoMauiFontAlias Include="@(_UnoMauiFont->'%(Alias)')" Condition="'%(_UnoMauiFont.Alias)' != ''" />
+    </ItemGroup>
+
+    <Error Condition="'@(_UnoMauiImage->WithMetadataValue('Source', ''))' != '' or '@(_UnoMauiAsset->WithMetadataValue('Source', ''))' != '' or '@(_UnoMauiFont->WithMetadataValue('Source', ''))' != ''"
+           Text="Uno MAUI application resources must resolve to physical files." />
+    <Error Condition="'@(_UnoMauiImage->WithMetadataValue('LogicalName', ''))' != '' or '@(_UnoMauiIcon->WithMetadataValue('LogicalName', ''))' != '' or '@(_UnoMauiSplashScreen->WithMetadataValue('LogicalName', ''))' != '' or '@(_UnoMauiAsset->WithMetadataValue('LogicalName', ''))' != '' or '@(_UnoMauiFont->WithMetadataValue('LogicalName', ''))' != ''"
+           Text="Uno MAUI application resources must have non-empty logical names." />
+    <Error Condition="'@(_UnoMauiImage)' != '' and !Exists('%(_UnoMauiImage.Source)')" Text="Uno MAUI image '%(_UnoMauiImage.Source)' does not exist." />
+    <Error Condition="'@(_UnoMauiImage)' != '' and '%(_UnoMauiImage.ForegroundFile)' != '' and !Exists('%(_UnoMauiImage.ForegroundFile)')" Text="Uno MAUI image foreground '%(_UnoMauiImage.ForegroundFile)' does not exist." />
+    <Error Condition="'@(_UnoMauiIcon)' != '' and !Exists('%(_UnoMauiIcon.Source)')" Text="Uno MAUI icon '%(_UnoMauiIcon.Source)' does not exist." />
+    <Error Condition="'@(_UnoMauiIcon)' != '' and '%(_UnoMauiIcon.ForegroundFile)' != '' and !Exists('%(_UnoMauiIcon.ForegroundFile)')" Text="Uno MAUI icon foreground '%(_UnoMauiIcon.ForegroundFile)' does not exist." />
+    <Error Condition="'@(_UnoMauiSplashScreen)' != '' and !Exists('%(_UnoMauiSplashScreen.Source)')" Text="Uno MAUI splash screen '%(_UnoMauiSplashScreen.Source)' does not exist." />
+    <Error Condition="'@(_UnoMauiAsset)' != '' and !Exists('%(_UnoMauiAsset.Source)')" Text="Uno MAUI asset '%(_UnoMauiAsset.Source)' does not exist." />
+    <Error Condition="'@(_UnoMauiFont)' != '' and !Exists('%(_UnoMauiFont.Source)')" Text="Uno MAUI font '%(_UnoMauiFont.Source)' does not exist." />
+
+    <RemoveDuplicates Inputs="@(_UnoMauiImageLogicalName)">
+      <Output TaskParameter="Filtered" ItemName="_UnoMauiUniqueImageLogicalName" />
+    </RemoveDuplicates>
+    <RemoveDuplicates Inputs="@(_UnoMauiAssetLogicalName)">
+      <Output TaskParameter="Filtered" ItemName="_UnoMauiUniqueAssetLogicalName" />
+    </RemoveDuplicates>
+    <RemoveDuplicates Inputs="@(_UnoMauiFontLogicalName)">
+      <Output TaskParameter="Filtered" ItemName="_UnoMauiUniqueFontLogicalName" />
+    </RemoveDuplicates>
+    <RemoveDuplicates Inputs="@(_UnoMauiFontAlias)">
+      <Output TaskParameter="Filtered" ItemName="_UnoMauiUniqueFontAlias" />
+    </RemoveDuplicates>
+
+    <Error Condition="'@(_UnoMauiImageLogicalName->Count())' != '@(_UnoMauiUniqueImageLogicalName->Count())'" Text="Uno MAUI image, icon, and splash screen logical names must be unique." />
+    <Error Condition="'@(_UnoMauiAssetLogicalName->Count())' != '@(_UnoMauiUniqueAssetLogicalName->Count())'" Text="Uno MAUI asset logical names must be unique." />
+    <Error Condition="'@(_UnoMauiFontLogicalName->Count())' != '@(_UnoMauiUniqueFontLogicalName->Count())'" Text="Uno MAUI font logical names must be unique." />
+    <Error Condition="'@(_UnoMauiFontAlias->Count())' != '@(_UnoMauiUniqueFontAlias->Count())'" Text="Uno MAUI font aliases must be unique." />
+  </Target>
+
+  <Target Name="_UnoMauiExportApplicationResources" DependsOnTargets="_UnoMauiCollectApplicationResources">
+    <ItemGroup>
+      <_UnoMauiEscapedImage Include="@(_UnoMauiImage)">
+        <Source>$([System.String]::Copy('%(_UnoMauiImage.Source)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Source>
+        <LogicalName>$([System.String]::Copy('%(_UnoMauiImage.LogicalName)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</LogicalName>
+        <BaseSize>$([System.String]::Copy('%(_UnoMauiImage.BaseSize)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</BaseSize>
+        <Resize>$([System.String]::Copy('%(_UnoMauiImage.Resize)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Resize>
+        <TintColor>$([System.String]::Copy('%(_UnoMauiImage.TintColor)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</TintColor>
+        <Color>$([System.String]::Copy('%(_UnoMauiImage.Color)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Color>
+        <ForegroundScale>$([System.String]::Copy('%(_UnoMauiImage.ForegroundScale)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</ForegroundScale>
+        <ForegroundFile>$([System.String]::Copy('%(_UnoMauiImage.ForegroundFile)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</ForegroundFile>
+      </_UnoMauiEscapedImage>
+      <_UnoMauiEscapedIcon Include="@(_UnoMauiIcon)">
+        <Source>$([System.String]::Copy('%(_UnoMauiIcon.Source)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Source>
+        <LogicalName>$([System.String]::Copy('%(_UnoMauiIcon.LogicalName)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</LogicalName>
+        <BaseSize>$([System.String]::Copy('%(_UnoMauiIcon.BaseSize)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</BaseSize>
+        <Resize>$([System.String]::Copy('%(_UnoMauiIcon.Resize)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Resize>
+        <TintColor>$([System.String]::Copy('%(_UnoMauiIcon.TintColor)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</TintColor>
+        <Color>$([System.String]::Copy('%(_UnoMauiIcon.Color)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Color>
+        <ForegroundScale>$([System.String]::Copy('%(_UnoMauiIcon.ForegroundScale)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</ForegroundScale>
+        <ForegroundFile>$([System.String]::Copy('%(_UnoMauiIcon.ForegroundFile)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</ForegroundFile>
+      </_UnoMauiEscapedIcon>
+      <_UnoMauiEscapedSplashScreen Include="@(_UnoMauiSplashScreen)">
+        <Source>$([System.String]::Copy('%(_UnoMauiSplashScreen.Source)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Source>
+        <LogicalName>$([System.String]::Copy('%(_UnoMauiSplashScreen.LogicalName)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</LogicalName>
+        <BaseSize>$([System.String]::Copy('%(_UnoMauiSplashScreen.BaseSize)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</BaseSize>
+        <Resize>$([System.String]::Copy('%(_UnoMauiSplashScreen.Resize)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Resize>
+        <TintColor>$([System.String]::Copy('%(_UnoMauiSplashScreen.TintColor)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</TintColor>
+        <Color>$([System.String]::Copy('%(_UnoMauiSplashScreen.Color)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Color>
+        <ForegroundScale>$([System.String]::Copy('%(_UnoMauiSplashScreen.ForegroundScale)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</ForegroundScale>
+      </_UnoMauiEscapedSplashScreen>
+      <_UnoMauiEscapedAsset Include="@(_UnoMauiAsset)">
+        <Source>$([System.String]::Copy('%(_UnoMauiAsset.Source)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Source>
+        <LogicalName>$([System.String]::Copy('%(_UnoMauiAsset.LogicalName)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</LogicalName>
+      </_UnoMauiEscapedAsset>
+      <_UnoMauiEscapedFont Include="@(_UnoMauiFont)">
+        <Source>$([System.String]::Copy('%(_UnoMauiFont.Source)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Source>
+        <LogicalName>$([System.String]::Copy('%(_UnoMauiFont.LogicalName)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</LogicalName>
+        <Alias>$([System.String]::Copy('%(_UnoMauiFont.Alias)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Alias>
+      </_UnoMauiEscapedFont>
+      <_UnoMauiResourceManifestLine Include="&lt;Project&gt;" />
+      <_UnoMauiResourceManifestLine Include="  &lt;ItemGroup&gt;" />
+      <_UnoMauiResourceManifestLine Include="@(_UnoMauiEscapedImage->'    &lt;_UnoMauiGeneratedImage Include=&quot;%(Source)&quot; LogicalName=&quot;%(LogicalName)&quot; BaseSize=&quot;%(BaseSize)&quot; Resize=&quot;%(Resize)&quot; TintColor=&quot;%(TintColor)&quot; Color=&quot;%(Color)&quot; ForegroundScale=&quot;%(ForegroundScale)&quot; ForegroundFile=&quot;%(ForegroundFile)&quot; /&gt;')" />
+      <_UnoMauiResourceManifestLine Include="@(_UnoMauiEscapedIcon->'    &lt;_UnoMauiGeneratedIcon Include=&quot;%(Source)&quot; LogicalName=&quot;%(LogicalName)&quot; BaseSize=&quot;%(BaseSize)&quot; Resize=&quot;%(Resize)&quot; TintColor=&quot;%(TintColor)&quot; Color=&quot;%(Color)&quot; ForegroundScale=&quot;%(ForegroundScale)&quot; ForegroundFile=&quot;%(ForegroundFile)&quot; /&gt;')" />
+      <_UnoMauiResourceManifestLine Include="@(_UnoMauiEscapedSplashScreen->'    &lt;_UnoMauiGeneratedSplashScreen Include=&quot;%(Source)&quot; LogicalName=&quot;%(LogicalName)&quot; BaseSize=&quot;%(BaseSize)&quot; Resize=&quot;%(Resize)&quot; TintColor=&quot;%(TintColor)&quot; Color=&quot;%(Color)&quot; ForegroundScale=&quot;%(ForegroundScale)&quot; /&gt;')" />
+      <_UnoMauiResourceManifestLine Include="@(_UnoMauiEscapedAsset->'    &lt;_UnoMauiGeneratedAsset Include=&quot;%(Source)&quot; LogicalName=&quot;%(LogicalName)&quot; /&gt;')" />
+      <_UnoMauiResourceManifestLine Include="@(_UnoMauiEscapedFont->'    &lt;_UnoMauiGeneratedFont Include=&quot;%(Source)&quot; LogicalName=&quot;%(LogicalName)&quot; Alias=&quot;%(Alias)&quot; /&gt;')" />
+      <_UnoMauiResourceManifestLine Include="  &lt;/ItemGroup&gt;" />
+      <_UnoMauiResourceManifestLine Include="&lt;/Project&gt;" />
+    </ItemGroup>
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(_UnoMauiResourceManifest)'))" />
+    <WriteLinesToFile File="$(_UnoMauiResourceManifest)"
+                      Lines="@(_UnoMauiResourceManifestLine)"
+                      Overwrite="true"
+                      WriteOnlyWhenDifferent="true"
+                      Encoding="UTF-8" />
+  </Target>
+
+  <Target Name="_UnoMauiPrepareHost" DependsOnTargets="_UnoMauiValidateTarget;_UnoMauiExportApplicationResources">
     <ItemGroup>
       <_UnoMauiTemplateFiles Include="$(_UnoMauiTemplateRoot)**\*" />
     </ItemGroup>
@@ -67,7 +216,7 @@
       Projects="$(_UnoMauiHostProject)"
       Targets="Restore"
       BuildInParallel="false"
-      Properties="Configuration=$(Configuration);MauiUnoTarget=true;UnoMauiGeneratedProjectName=$(_UnoMauiGeneratedProjectName);UnoMauiAppProject=$(MSBuildProjectFullPath);UnoMauiAppFactoryType=$(UnoMauiAppFactoryType);UnoMauiApplicationId=$(UnoMauiApplicationId);UnoMauiApplicationTitle=$(UnoMauiApplicationTitle);UnoMauiTrimmerNoWarn=$(UnoMauiTrimmerNoWarn);UnoMauiSdkRoot=$(UnoMauiSdkRoot);UnoMauiUseSource=$(UnoMauiUseSource);UnoMauiPackageVersion=$(UnoMauiPackageVersion);UnoMauiUnoVersion=$(UnoMauiUnoVersion);UnoMauiWasmBootstrapVersion=$(UnoMauiWasmBootstrapVersion);MauiSrcDirectory=$(MauiSrcDirectory);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);RestoreIgnoreFailedSources=$(RestoreIgnoreFailedSources);NuGetAudit=$(NuGetAudit);NoWarn=$(_UnoMauiRestoreNoWarn);WarningsNotAsErrors=$(_UnoMauiRestoreNoWarn)" />
+      Properties="Configuration=$(Configuration);MauiUnoTarget=true;UnoMauiGeneratedProjectName=$(_UnoMauiGeneratedProjectName);UnoMauiAppProject=$(MSBuildProjectFullPath);UnoMauiResourceManifest=$(_UnoMauiResourceManifest);UnoMauiAppFactoryType=$(UnoMauiAppFactoryType);UnoMauiApplicationId=$(UnoMauiApplicationId);UnoMauiApplicationTitle=$(UnoMauiApplicationTitle);UnoMauiAutoEnableAccessibility=$(UnoMauiAutoEnableAccessibility);UnoMauiEnableStartupTracing=$(UnoMauiEnableStartupTracing);UnoMauiOptimizeWasmRuntime=$(UnoMauiOptimizeWasmRuntime);UnoMauiWasmAot=$(UnoMauiWasmAot);UnoMauiTrimMode=$(UnoMauiTrimMode);UnoMauiTrimmerNoWarn=$(UnoMauiTrimmerNoWarn);UnoMauiSdkRoot=$(UnoMauiSdkRoot);UnoMauiUseSource=$(UnoMauiUseSource);UnoMauiPackageVersion=$(UnoMauiPackageVersion);UnoMauiUnoVersion=$(UnoMauiUnoVersion);UnoMauiWasmBootstrapVersion=$(UnoMauiWasmBootstrapVersion);MauiSrcDirectory=$(MauiSrcDirectory);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);RestoreIgnoreFailedSources=$(RestoreIgnoreFailedSources);NuGetAudit=$(NuGetAudit);NoWarn=$(_UnoMauiRestoreNoWarn);WarningsNotAsErrors=$(_UnoMauiRestoreNoWarn)" />
   </Target>
 
   <Target Name="_UnoMauiBuildApplication">
@@ -75,15 +224,33 @@
       Projects="$(MSBuildProjectFullPath)"
       Targets="Build"
       BuildInParallel="false"
-      Properties="Configuration=$(Configuration);MauiUnoTarget=true;TargetFramework=net10.0;RuntimeIdentifier=$(UnoMauiRuntimeIdentifier);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);TypeScriptCompileBlocked=true" />
+      Properties="Configuration=$(Configuration);MauiUnoTarget=true;TargetFramework=net10.0;RuntimeIdentifier=$(UnoMauiRuntimeIdentifier);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);Optimize=$(_UnoMauiApplicationOptimize);DebugSymbols=$(_UnoMauiApplicationDebugSymbols);TypeScriptCompileBlocked=true" />
+    <MSBuild
+      Projects="$(MSBuildProjectFullPath)"
+      Targets="_UnoMauiGetApplicationTargetDirectory"
+      BuildInParallel="false"
+      Properties="Configuration=$(Configuration);MauiUnoTarget=true;TargetFramework=net10.0;RuntimeIdentifier=$(UnoMauiRuntimeIdentifier);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);Optimize=$(_UnoMauiApplicationOptimize);DebugSymbols=$(_UnoMauiApplicationDebugSymbols)">
+      <Output TaskParameter="TargetOutputs" ItemName="_UnoMauiApplicationTargetDirectory" />
+    </MSBuild>
+    <PropertyGroup>
+      <_UnoMauiApplicationTargetDir>@(_UnoMauiApplicationTargetDirectory)</_UnoMauiApplicationTargetDir>
+    </PropertyGroup>
   </Target>
 
-  <Target Name="_UnoMauiPrepareStaticWebAssets" DependsOnTargets="_UnoMauiBuildApplication" Condition="'$(UnoMauiGenerateStaticWebAssets)' == 'true'">
+  <Target Name="_UnoMauiPrepareStaticWebAssets" DependsOnTargets="_UnoMauiBuildApplication" Condition="'$(UnoMauiTarget)' == 'WebAssembly' and '$(UnoMauiGenerateStaticWebAssets)' == 'true'">
     <MSBuild
       Projects="$(MSBuildProjectFullPath)"
       Targets="GenerateStaticWebAssetsManifest"
       BuildInParallel="false"
-      Properties="Configuration=$(Configuration);MauiUnoTarget=true;TargetFramework=net10.0;RuntimeIdentifier=$(UnoMauiRuntimeIdentifier);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier)" />
+      Properties="Configuration=$(Configuration);MauiUnoTarget=true;TargetFramework=net10.0;RuntimeIdentifier=$(UnoMauiRuntimeIdentifier);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);Optimize=$(_UnoMauiApplicationOptimize);DebugSymbols=$(_UnoMauiApplicationDebugSymbols)" />
+  </Target>
+
+  <Target Name="_UnoMauiPreparePublishStaticWebAssets" DependsOnTargets="_UnoMauiPrepareStaticWebAssets" Condition="'$(UnoMauiTarget)' == 'WebAssembly' and '$(UnoMauiGenerateStaticWebAssets)' == 'true'">
+    <MSBuild
+      Projects="$(MSBuildProjectFullPath)"
+      Targets="GenerateStaticWebAssetsPublishManifest"
+      BuildInParallel="false"
+      Properties="Configuration=$(Configuration);MauiUnoTarget=true;TargetFramework=net10.0;RuntimeIdentifier=$(UnoMauiRuntimeIdentifier);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);Optimize=$(_UnoMauiApplicationOptimize);DebugSymbols=$(_UnoMauiApplicationDebugSymbols)" />
   </Target>
 
   <Target Name="BuildUnoMaui" DependsOnTargets="RestoreUnoMaui;_UnoMauiBuildApplication;_UnoMauiPrepareStaticWebAssets">
@@ -91,14 +258,14 @@
       Projects="$(_UnoMauiHostProject)"
       Targets="Build"
       BuildInParallel="false"
-      Properties="Configuration=$(Configuration);BuildProjectReferences=false;MauiUnoTarget=true;UnoMauiGeneratedProjectName=$(_UnoMauiGeneratedProjectName);UnoMauiAppProject=$(MSBuildProjectFullPath);UnoMauiAppFactoryType=$(UnoMauiAppFactoryType);UnoMauiApplicationId=$(UnoMauiApplicationId);UnoMauiApplicationTitle=$(UnoMauiApplicationTitle);UnoMauiTrimmerNoWarn=$(UnoMauiTrimmerNoWarn);UnoMauiSdkRoot=$(UnoMauiSdkRoot);UnoMauiUseSource=$(UnoMauiUseSource);UnoMauiPackageVersion=$(UnoMauiPackageVersion);UnoMauiUnoVersion=$(UnoMauiUnoVersion);UnoMauiWasmBootstrapVersion=$(UnoMauiWasmBootstrapVersion);MauiSrcDirectory=$(MauiSrcDirectory);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);TypeScriptCompileBlocked=true" />
+      Properties="Configuration=$(Configuration);BuildProjectReferences=false;MauiUnoTarget=true;UnoMauiGeneratedProjectName=$(_UnoMauiGeneratedProjectName);UnoMauiAppProject=$(MSBuildProjectFullPath);UnoMauiAppTargetDir=$(_UnoMauiApplicationTargetDir);UnoMauiResourceManifest=$(_UnoMauiResourceManifest);UnoMauiAppFactoryType=$(UnoMauiAppFactoryType);UnoMauiApplicationId=$(UnoMauiApplicationId);UnoMauiApplicationTitle=$(UnoMauiApplicationTitle);UnoMauiAutoEnableAccessibility=$(UnoMauiAutoEnableAccessibility);UnoMauiEnableStartupTracing=$(UnoMauiEnableStartupTracing);UnoMauiOptimizeWasmRuntime=$(UnoMauiOptimizeWasmRuntime);UnoMauiWasmAot=$(UnoMauiWasmAot);UnoMauiTrimMode=$(UnoMauiTrimMode);UnoMauiTrimmerNoWarn=$(UnoMauiTrimmerNoWarn);UnoMauiSdkRoot=$(UnoMauiSdkRoot);UnoMauiUseSource=$(UnoMauiUseSource);UnoMauiPackageVersion=$(UnoMauiPackageVersion);UnoMauiUnoVersion=$(UnoMauiUnoVersion);UnoMauiWasmBootstrapVersion=$(UnoMauiWasmBootstrapVersion);MauiSrcDirectory=$(MauiSrcDirectory);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);TypeScriptCompileBlocked=true" />
   </Target>
 
-  <Target Name="PublishUnoMaui" DependsOnTargets="RestoreUnoMaui;_UnoMauiBuildApplication;_UnoMauiPrepareStaticWebAssets">
+  <Target Name="PublishUnoMaui" DependsOnTargets="RestoreUnoMaui;_UnoMauiBuildApplication;_UnoMauiPreparePublishStaticWebAssets">
     <MSBuild
       Projects="$(_UnoMauiHostProject)"
       Targets="Publish"
       BuildInParallel="false"
-      Properties="Configuration=$(Configuration);BuildProjectReferences=false;MauiUnoTarget=true;UnoMauiGeneratedProjectName=$(_UnoMauiGeneratedProjectName);UnoMauiAppProject=$(MSBuildProjectFullPath);UnoMauiAppFactoryType=$(UnoMauiAppFactoryType);UnoMauiApplicationId=$(UnoMauiApplicationId);UnoMauiApplicationTitle=$(UnoMauiApplicationTitle);UnoMauiTrimmerNoWarn=$(UnoMauiTrimmerNoWarn);UnoMauiSdkRoot=$(UnoMauiSdkRoot);UnoMauiUseSource=$(UnoMauiUseSource);UnoMauiPackageVersion=$(UnoMauiPackageVersion);UnoMauiUnoVersion=$(UnoMauiUnoVersion);UnoMauiWasmBootstrapVersion=$(UnoMauiWasmBootstrapVersion);MauiSrcDirectory=$(MauiSrcDirectory);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);TypeScriptCompileBlocked=true" />
+      Properties="Configuration=$(Configuration);BuildProjectReferences=false;MauiUnoTarget=true;UnoMauiGeneratedProjectName=$(_UnoMauiGeneratedProjectName);UnoMauiAppProject=$(MSBuildProjectFullPath);UnoMauiAppTargetDir=$(_UnoMauiApplicationTargetDir);UnoMauiResourceManifest=$(_UnoMauiResourceManifest);UnoMauiAppFactoryType=$(UnoMauiAppFactoryType);UnoMauiApplicationId=$(UnoMauiApplicationId);UnoMauiApplicationTitle=$(UnoMauiApplicationTitle);UnoMauiAutoEnableAccessibility=$(UnoMauiAutoEnableAccessibility);UnoMauiEnableStartupTracing=$(UnoMauiEnableStartupTracing);UnoMauiOptimizeWasmRuntime=$(UnoMauiOptimizeWasmRuntime);UnoMauiWasmAot=$(UnoMauiWasmAot);UnoMauiTrimMode=$(UnoMauiTrimMode);UnoMauiTrimmerNoWarn=$(UnoMauiTrimmerNoWarn);UnoMauiSdkRoot=$(UnoMauiSdkRoot);UnoMauiUseSource=$(UnoMauiUseSource);UnoMauiPackageVersion=$(UnoMauiPackageVersion);UnoMauiUnoVersion=$(UnoMauiUnoVersion);UnoMauiWasmBootstrapVersion=$(UnoMauiWasmBootstrapVersion);MauiSrcDirectory=$(MauiSrcDirectory);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);TypeScriptCompileBlocked=true" />
   </Target>
 </Project>

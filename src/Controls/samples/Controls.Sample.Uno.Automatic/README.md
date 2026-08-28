@@ -8,6 +8,8 @@ The sample validates:
 - package consumption without MAUI source project references;
 - XAML compilation;
 - generated platform entry points and manifests;
+- generated-host image, font, and raw-asset packaging;
+- opt-in WebAssembly accessibility for automation;
 - MAUI input and event dispatch through Uno.
 
 Build it from the renderer root:

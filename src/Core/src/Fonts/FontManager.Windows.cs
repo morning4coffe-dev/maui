@@ -56,10 +56,30 @@ namespace Microsoft.Maui
 		{
 			get
 			{
+#if UNO
+				if (OperatingSystem.IsBrowser())
+					return _defaultFontFamily ??= GetBrowserDefaultFontFamily();
+#endif
 				_defaultFontFamily ??= (FontFamily)Application.Current.Resources[SystemFontFamily];
 				return _defaultFontFamily;
 			}
 		}
+
+#if UNO
+		FontFamily GetBrowserDefaultFontFamily()
+		{
+			foreach (var candidate in new[] { "Segoe UI", "OpenSansRegular", "Open Sans", "Roboto" })
+			{
+				if (_fontRegistrar.GetFont(candidate) is not string source)
+					continue;
+
+				var file = FontFile.FromString(Path.GetFileName(source));
+				return new FontFamily($"{source}#{file.GetPostScriptNameWithSpaces()}");
+			}
+
+			return new FontFamily("Arial");
+		}
+#endif
 
 		/// <inheritdoc/>
 		public double DefaultFontSize

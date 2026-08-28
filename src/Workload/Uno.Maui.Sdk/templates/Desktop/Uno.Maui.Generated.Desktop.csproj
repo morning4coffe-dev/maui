@@ -2,15 +2,20 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
+    <SampleProject>true</SampleProject>
     <AssemblyName>$(UnoMauiGeneratedProjectName)</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
     <RollForward>Major</RollForward>
     <IsUnoHead>true</IsUnoHead>
     <UnoMauiDisableAppFactoryGeneration>true</UnoMauiDisableAppFactoryGeneration>
   </PropertyGroup>
 
+  <Import Project="$(UnoMauiResourceManifest)" Condition="Exists('$(UnoMauiResourceManifest)')" />
   <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.Source.props" />
+  <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.GeneratedHost.targets" />
 
   <ItemGroup>
     <PackageReference Include="Uno.WinUI.Runtime.Skia.Linux.FrameBuffer" Version="$(UnoMauiUnoVersion)" />
@@ -22,7 +27,8 @@
   <ItemGroup>
     <ProjectReference
       Include="$(UnoMauiAppProject)"
+      AdditionalProperties="$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true"
       SkipGetTargetFrameworkProperties="true"
-      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true" />
   </ItemGroup>
 </Project>

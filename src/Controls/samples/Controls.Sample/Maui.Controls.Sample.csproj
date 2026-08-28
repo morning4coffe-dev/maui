@@ -21,6 +21,9 @@
     <UnoMauiAppFactoryType>Maui.Controls.Sample.MauiProgram</UnoMauiAppFactoryType>
     <UnoMauiApplicationId>com.microsoft.maui.sample.uno</UnoMauiApplicationId>
     <UnoMauiApplicationTitle>.NET MAUI Samples Gallery on Uno</UnoMauiApplicationTitle>
+    <UnoMauiAutoEnableAccessibility>true</UnoMauiAutoEnableAccessibility>
+    <UnoMauiEnableStartupTracing>true</UnoMauiEnableStartupTracing>
+    <UnoMauiWasmAot Condition="'$(Configuration)' == 'Release'">true</UnoMauiWasmAot>
     <UnoMauiSkipSourceProjectReferences>true</UnoMauiSkipSourceProjectReferences>
     <UnoMauiGenerateStaticWebAssets>true</UnoMauiGenerateStaticWebAssets>
     <StaticWebAssetProjectMode Condition="'$(MauiUnoTarget)' == 'true'">Default</StaticWebAssetProjectMode>

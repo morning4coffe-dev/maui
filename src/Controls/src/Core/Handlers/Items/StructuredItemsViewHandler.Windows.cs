@@ -1,5 +1,6 @@
 ﻿#nullable disable
 using System;
+using System.Collections;
 using System.ComponentModel;
 using Microsoft.Maui.Controls.Platform;
 using Microsoft.UI.Xaml;
@@ -20,6 +21,9 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 		PropertyChangedEventHandler _layoutPropertyChanged;
 		const string ListViewItemStyleKey = "DefaultListViewItemStyle";
 		const string GridViewItemStyleKey = "DefaultGridViewItemStyle";
+#if UNO
+		const int UnoNonVirtualizingItemLimit = 64;
+#endif
 		static WStyle _listViewItemStyle;
 		static WStyle _gridViewItemStyle;
 
@@ -199,9 +203,15 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 			}
 		}
 
-		static ListViewBase CreateGridView(GridItemsLayout gridItemsLayout)
+		ListViewBase CreateGridView(GridItemsLayout gridItemsLayout)
 		{
-			var gridView = new FormsGridView
+			var gridView = new FormsGridView(
+#if UNO
+				VirtualView.ItemsSource is not ICollection items || items.Count <= UnoNonVirtualizingItemLimit
+#else
+				false
+#endif
+			)
 			{
 				Orientation = gridItemsLayout.Orientation == ItemsLayoutOrientation.Horizontal
 					? Orientation.Horizontal
