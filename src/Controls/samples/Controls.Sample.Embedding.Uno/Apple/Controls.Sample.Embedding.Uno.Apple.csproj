@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-ios26.0;net10.0-maccatalyst26.0</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Maui.Controls.Sample.Uno</RootNamespace>
+    <ApplicationTitle>MAUI embedded in Uno</ApplicationTitle>
+    <ApplicationId>org.unoplatform.mauirenderer.embedding</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationManifest>Info.plist</ApplicationManifest>
+    <IsUnoHead>true</IsUnoHead>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-ios26.0'">
+    <RuntimeIdentifier Condition="'$(Configuration)' == 'Debug'">iossimulator-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(Configuration)' == 'Release'">ios-arm64</RuntimeIdentifier>
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-maccatalyst26.0'">
+    <RuntimeIdentifier Condition="'$(Configuration)' == 'Debug'">maccatalyst-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(Configuration)' == 'Release'">maccatalyst-arm64</RuntimeIdentifier>
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InterfaceDefinition Include="LaunchScreen.storyboard" />
+  </ItemGroup>
+
+  <Import Project="..\MauiUnoSample.props" />
+
+  <!-- Opt-in verification build; see the WebAssembly head for why this is a build switch. -->
+  <PropertyGroup Condition="'$(MauiUnoTier2Probe)' == 'true'">
+    <DefineConstants>$(DefineConstants);TIER2_PROBE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.AppleUIKit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="..\Shared\Controls.Sample.Embedding.Uno.Shared.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+
+</Project>
