@@ -197,7 +197,7 @@ internal sealed class MainShell : UserControl
 	{
 		try
 		{
-			var result = await Tier2Probe.RunAsync(_session, page, XamlRoot);
+			var result = await Tier2Probe.RunAsync(_session, page, XamlRoot, _secondHost);
 			var replace = await ProbeReplaceAsync();
 
 			var report = result.Report + replace.Report;

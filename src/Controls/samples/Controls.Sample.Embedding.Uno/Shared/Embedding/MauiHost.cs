@@ -48,6 +48,7 @@ public sealed partial class MauiHost : ContentControl
 	MauiEmbeddingSession? _realizedSession;
 	MauiVisualElement? _realizedContent;
 	bool _isLoaded;
+	bool _isBindingContextBridged;
 
 	public MauiHost()
 	{
@@ -58,6 +59,7 @@ public sealed partial class MauiHost : ContentControl
 
 		Loaded += OnLoaded;
 		Unloaded += OnUnloaded;
+		DataContextChanged += OnDataContextChanged;
 	}
 
 	/// <summary>Raised after MAUI content has been realized into the Uno visual tree.</summary>
@@ -110,6 +112,40 @@ public sealed partial class MauiHost : ContentControl
 		}
 	}
 
+	void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args) =>
+		ApplyBindingContext();
+
+	/// <summary>
+	/// Flows the host's Uno <see cref="FrameworkElement.DataContext"/> into the embedded element's
+	/// <c>BindingContext</c>.
+	/// </summary>
+	/// <remarks>
+	/// The two trees are separate: Uno's data context inherits down to the realized platform view, but the
+	/// MAUI element itself is not an Uno dependency object, so nothing would otherwise reach it.
+	/// <para>
+	/// A null data context is only propagated once the bridge has actually carried a value. Hosts that
+	/// never set a data context are the common case, and eagerly assigning null would silently wipe a
+	/// <c>BindingContext</c> the caller had set on the MAUI element itself.
+	/// </para>
+	/// </remarks>
+	void ApplyBindingContext()
+	{
+		if (_realizedContent is not { } content)
+		{
+			return;
+		}
+
+		var dataContext = DataContext;
+
+		if (dataContext is null && !_isBindingContextBridged)
+		{
+			return;
+		}
+
+		_isBindingContextBridged = dataContext is not null;
+		content.BindingContext = dataContext;
+	}
+
 	void UpdateContent()
 	{
 		// Compare against the session that actually realized the content, not the assigned one. Otherwise
@@ -146,6 +182,8 @@ public sealed partial class MauiHost : ContentControl
 		Content = session.Embed(content);
 		_realizedContent = content;
 		_realizedSession = session;
+
+		ApplyBindingContext();
 
 		if (_isLoaded && content is MauiPage page)
 		{
