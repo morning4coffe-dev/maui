@@ -25,11 +25,4 @@
     <Using Remove="Microsoft.Maui.Graphics" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference
-      Include="..\..\..\src\Embedding.Uno\Microsoft.Maui.Controls.Embedding.Uno.csproj"
-      SkipGetTargetFrameworkProperties="true"
-      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
-  </ItemGroup>
-
 </Project>

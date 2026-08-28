@@ -32,16 +32,29 @@ required exactly one addition, described below.
 
 ## Structure
 
+The reusable runtime lives outside the sample, in `src/Controls/src/Embedding.Uno/`
+(`Microsoft.Maui.Controls.Embedding.Uno`). The sample is a consumer of it, not the owner.
+
 | File | Role |
 | --- | --- |
+| `src/Controls/src/Embedding.Uno/MauiEmbeddingSession.cs` | One `MauiApp` per process, one `IMauiContext` per `Window`, exactly-once teardown |
+| `src/Controls/src/Embedding.Uno/MauiHost.cs` | `ContentControl` that realizes a MAUI element into the Uno tree |
 | `Shared/UnoEmbeddingApplication.cs` | Uno application root — a plain `Application`, not `MauiWinUIApplication` |
 | `Shared/MainShell.cs` | Uno-owned UI; MAUI islands interleaved with Uno content |
-| `Shared/Embedding/MauiEmbeddingSession.cs` | One `MauiApp` per process, one `IMauiContext` per `Window`, exactly-once teardown |
-| `Shared/Embedding/MauiHost.cs` | `ContentControl` that realizes a MAUI element into the Uno tree |
 | `Shared/MauiIslandPage.cs` | Tier 2 island: a `Page` exercising alerts and modal navigation |
 | `Shared/MyMauiContent.cs` | Tier 1 island: a plain `ContentView` |
 | `Shared/Tier2Probe.cs` | Code-driven verification of the window-scoped features |
 | `Shared/MauiProgram.cs`, `Shared/App.cs` | The embedded MAUI app |
+
+The embedded `MauiApp` is supplied by the host, not hard-wired:
+
+```csharp
+MauiEmbeddingSession.UseMauiApp(MauiProgram.CreateMauiApp);
+```
+
+Registering the factory is cheap and safe from the Uno application's constructor; the `MauiApp` itself is
+built lazily on the UI thread when the first island is realized, which is the only point at which the
+embedding bootstrap's requirements are met.
 
 ## Lifetime model
 
@@ -80,6 +93,28 @@ services. Verified working on Windows Desktop:
 | `DisplayPromptAsync` | Works |
 | `PushModalAsync` / `PopModalAsync` | Works — the modal is really realized and rendered |
 | `PushAsync` / `PopAsync` (`NavigationPage`) | Works — the pushed page is really realized and rendered |
+| Host theme → embedded content | Works — including runtime theme switches |
+| Host `DataContext` → `BindingContext` | Works — MAUI bindings resolve against the host's data context |
+
+### Host integration
+
+`MauiHost` flows its Uno `DataContext` into the embedded element's `BindingContext`, so a MAUI binding
+resolves against whatever the surrounding Uno tree provides. A null data context is only propagated once
+the bridge has actually carried a value, so hosts that never set one cannot silently wipe a
+`BindingContext` set on the MAUI element directly.
+
+`MauiEmbeddingSession` forwards the host's effective theme. This is needed because MAUI's Windows theme
+plumbing is a Win32 `WM_THEMECHANGE` hook that the Uno target compiles out, and embedding has no
+`MauiWinUIWindow` either — so without the bridge nothing ever calls `IApplication.ThemeChanged`, the
+embedded application's theme stays `Unspecified` for the life of the process, and `AppThemeBinding` never
+resolves.
+
+The theme is read from the window root's `ActualTheme` rather than from `Application.RequestedTheme`,
+because Uno rejects a runtime application theme change with `NotSupportedException`; an Uno app switches
+theme by setting `RequestedTheme` on a root element, which moves `ActualTheme` and leaves the application
+theme untouched. The value is assigned to `UserAppTheme`, since `PlatformAppTheme` is not settable and its
+only route in re-reads the application theme this bridge deliberately avoids. **Embedded content must
+therefore leave `UserAppTheme` alone — the host owns the theme.**
 
 Three things were required:
 
@@ -137,33 +172,58 @@ Window overlays are a separate mechanism and remain unsupported; see below.
 - **`CreateWindow`, `Application.Current.MainPage`, `OpenWindow`.** Embedding creates a synthetic
   `EmbeddedWindow`; `TApp.CreateWindow` is never called.
 - **One window page per Uno window.** A window has exactly one `Page`, so only the first page-based
-  island gets Tier 2 treatment. See gap G3 below — this currently degrades silently and incorrectly.
+  island gets Tier 2 treatment. A second page-based island now throws rather than silently inheriting the
+  first island's navigation proxy and alert manager; host further islands as views, or use another window.
 
 ## Remaining gaps
 
-P1–P4 of the original gap list are now closed; the details of what changed are in the commit history.
-What remains is **P5 — productization**:
+P1–P4 of the original gap list are closed, and P5 is closed apart from actual package distribution. The
+details of what changed are in the commit history.
 
-- **G10. There is no consumable package.** `MauiEmbeddingSession` and `MauiHost` are sample code, and
-  `MauiUnoSample.props` references MAUI source projects by repository-relative path. A consumer has no
-  package, SDK target or reusable host library, so using this means building the fork from source.
-- **G11. `MauiHost` lacks parity with Uno's `MauiHost`** — no `DataContext` → `BindingContext` bridge, no
-  theme bridging, and no `Source` property, so XAML usage needs code-behind. `Source` is omitted
-  deliberately because type activation is not trim-safe; the binding-context bridge is simply missing.
-- **G12. Only Desktop and WebAssembly heads exist.** Android, iOS and Skia-desktop heads should also work
-  and are untested.
+**Closed in P5:**
+
+- **G11. `MauiHost` host integration** — the `DataContext` → `BindingContext` bridge and theme bridging
+  are implemented and asserted. `Source` remains deliberately absent: type activation is not trim-safe,
+  and the trimmed WebAssembly run below is what that choice buys.
+- **G12. Heads** — Desktop, WebAssembly, Android and Apple (iOS + Mac Catalyst) heads all exist, and
+  `Build.ps1` already routes `-Target Android|iOS|MacCatalyst` to them. "Skia desktop" was never a separate
+  head: the Desktop head *is* the Skia desktop head, carrying the Win32, X11, macOS and framebuffer
+  runtimes.
+- **G10, partly. A reusable library** — `MauiEmbeddingSession` and `MauiHost` now live in
+  `Microsoft.Maui.Controls.Embedding.Uno` rather than in the sample, and the hard-wired dependency on the
+  sample's `MauiProgram` is gone in favour of `MauiEmbeddingSession.UseMauiApp(...)`.
+
+**What genuinely remains:**
+
+- **G10. There is still no consumable package.** This is not a gap in the embedding layer; it is a
+  prerequisite owned by the renderer project. The whole MAUI-for-Uno stack is consumed as *source* project
+  references built for a neutral `net10.0` target — there are no MAUI-for-Uno NuGet packages at all — so
+  packaging this one assembly would produce something with nothing to reference. The library is therefore
+  marked `IsPackable=false` until the underlying stack ships. Using this still means building the fork.
+- **The Apple head is authored but unbuilt.** It mirrors the working MAUI-root Apple head, but the `ios`
+  and `maccatalyst` workloads are not installed on the machine used here, so it has had no compile pass.
 
 WebAssembly window-scoped behaviour is verified by a **real browser run**: the probe is enabled by the
 `MauiUnoTier2Probe` build switch, publishes its verdict to the document title, and a headless Chromium run
-reads that title over the DevTools endpoint. Both **Debug** and **trimmed Release** WebAssembly report
-`TIER2-RESULT PASS`, with all 23 assertions passing — alerts, prompts, action sheets, modal navigation,
-stack navigation, second-page rejection, the off-UI-thread alert regression, and content replacement.
+reads that title over the DevTools endpoint. **Trimmed Release** WebAssembly reports `TIER2-RESULT PASS`
+with all 27 assertions passing — alerts, prompts, action sheets, modal navigation, stack navigation,
+second-page rejection, theme bridging including a runtime theme switch, the `DataContext` bridge including
+a resolved MAUI binding, the off-UI-thread alert regression, and content replacement.
 
-The trimmed run is the more interesting of the two, because MAUI reaches a lot of its Windows handler
-surface through reflection and dynamic resource lookup. `PublishTrimmed=true` takes
-`Microsoft.Maui.Controls.dll` from 2105 KB to 1119 KB and the probe still passes, so nothing on the
-embedding path is being reached in a way the trimmer cannot see. That result depends on `MauiHost` taking
-an element instance rather than activating a `Type`; see the note at the end of this file.
+The trimmed run is the interesting one, because MAUI reaches a lot of its Windows handler surface through
+reflection and dynamic resource lookup. `PublishTrimmed=true` takes `Microsoft.Maui.Controls.dll` from
+2105 KB to 1119 KB and the probe still passes, so nothing on the embedding path is being reached in a way
+the trimmer cannot see. Two design choices are what make that hold, and both are load-bearing rather than
+stylistic: `MauiHost` takes an element instance rather than activating a `Type`, and the probe's binding
+assertion uses a typed binding rather than a string path — a string path carries `RequiresUnreferencedCode`
+and fails the publish outright.
+
+Publishing to WebAssembly is also what catches missing references. Transitive project references are
+disabled across this sample, so a head that only referenced `Shared` still built and ran on Desktop — where
+the assembly is copied to the output folder regardless — while silently omitting
+`Microsoft.Maui.Controls.Embedding.Uno` from the WebAssembly publish, whose asset set is computed from the
+head's own resolved references. Every head therefore references the library explicitly, from
+`MauiUnoSample.props`.
 
 Reproducing a trimmed run needs a machine with no competing WebAssembly build. The Emscripten native cache
 under `%TEMP%\emsdk-cache` is shared by every build on the machine and by every installed emsdk version, and
@@ -210,57 +270,28 @@ off.
 | G6 alert dispatch | A failed `TryEnqueue` now completes the caller's arguments instead of hanging it, and the alert and prompt queue slots are cleared in `finally` so a failed dialog cannot poison later ones. |
 | G7 API shape | `ToPlatformEmbeddedWindowRoot` is replaced by `CreateEmbeddedWindowRoot`, which validates its context and its page-is-the-window-page precondition, and returns a disposable root. |
 | G8 probe asserted nothing | `Tier2Probe` is now a pass/fail harness with per-operation timeouts, and covers two-button alerts, prompts, action sheets and the second-page rejection. |
-| G9 WebAssembly never actually run | The probe is driven in headless Chromium and reports its verdict through the document title. Debug and trimmed Release both pass all 23 assertions. |
+| G9 WebAssembly never actually run | The probe is driven in headless Chromium and reports its verdict through the document title. Trimmed Release passes all 27 assertions. |
+| G10 no reusable library | `MauiEmbeddingSession` and `MauiHost` moved to `Microsoft.Maui.Controls.Embedding.Uno`, and the embedded `MauiApp` is supplied via `UseMauiApp(...)` instead of a hard reference to the sample's `MauiProgram`. Distribution as a package remains blocked on the MAUI-for-Uno stack shipping at all. |
+| G11 no host integration | `MauiHost` bridges `DataContext` to `BindingContext`; `MauiEmbeddingSession` bridges the host's effective theme. Both are asserted, the theme one by performing a real runtime theme switch. |
+| G12 missing heads | Android and Apple heads added; `Build.ps1` already routed to them. Android compiles; Apple is unbuilt for lack of workloads. |
 
 ### Checked and found not to be a problem
 
 Content replacement was reported as unsound, on the theory that a fresh `WindowRootViewContainer` per call
 re-parents the single `NavigationRootManager.RootView` and violates XAML's single-parent rule. Three
 consecutive page replacements render the current page each time with no stale content and no exception —
-Uno's collection re-parents rather than throwing. That is asserted by the probe. It has **not** been
-checked on WebAssembly, where the collection may be stricter.
-
-
-## Verifying Tier 2
-
-`Tier2Probe` drives the window-scoped features from code and reports what actually happened, so the
-result does not depend on UI automation. Run the app with `MAUI_UNO_TIER2_PROBE=1` to run it at startup,
-or press **Run Tier 2 probe** in the app. Results appear in the app and in `tier2-probe.log` in the temp
-directory:
-
-```
-window.Page is the island page: True
-alert opened a popup: True (count 1)
-alert task completed after dismissal: True
-PushModalAsync returned: OK (virtual stack depth 1)
-modal handler created: True
-modal platform view: ContentPanel
-modal attached to XamlRoot: True
-modal actually rendered: True
-PopModalAsync: OK
-PushAsync returned: OK (stack depth 2)
-pushed page handler created: True
-pushed page attached to XamlRoot: True
-pushed page actually rendered: True
-PopAsync: OK
-off-UI-thread alert opened a popup: True
-off-UI-thread alert completed without crashing: True
-```
-
-The modal and navigation assertions deliberately check the platform view rather than the stack depth:
-MAUI records a push in the virtual stack even when the platform never realizes the page, so
-`PushModalAsync` succeeding proves nothing on its own. The off-UI-thread check is a regression test for
-the dialog threading crash; it runs last because it cannot dismiss its own dialog.
-
+Uno's collection re-parents rather than throwing. That is asserted by the probe, and it holds on
+WebAssembly as well as on Desktop.
 
 ## Build and run
 
 ```powershell
 .\Build.ps1 -Sample Embedding -Target Desktop -Run
 .\Build.ps1 -Sample Embedding -Target WebAssembly -Run
+.\Build.ps1 -Sample Embedding -Target Android -Run
+.\Build.ps1 -Sample Embedding -Target iOS -Run          # untested: needs the ios workload
+.\Build.ps1 -Sample Embedding -Target MacCatalyst -Run  # untested: needs the maccatalyst workload
 ```
-
-Only Desktop and WebAssembly heads exist so far.
 
 ## Notes
 
@@ -269,7 +300,7 @@ Only Desktop and WebAssembly heads exist so far.
   collides with a WinUI equivalent (`Application`, `Window`, `Grid`, `Button`, `Border`, `Thickness`,
   `CornerRadius`, `GridLength`, `Colors`), so the MAUI namespaces are imported per file instead.
 - `MauiHost` takes a MAUI element **instance** rather than a `Type` to activate. Type-based
-  activation via `ActivatorUtilities` is not trim-safe, and this sample is intended to be validated
+  activation via `ActivatorUtilities` is not trim-safe, and this library is validated
   against a trimmed WebAssembly publish.
 - The Shared project uses a distinct `RootNamespace` from the heads so that Uno's XAML source
   generator does not emit two conflicting `GlobalStaticResources` types.

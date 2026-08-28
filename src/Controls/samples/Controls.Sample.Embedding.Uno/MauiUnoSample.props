@@ -51,5 +51,15 @@
       Include="$(MSBuildThisFileDirectory)..\..\src\Xaml\Controls.Xaml.csproj"
       SkipGetTargetFrameworkProperties="true"
       SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <!--
+      Referenced by every head, not just by the Shared project. Transitive project references are disabled
+      above, so a head that only referenced Shared would build and run on Desktop — where the assembly is
+      copied to the output folder anyway — but silently omit this assembly from a WebAssembly publish,
+      whose asset set is computed from the head's own resolved references.
+    -->
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\src\Embedding.Uno\Microsoft.Maui.Controls.Embedding.Uno.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
   </ItemGroup>
 </Project>
