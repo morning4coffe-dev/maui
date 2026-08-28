@@ -13,6 +13,9 @@ using MauiContentPage = Microsoft.Maui.Controls.ContentPage;
 using MauiLabel = Microsoft.Maui.Controls.Label;
 using MauiNavigationPage = Microsoft.Maui.Controls.NavigationPage;
 using MauiPage = Microsoft.Maui.Controls.Page;
+using AppTheme = Microsoft.Maui.ApplicationModel.AppTheme;
+using MauiApplication = Microsoft.Maui.Controls.Application;
+using MauiBinding = Microsoft.Maui.Controls.Binding;
 
 namespace Maui.Controls.Sample.Uno;
 
@@ -60,7 +63,11 @@ public static class Tier2Probe
 
 	public static string LogPath => Path.Combine(Path.GetTempPath(), "tier2-probe.log");
 
-	public static async Task<Tier2ProbeResult> RunAsync(MauiEmbeddingSession session, MauiPage page, XamlRoot? xamlRoot)
+	public static async Task<Tier2ProbeResult> RunAsync(
+		MauiEmbeddingSession session,
+		MauiPage page,
+		XamlRoot? xamlRoot,
+		MauiHost? viewHost = null)
 	{
 		var report = new StringBuilder();
 		var failures = 0;
@@ -93,6 +100,9 @@ public static class Tier2Probe
 			await CheckModalAsync(page, Check);
 			await CheckNavigationAsync(page, Check);
 			CheckSecondPageIsRejected(session, Check);
+			CheckThemeIsBridged(session, Check);
+			await CheckThemeChangeIsBridgedAsync(session, Check);
+			await CheckBindingContextIsBridgedAsync(viewHost, Check);
 
 			// Last: this one cannot dismiss its own dialog.
 			await CheckOffUiThreadAlertAsync(page, xamlRoot, Check);
@@ -213,6 +223,126 @@ public static class Tier2Probe
 		{
 			check("a second page island is rejected", true);
 		}
+	}
+
+	// The theme plumbing MAUI uses on Windows is a Win32 message hook that the Uno target compiles out, and
+	// embedding has no MauiWinUIWindow either, so nothing ever calls IApplication.ThemeChanged. Without the
+	// session's bridge, the embedded application's theme stays Unspecified for the life of the process and
+	// AppThemeBinding never resolves. That is what makes this assertion meaningful rather than tautological.
+	static void CheckThemeIsBridged(MauiEmbeddingSession session, CheckResult check)
+	{
+		var expected = ToAppTheme((session.PlatformWindow.Content as FrameworkElement)?.ActualTheme);
+		var actual = MauiApplication.Current?.RequestedTheme;
+
+		check(
+			"host theme reaches the embedded application",
+			actual is not null && actual == expected && actual != AppTheme.Unspecified,
+			$"host={expected} maui={actual}");
+	}
+
+	// Uno rejects a runtime application theme change, so an Uno app switches theme through a root element's
+	// RequestedTheme. That is what this drives, because it is what a real host does.
+	static async Task CheckThemeChangeIsBridgedAsync(MauiEmbeddingSession session, CheckResult check)
+	{
+		const string Name = "host theme change reaches the embedded application";
+
+		if (session.PlatformWindow.Content is not FrameworkElement root || MauiApplication.Current is null)
+		{
+			check(Name, false, "no window root");
+			return;
+		}
+
+		var original = root.RequestedTheme;
+		var flipped = root.ActualTheme == ElementTheme.Dark ? ElementTheme.Light : ElementTheme.Dark;
+
+		try
+		{
+			root.RequestedTheme = flipped;
+
+			var expected = ToAppTheme(flipped);
+			var followed = await WaitForAsync(() => MauiApplication.Current?.RequestedTheme == expected);
+
+			check(Name, followed, $"host={expected} maui={MauiApplication.Current?.RequestedTheme}");
+		}
+		catch (Exception ex)
+		{
+			check(Name, false, $"{ex.GetType().Name}: {ex.Message}");
+		}
+		finally
+		{
+			root.RequestedTheme = original;
+		}
+	}
+
+	// Asserts the bridge end to end rather than just comparing references: a real MAUI binding has to
+	// resolve against the Uno DataContext for the bridge to be worth anything.
+	static async Task CheckBindingContextIsBridgedAsync(MauiHost? viewHost, CheckResult check)
+	{
+		const string ContextName = "host DataContext flows to the embedded BindingContext";
+		const string BindingName = "a MAUI binding resolves through the host DataContext";
+
+		if (viewHost is null)
+		{
+			check(ContextName, false, "no view-level host was supplied");
+			check(BindingName, false, "no view-level host was supplied");
+			return;
+		}
+
+		var originalContent = viewHost.MauiContent;
+		var originalDataContext = viewHost.DataContext;
+
+		try
+		{
+			var label = new MauiLabel();
+			label.SetBinding(MauiLabel.TextProperty, new MauiBinding(nameof(ProbeViewModel.Name)));
+
+			viewHost.MauiContent = label;
+			viewHost.DataContext = new ProbeViewModel { Name = "bound through DataContext" };
+
+			var bridged = await WaitForAsync(() => label.BindingContext is ProbeViewModel);
+			check(ContextName, bridged, label.BindingContext?.GetType().Name ?? "null");
+
+			var resolved = await WaitForAsync(() => label.Text == "bound through DataContext");
+			check(BindingName, resolved, label.Text ?? "null");
+		}
+		catch (Exception ex)
+		{
+			check(ContextName, false, $"{ex.GetType().Name}: {ex.Message}");
+		}
+		finally
+		{
+			viewHost.DataContext = originalDataContext;
+			viewHost.MauiContent = originalContent;
+		}
+	}
+
+	static AppTheme ToAppTheme(ElementTheme? theme) => theme switch
+	{
+		ElementTheme.Dark => AppTheme.Dark,
+		ElementTheme.Light => AppTheme.Light,
+		_ => AppTheme.Unspecified,
+	};
+
+	static async Task<bool> WaitForAsync(Func<bool> condition)
+	{
+		var deadline = DateTime.UtcNow + OperationTimeout;
+
+		while (DateTime.UtcNow < deadline)
+		{
+			if (condition())
+			{
+				return true;
+			}
+
+			await Task.Delay(50);
+		}
+
+		return condition();
+	}
+
+	sealed class ProbeViewModel
+	{
+		public string? Name { get; set; }
 	}
 
 	// Regression test for a crash found during QA: requesting an alert whose state machine runs on a

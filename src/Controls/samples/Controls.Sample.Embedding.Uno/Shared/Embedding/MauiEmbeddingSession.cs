@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls.Embedding;
 using Microsoft.Maui.Hosting;
@@ -8,6 +9,9 @@ using Microsoft.Maui.Platform;
 using MauiPage = Microsoft.Maui.Controls.Page;
 using MauiVisualElement = Microsoft.Maui.Controls.VisualElement;
 using MauiWindow = Microsoft.Maui.Controls.Window;
+using AppTheme = Microsoft.Maui.ApplicationModel.AppTheme;
+using ElementTheme = Microsoft.UI.Xaml.ElementTheme;
+using MauiApplication = Microsoft.Maui.Controls.Application;
 using PlatformView = Microsoft.UI.Xaml.FrameworkElement;
 using PlatformWindow = Microsoft.UI.Xaml.Window;
 
@@ -34,6 +38,7 @@ public sealed class MauiEmbeddingSession : IDisposable
 	MauiWindow? _embeddedWindow;
 	IMauiContext? _windowContext;
 	EmbeddedWindowRoot? _windowRoot;
+	PlatformView? _themeRoot;
 	bool _isCreated;
 	bool _isActivated;
 	bool _isDisposed;
@@ -103,6 +108,7 @@ public sealed class MauiEmbeddingSession : IDisposable
 				// window while this context was being built.
 				_windowContext = SharedApp.CreateEmbeddedWindowContext(_platformWindow, out var window);
 				_embeddedWindow = window;
+				AttachThemeBridge();
 			}
 
 			return _windowContext;
@@ -139,6 +145,10 @@ public sealed class MauiEmbeddingSession : IDisposable
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
 
 		var context = WindowContext;
+
+		// The window content exists by the time a host loads, which is not guaranteed when the context is
+		// first created, so the theme bridge is attached here as well. Attaching is idempotent.
+		AttachThemeBridge();
 
 		PlatformView platformView;
 
@@ -211,6 +221,79 @@ public sealed class MauiEmbeddingSession : IDisposable
 	}
 
 	/// <summary>
+	/// Forwards the hosting application's effective theme to the embedded MAUI application.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// Nothing reports theme changes to an embedded MAUI application. MAUI's Windows theme plumbing is a
+	/// Win32 <c>WM_THEMECHANGE</c> hook that the Uno target compiles out, and embedding has no
+	/// <c>MauiWinUIWindow</c> either, so <c>PlatformAppTheme</c> would stay <see cref="AppTheme.Unspecified"/>
+	/// for the life of the process and <c>AppThemeBinding</c> would never resolve.
+	/// </para>
+	/// <para>
+	/// The theme is read from the window root's <c>ActualTheme</c> rather than from
+	/// <c>Application.RequestedTheme</c>. Uno rejects a runtime change to the application theme with
+	/// <see cref="NotSupportedException"/>, so an Uno app switches theme by setting <c>RequestedTheme</c> on
+	/// a root element; that moves <c>ActualTheme</c> while leaving the application theme untouched. Reading
+	/// the application theme would therefore miss every in-app theme switch. <c>ActualTheme</c> also still
+	/// reflects the system theme when no element override is in effect, so it covers both cases.
+	/// </para>
+	/// <para>
+	/// The result is assigned to <c>UserAppTheme</c> because <c>PlatformAppTheme</c> is not settable and the
+	/// only route into it, <c>IApplication.ThemeChanged</c>, re-reads the application theme this bridge is
+	/// deliberately not using. Embedded content must therefore leave <c>UserAppTheme</c> alone: the host owns
+	/// the theme.
+	/// </para>
+	/// </remarks>
+	public void NotifyThemeChanged()
+	{
+		if (_isDisposed || sharedApp?.Services.GetService<IApplication>() is not { } application)
+		{
+			return;
+		}
+
+		// Keeps PlatformAppTheme in step with the host application for anything that reads it directly.
+		application.ThemeChanged();
+
+		if (_themeRoot is { } root && application is MauiApplication controlsApplication)
+		{
+			controlsApplication.UserAppTheme = ToAppTheme(root.ActualTheme);
+		}
+	}
+
+	static AppTheme ToAppTheme(ElementTheme theme) => theme switch
+	{
+		ElementTheme.Dark => AppTheme.Dark,
+		ElementTheme.Light => AppTheme.Light,
+		_ => AppTheme.Unspecified,
+	};
+
+	void AttachThemeBridge()
+	{
+		if (_isDisposed || _themeRoot is not null || _platformWindow.Content is not PlatformView root)
+		{
+			return;
+		}
+
+		_themeRoot = root;
+		root.ActualThemeChanged += OnActualThemeChanged;
+
+		// The embedded application resolved its theme before the host existed, so seed it once on attach.
+		NotifyThemeChanged();
+	}
+
+	void DetachThemeBridge()
+	{
+		if (_themeRoot is { } root)
+		{
+			root.ActualThemeChanged -= OnActualThemeChanged;
+			_themeRoot = null;
+		}
+	}
+
+	void OnActualThemeChanged(PlatformView sender, object args) => NotifyThemeChanged();
+
+	/// <summary>
 	/// Detaches <paramref name="content"/> without tearing down the window scope, which lives as long as the
 	/// Uno window and is shared by every host inside it.
 	/// </summary>
@@ -262,6 +345,8 @@ public sealed class MauiEmbeddingSession : IDisposable
 
 		try
 		{
+			DetachThemeBridge();
+
 			foreach (var content in _embeddedContent.ToArray())
 			{
 				try
