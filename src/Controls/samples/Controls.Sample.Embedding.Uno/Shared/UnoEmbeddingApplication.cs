@@ -1,3 +1,4 @@
+using Microsoft.Maui.Controls.Embedding.Uno;
 using Microsoft.UI.Xaml.Controls;
 
 using PlatformApplication = Microsoft.UI.Xaml.Application;
@@ -15,7 +16,14 @@ public sealed class UnoEmbeddingApplication : PlatformApplication
 	PlatformWindow? _window;
 	MauiEmbeddingSession? _session;
 
-	public UnoEmbeddingApplication() => Resources.MergedDictionaries.Add(new XamlControlsResources());
+	public UnoEmbeddingApplication()
+	{
+		Resources.MergedDictionaries.Add(new XamlControlsResources());
+
+		// Registering the factory is cheap; the MauiApp itself is built lazily on the UI thread when the
+		// first island is realized, which is the only point at which the bootstrap's requirements are met.
+		MauiEmbeddingSession.UseMauiApp(MauiProgram.CreateMauiApp);
+	}
 
 	protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
 	{

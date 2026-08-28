@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Microsoft.Maui.Controls.Embedding.Uno</AssemblyName>
+    <RootNamespace>Microsoft.Maui.Controls.Embedding.Uno</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!--
+      This library is the reusable half of the Uno-root embedding sample. It is not packable yet: the whole
+      MAUI-for-Uno stack is consumed as source project references built for a neutral net10.0 target, so a
+      package of this assembly alone would have nothing to reference. See the sample README, gap G10.
+    -->
+  </PropertyGroup>
+
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
+  <PropertyGroup>
+    <_MauiUnoBuildProperties>$(_MauiUnoProjectReferenceProperties)</_MauiUnoBuildProperties>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+    <BuildInParallel>false</BuildInParallel>
+    <NoWarn>$(NoWarn);Uno0001;IL2072;IL2111;RS0030</NoWarn>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ProjectReference>
+      <GlobalPropertiesToRemove>TargetFrameworks;RuntimeIdentifiers;SelfContained</GlobalPropertiesToRemove>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\Core\src\Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\Essentials\src\Essentials.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\Graphics\src\Graphics\Graphics.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\Graphics\src\Graphics.Skia\Graphics.Skia.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\Core\Controls.Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\Xaml\Controls.Xaml.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+
+</Project>

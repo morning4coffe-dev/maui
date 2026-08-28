@@ -15,7 +15,7 @@ using MauiApplication = Microsoft.Maui.Controls.Application;
 using PlatformView = Microsoft.UI.Xaml.FrameworkElement;
 using PlatformWindow = Microsoft.UI.Xaml.Window;
 
-namespace Maui.Controls.Sample.Uno;
+namespace Microsoft.Maui.Controls.Embedding.Uno;
 
 /// <summary>
 /// Owns the process-wide <see cref="MauiApp"/> and exactly one window-scoped <see cref="IMauiContext"/>
@@ -31,6 +31,7 @@ public sealed class MauiEmbeddingSession : IDisposable
 {
 	static readonly object Gate = new();
 	static readonly Dictionary<PlatformWindow, MauiEmbeddingSession> Sessions = new();
+	static Func<MauiApp>? appFactory;
 	static MauiApp? sharedApp;
 
 	readonly PlatformWindow _platformWindow;
@@ -44,6 +45,35 @@ public sealed class MauiEmbeddingSession : IDisposable
 	bool _isDisposed;
 
 	MauiEmbeddingSession(PlatformWindow platformWindow) => _platformWindow = platformWindow;
+
+	/// <summary>
+	/// Registers the factory that builds the embedded <see cref="MauiApp"/> for this process.
+	/// </summary>
+	/// <remarks>
+	/// A factory rather than a built <see cref="MauiApp"/>, because the bootstrap has to run on the UI
+	/// thread and only once the Uno application instance exists. Registering is therefore cheap and can be
+	/// done from the Uno application's constructor, while the build itself is deferred to first use.
+	/// </remarks>
+	/// <exception cref="InvalidOperationException">
+	/// A different factory was already registered after the app had been built. The embedded
+	/// <see cref="MauiApp"/> is process-wide and cannot be replaced.
+	/// </exception>
+	public static void UseMauiApp(Func<MauiApp> factory)
+	{
+		ArgumentNullException.ThrowIfNull(factory);
+
+		lock (Gate)
+		{
+			if (sharedApp is not null && !ReferenceEquals(appFactory, factory))
+			{
+				throw new InvalidOperationException(
+					"The embedded MauiApp has already been built, so the factory can no longer be changed. " +
+					"Register it once, before the first MAUI island is realized.");
+			}
+
+			appFactory = factory;
+		}
+	}
 
 	/// <summary>
 	/// Gets the single embedded <see cref="MauiApp"/> for this process, creating it on first use.
@@ -64,6 +94,13 @@ public sealed class MauiEmbeddingSession : IDisposable
 					return sharedApp;
 				}
 
+				if (appFactory is null)
+				{
+					throw new InvalidOperationException(
+						$"No embedded MauiApp factory was registered. Call {nameof(MauiEmbeddingSession)}." +
+						$"{nameof(UseMauiApp)} before hosting MAUI content.");
+				}
+
 				if (Microsoft.UI.Xaml.Application.Current is null)
 				{
 					throw new InvalidOperationException(
@@ -71,7 +108,7 @@ public sealed class MauiEmbeddingSession : IDisposable
 						"Create it from OnLaunched rather than from Program.Main.");
 				}
 
-				sharedApp = MauiProgram.CreateMauiApp();
+				sharedApp = appFactory();
 				return sharedApp;
 			}
 		}

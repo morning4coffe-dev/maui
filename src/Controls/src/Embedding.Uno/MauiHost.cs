@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using MauiPage = Microsoft.Maui.Controls.Page;
 using MauiVisualElement = Microsoft.Maui.Controls.VisualElement;
 
-namespace Maui.Controls.Sample.Uno;
+namespace Microsoft.Maui.Controls.Embedding.Uno;
 
 /// <summary>Provides data for <see cref="MauiHost.MauiContentRealized"/>.</summary>
 public sealed class MauiContentRealizedEventArgs : EventArgs
@@ -32,7 +32,7 @@ public sealed class MauiContentRealizedEventArgs : EventArgs
 /// </para>
 /// <para>
 /// Content is supplied as an instance rather than as a <see cref="Type"/> to activate, because type-based
-/// activation is not trim-safe and this sample is validated against a trimmed WebAssembly publish.
+/// activation is not trim-safe and this library is validated against a trimmed WebAssembly publish.
 /// </para>
 /// </remarks>
 public sealed partial class MauiHost : ContentControl
