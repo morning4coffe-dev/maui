@@ -2,16 +2,42 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
+    <SampleProject>true</SampleProject>
     <AssemblyName>$(UnoMauiGeneratedProjectName)</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
     <IsUnoHead>true</IsUnoHead>
     <UnoMauiDisableAppFactoryGeneration>true</UnoMauiDisableAppFactoryGeneration>
-    <WasmBuildNative>true</WasmBuildNative>
+    <UnoMauiAutoEnableAccessibility Condition="'$(UnoMauiAutoEnableAccessibility)' == ''">false</UnoMauiAutoEnableAccessibility>
+    <DefineConstants Condition="'$(UnoMauiAutoEnableAccessibility)' == 'true'">$(DefineConstants);UNO_MAUI_AUTO_ENABLE_ACCESSIBILITY</DefineConstants>
+    <UnoMauiEnableStartupTracing Condition="'$(UnoMauiEnableStartupTracing)' == ''">false</UnoMauiEnableStartupTracing>
+    <DefineConstants Condition="'$(UnoMauiEnableStartupTracing)' == 'true'">$(DefineConstants);UNO_MAUI_STARTUP_TRACING</DefineConstants>
+    <UnoMauiTrimMode Condition="'$(UnoMauiTrimMode)' == ''">partial</UnoMauiTrimMode>
+    <TrimMode>$(UnoMauiTrimMode)</TrimMode>
+    <WasmBuildNative Condition="'$(WasmBuildNative)' == ''">true</WasmBuildNative>
+    <Optimize Condition="'$(UnoMauiOptimizeWasmRuntime)' == 'true'">true</Optimize>
+    <DebugSymbols Condition="'$(UnoMauiOptimizeWasmRuntime)' == 'true'">false</DebugSymbols>
+    <WasmDebugLevel Condition="'$(UnoMauiOptimizeWasmRuntime)' == 'true'">0</WasmDebugLevel>
+    <RunILLink Condition="'$(UnoMauiOptimizeWasmRuntime)' == 'true'">true</RunILLink>
+    <WasmShellMonoRuntimeExecutionMode Condition="'$(UnoMauiWasmAot)' == 'true'">InterpreterAndAOT</WasmShellMonoRuntimeExecutionMode>
+    <EnableHotReload>false</EnableHotReload>
+    <WasmEnableHotReload>false</WasmEnableHotReload>
     <NoWarn>$(NoWarn);IL2026;$(UnoMauiTrimmerNoWarn)</NoWarn>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(_MauiDoNotConfigureTrimAnalyzer)' != 'true' and '$(PublishAot)' != 'true' and '$(TrimMode)' != 'full'">
+    <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+    <ILLinkTreatWarningsAsErrors>false</ILLinkTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <Import Project="$(NetCoreRoot)packs\Microsoft.NET.Runtime.MonoAOTCompiler.Task\*\Sdk\Sdk.props"
+          Condition="'$(WasmShellMonoRuntimeExecutionMode)' == 'InterpreterAndAOT'" />
+  <Import Project="$(UnoMauiResourceManifest)" Condition="Exists('$(UnoMauiResourceManifest)')" />
   <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.Source.props" />
+  <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.GeneratedHost.targets" />
 
   <ItemGroup>
     <PackageReference Include="Uno.Wasm.Bootstrap" Version="$(UnoMauiWasmBootstrapVersion)" />
@@ -22,9 +48,28 @@
   <ItemGroup>
     <ProjectReference
       Include="$(UnoMauiAppProject)"
+      AdditionalProperties="$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true"
       SkipGetTargetFrameworkProperties="true"
-      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true" />
   </ItemGroup>
+
+  <Target Name="_UnoMauiRemoveDisabledHotReloadAssets"
+          BeforeTargets="GenerateUnoWasmAssets"
+          AfterTargets="ResolveBuildStaticWebAssets"
+          Condition="'$(EnableHotReload)' != 'true'">
+    <ItemGroup>
+      <StaticWebAsset Remove="@(StaticWebAsset)"
+                      Condition="$([System.String]::Copy('%(StaticWebAsset.Identity)').Contains('Microsoft.DotNet.HotReload.WebAssembly.Browser')) or $([System.String]::Copy('%(StaticWebAsset.SourceId)').Contains('Microsoft.DotNet.HotReload.WebAssembly.Browser'))" />
+      <StaticWebAssetEndpoint Remove="@(StaticWebAssetEndpoint)"
+                              Condition="$([System.String]::Copy('%(StaticWebAssetEndpoint.Identity)').Contains('Microsoft.DotNet.HotReload.WebAssembly.Browser'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_UnoMauiCleanPublishOutput"
+          BeforeTargets="PrepareForPublish"
+          Condition="'$(PublishDir)' != '' and Exists('$(PublishDir)')">
+    <RemoveDir Directories="$(PublishDir)" />
+  </Target>
 
   <Target Name="_UnoMauiConfigureWasmMainAssembly" AfterTargets="GenerateUnoWasmAssets">
     <PropertyGroup>

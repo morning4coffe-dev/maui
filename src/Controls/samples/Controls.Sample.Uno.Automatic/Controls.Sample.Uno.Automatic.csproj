@@ -9,6 +9,8 @@
     <UnoMauiAppFactoryType>Microsoft.Maui.Controls.Sample.Uno.Automatic.MauiProgram</UnoMauiAppFactoryType>
     <UnoMauiApplicationId>org.unoplatform.maui.automatic</UnoMauiApplicationId>
     <UnoMauiApplicationTitle>Automatic MAUI on Uno</UnoMauiApplicationTitle>
+    <UnoMauiAutoEnableAccessibility>true</UnoMauiAutoEnableAccessibility>
+    <UnoMauiEnableStartupTracing>true</UnoMauiEnableStartupTracing>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,5 +23,31 @@
       Version="$(UnoMauiPackageVersion)"
       PrivateAssets="build;buildTransitive;contentfiles;analyzers" />
     <MauiXaml Update="MainPage.xaml" Generator="MSBuild:Compile" />
+    <MauiImage Include="..\Controls.Sample\Resources\Images\header_background.png"
+               Link="header_background.png" />
+    <MauiImage Include="..\Controls.Sample\Resources\Images\dotnet_bot.svg"
+               Link="dotnet_bot.svg"
+               BaseSize="300,185" />
+    <MauiFont Include="..\Controls.Sample\Resources\Fonts\SegoeUI.ttf"
+              Link="SegoeUI.ttf"
+              Alias="AutomaticSegoe" />
+    <MauiAsset Include="..\Controls.Sample\Resources\Raw\RawAsset.txt"
+               LogicalName="RawAsset.txt" />
   </ItemGroup>
+
+  <Target Name="_ValidateAutomaticUnoMauiResources"
+          AfterTargets="BuildUnoMaui;PublishUnoMaui">
+    <ItemGroup>
+      <_AutomaticUnoMauiImage Include="$(_UnoMauiGeneratedBaseOutputPath)**\header_background.scale-100.png" />
+      <_AutomaticUnoMauiVectorImage Include="$(_UnoMauiGeneratedBaseOutputPath)**\dotnet_bot.scale-100.png" />
+      <_AutomaticUnoMauiFont Include="$(_UnoMauiGeneratedBaseOutputPath)**\SegoeUI.ttf" />
+      <_AutomaticUnoMauiAsset Include="$(_UnoMauiGeneratedBaseOutputPath)**\RawAsset.txt" />
+      <_AutomaticUnoMauiApk Include="$(_UnoMauiGeneratedBaseOutputPath)**\*.apk" />
+    </ItemGroup>
+    <Error Condition="'$(UnoMauiTarget)' != 'Android' and '@(_AutomaticUnoMauiImage)' == ''" Text="The generated Uno MAUI host did not package the sample image." />
+    <Error Condition="'$(UnoMauiTarget)' != 'Android' and '@(_AutomaticUnoMauiVectorImage)' == ''" Text="The generated Uno MAUI host did not resize the sample SVG image." />
+    <Error Condition="'$(UnoMauiTarget)' != 'Android' and '@(_AutomaticUnoMauiFont)' == ''" Text="The generated Uno MAUI host did not package the sample font." />
+    <Error Condition="'$(UnoMauiTarget)' != 'Android' and '@(_AutomaticUnoMauiAsset)' == ''" Text="The generated Uno MAUI host did not package the sample raw asset." />
+    <Error Condition="'$(UnoMauiTarget)' == 'Android' and '@(_AutomaticUnoMauiApk)' == ''" Text="The generated Uno MAUI Android host did not produce an APK." />
+  </Target>
 </Project>

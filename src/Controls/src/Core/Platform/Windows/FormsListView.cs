@@ -87,8 +87,13 @@ namespace Microsoft.Maui.Controls.Platform
 
 		protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
 		{
+#if UNO
+			base.PrepareContainerForItemOverride(element, item);
+			GroupFooterItemTemplateContext.EnsureSelectionDisabled(element, item);
+#else
 			GroupFooterItemTemplateContext.EnsureSelectionDisabled(element, item);
 			base.PrepareContainerForItemOverride(element, item);
+#endif
 		}
 
 		void UpdateEmptyViewVisibility(WVisibility visibility)

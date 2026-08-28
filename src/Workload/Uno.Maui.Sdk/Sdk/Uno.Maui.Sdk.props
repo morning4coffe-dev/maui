@@ -6,6 +6,11 @@
     <UnoMauiWasmBootstrapVersion Condition="'$(UnoMauiWasmBootstrapVersion)' == ''">10.0.96</UnoMauiWasmBootstrapVersion>
     <UnoMauiTargets Condition="'$(UnoMauiTargets)' == ''">Desktop;WebAssembly;Android</UnoMauiTargets>
     <UnoMauiTarget Condition="'$(UnoMauiTarget)' == ''">Desktop</UnoMauiTarget>
+    <UnoMauiAutoEnableAccessibility Condition="'$(UnoMauiAutoEnableAccessibility)' == ''">false</UnoMauiAutoEnableAccessibility>
+    <UnoMauiEnableStartupTracing Condition="'$(UnoMauiEnableStartupTracing)' == ''">false</UnoMauiEnableStartupTracing>
+    <UnoMauiTrimMode Condition="'$(UnoMauiTrimMode)' == ''">partial</UnoMauiTrimMode>
+    <UnoMauiOptimizeWasmRuntime Condition="'$(UnoMauiOptimizeWasmRuntime)' == ''">true</UnoMauiOptimizeWasmRuntime>
+    <UnoMauiWasmAot Condition="'$(UnoMauiWasmAot)' == ''">false</UnoMauiWasmAot>
     <UnoMauiGeneratedRoot Condition="'$(UnoMauiGeneratedRoot)' == ''">$(BaseIntermediateOutputPath)uno-maui-hosts\</UnoMauiGeneratedRoot>
   </PropertyGroup>
 </Project>

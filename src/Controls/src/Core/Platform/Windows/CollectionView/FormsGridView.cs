@@ -14,16 +14,17 @@ namespace Microsoft.Maui.Controls.Platform
 	{
 		int _span;
 		ItemsWrapGrid _wrapGrid;
-#if UNO
-		FormsGridPanel _unoGridPanel;
-#endif
 		ContentControl _emptyViewContentControl;
 		ScrollViewer _scrollViewer;
 		FrameworkElement _emptyView;
 		View _formsEmptyView;
 		Orientation _orientation;
+#if UNO
+		FormsGridPanel _unoGridPanel;
+		readonly bool _useUnoGridPanel;
+#endif
 
-		public FormsGridView()
+		public FormsGridView(bool useUnoGridPanel = false)
 		{
 			// Using the full style for this control, because for some reason on 16299 we can't set the ControlTemplate
 			// (it just fails silently saying it can't find the resource key)
@@ -32,6 +33,11 @@ namespace Microsoft.Maui.Controls.Platform
 			RegisterPropertyChangedCallback(ItemsPanelProperty, ItemsPanelChanged);
 
 			ChoosingItemContainer += OnChoosingItemContainer;
+			Loaded += OnLoaded;
+			SizeChanged += OnGridViewSizeChanged;
+#if UNO
+			_useUnoGridPanel = useUnoGridPanel;
+#endif
 		}
 
 		public int Span
@@ -40,14 +46,13 @@ namespace Microsoft.Maui.Controls.Platform
 			set
 			{
 				_span = value;
-#if UNO
-				_unoGridPanel?.InvalidateMeasure();
-				_unoGridPanel?.InvalidateArrange();
-#else
 				if (_wrapGrid != null)
 				{
 					UpdateItemSize();
 				}
+#if UNO
+				_unoGridPanel?.InvalidateMeasure();
+				_unoGridPanel?.InvalidateArrange();
 #endif
 			}
 		}
@@ -79,12 +84,19 @@ namespace Microsoft.Maui.Controls.Platform
 			{
 				_orientation = value;
 #if UNO
-				// Uno's managed ItemsWrapGrid materializes containers without measuring them.
-				ItemsPanel = new ItemsPanelTemplate(() => _unoGridPanel = new FormsGridPanel(this));
-				if (_orientation == Orientation.Horizontal)
+				if (_useUnoGridPanel)
 				{
+					ItemsPanel = new ItemsPanelTemplate(() => _unoGridPanel = new FormsGridPanel(this));
+				}
+				else if (_orientation == Orientation.Horizontal)
+				{
+					ItemsPanel = (ItemsPanelTemplate)UWPApp.Current.Resources["HorizontalGridItemsPanel"];
 					ScrollViewer.SetHorizontalScrollMode(this, WScrollMode.Auto);
 					ScrollViewer.SetHorizontalScrollBarVisibility(this, UWPControls.ScrollBarVisibility.Auto);
+				}
+				else
+				{
+					ItemsPanel = (ItemsPanelTemplate)UWPApp.Current.Resources["VerticalGridItemsPanel"];
 				}
 #else
 				if (_orientation == Orientation.Horizontal)
@@ -103,13 +115,19 @@ namespace Microsoft.Maui.Controls.Platform
 
 		void FindItemsWrapGrid()
 		{
-			_wrapGrid = this.GetFirstDescendant<ItemsWrapGrid>();
+			var wrapGrid = this.GetFirstDescendant<ItemsWrapGrid>();
 
-			if (_wrapGrid == null)
+			if (wrapGrid == null)
 			{
 				return;
 			}
 
+			if (_wrapGrid != null && _wrapGrid != wrapGrid)
+			{
+				_wrapGrid.SizeChanged -= WrapGridSizeChanged;
+			}
+
+			_wrapGrid = wrapGrid;
 			_wrapGrid.SizeChanged -= WrapGridSizeChanged;
 			_wrapGrid.SizeChanged += WrapGridSizeChanged;
 
@@ -118,9 +136,7 @@ namespace Microsoft.Maui.Controls.Platform
 
 		void OnChoosingItemContainer(ListViewBase sender, ChoosingItemContainerEventArgs args)
 		{
-#if !UNO
 			FindItemsWrapGrid();
-#endif
 		}
 
 		void WrapGridSizeChanged(object sender, SizeChangedEventArgs e)
@@ -128,35 +144,76 @@ namespace Microsoft.Maui.Controls.Platform
 			UpdateItemSize();
 		}
 
+		void OnLoaded(object sender, RoutedEventArgs e)
+		{
+			FindItemsWrapGrid();
+		}
+
+		void OnGridViewSizeChanged(object sender, SizeChangedEventArgs e)
+		{
+			if (_wrapGrid != null)
+			{
+				UpdateItemSize();
+			}
+		}
+
 		void UpdateItemSize()
 		{
+#if UNO
+			var span = Math.Max(1, Span);
+#else
+			var span = Span;
+#endif
+
 			// Avoid the ItemWrapGrid grow beyond what this grid view is configured to
-			_wrapGrid.MaximumRowsOrColumns = Span;
+			_wrapGrid.MaximumRowsOrColumns = span;
 
 			if (_orientation == Orientation.Horizontal)
 			{
-				_wrapGrid.ItemHeight = Math.Floor(_wrapGrid.ActualHeight / Span);
+				var availableHeight = _wrapGrid.ActualHeight > 0 ? _wrapGrid.ActualHeight : ActualHeight;
+				var itemHeight = Math.Floor(availableHeight / span);
+#if UNO
+				if (itemHeight > 0)
+				{
+					_wrapGrid.ItemHeight = itemHeight;
+				}
+#else
+				_wrapGrid.ItemHeight = itemHeight;
+#endif
 			}
 			else
 			{
-				if (Span > 1)
+				var availableWidth = _wrapGrid.ActualWidth > 0 ? _wrapGrid.ActualWidth : ActualWidth;
+#if UNO
+				var itemWidth = Math.Floor(availableWidth / span);
+				if (itemWidth > 0)
 				{
-					_wrapGrid.ItemWidth = Math.Floor(_wrapGrid.ActualWidth / Span);
+					_wrapGrid.ItemWidth = itemWidth;
+				}
+#else
+				if (span > 1)
+				{
+					var itemWidth = Math.Floor(availableWidth / span);
+					_wrapGrid.ItemWidth = itemWidth;
 				}
 				else
 				{
 					_wrapGrid.ClearValue(ItemsWrapGrid.ItemWidthProperty);
 				}
+#endif
 			}
 		}
 
 		void ItemsPanelChanged(DependencyObject sender, DependencyProperty dp)
 		{
 #if UNO
-			_unoGridPanel?.InvalidateMeasure();
-#else
-			FindItemsWrapGrid();
+			if (_useUnoGridPanel)
+			{
+				_unoGridPanel?.InvalidateMeasure();
+				return;
+			}
 #endif
+			FindItemsWrapGrid();
 		}
 
 		public void SetEmptyView(FrameworkElement emptyView, View formsEmptyView)
@@ -178,6 +235,7 @@ namespace Microsoft.Maui.Controls.Platform
 			_emptyViewContentControl = GetTemplateChild("EmptyViewContentControl") as ContentControl;
 
 			_scrollViewer = GetTemplateChild("ScrollViewer") as ScrollViewer;
+			FindItemsWrapGrid();
 
 			if (_emptyView != null && _emptyViewContentControl != null)
 			{
@@ -195,8 +253,13 @@ namespace Microsoft.Maui.Controls.Platform
 
 		protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
 		{
+#if UNO
+			base.PrepareContainerForItemOverride(element, item);
+			GroupFooterItemTemplateContext.EnsureSelectionDisabled(element, item);
+#else
 			GroupFooterItemTemplateContext.EnsureSelectionDisabled(element, item);
 			base.PrepareContainerForItemOverride(element, item);
+#endif
 		}
 
 		void UpdateEmptyViewVisibility(WVisibility visibility)

@@ -2,9 +2,12 @@
   <PropertyGroup>
     <TargetFramework>net10.0-android36.0</TargetFramework>
     <OutputType>Exe</OutputType>
+    <SampleProject>true</SampleProject>
     <AssemblyName>$(UnoMauiGeneratedProjectName)</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
     <ApplicationTitle Condition="'$(UnoMauiApplicationTitle)' != ''">$(UnoMauiApplicationTitle)</ApplicationTitle>
     <ApplicationTitle Condition="'$(ApplicationTitle)' == ''">MAUI on Uno</ApplicationTitle>
     <ApplicationId>$(UnoMauiApplicationId)</ApplicationId>
@@ -21,7 +24,9 @@
     <UnoMauiDisableAppFactoryGeneration>true</UnoMauiDisableAppFactoryGeneration>
   </PropertyGroup>
 
+  <Import Project="$(UnoMauiResourceManifest)" Condition="Exists('$(UnoMauiResourceManifest)')" />
   <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.Source.props" />
+  <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.GeneratedHost.targets" />
 
   <ItemGroup>
     <PackageReference Include="Uno.WinUI.Runtime.Skia.Android" Version="$(UnoMauiUnoVersion)" />
@@ -30,7 +35,37 @@
   <ItemGroup>
     <ProjectReference
       Include="$(UnoMauiAppProject)"
+      AdditionalProperties="$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true"
       SkipGetTargetFrameworkProperties="true"
-      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true" />
   </ItemGroup>
+
+  <Target Name="_ValidateUnoMauiAndroidHost" BeforeTargets="PrepareForBuild">
+    <XmlPeek
+      XmlInputPath="Resources\values\Styles.xml"
+      Query="/resources/style[@name='AppTheme.Base']/@parent">
+      <Output TaskParameter="Result" ItemName="_UnoMauiAndroidThemeParent" />
+    </XmlPeek>
+    <Error
+      Condition="'@(_UnoMauiAndroidThemeParent)' != 'Theme.AppCompat.DayNight'"
+      Text="The Uno MAUI Android host theme must support light and dark system-bar appearance." />
+    <ReadLinesFromFile File="MainActivity.cs">
+      <Output TaskParameter="Lines" PropertyName="_UnoMauiAndroidActivitySource" />
+    </ReadLinesFromFile>
+    <Error
+      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('ConfigurationChanges = global::Uno.UI.ActivityHelper.AllConfigChanges'))"
+      Text="The Uno MAUI Android host activity must retain Uno's complete configuration-change handling." />
+    <Error
+      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('WindowSoftInputMode = SoftInput.AdjustResize'))"
+      Text="The Uno MAUI Android host activity must retain soft-input resize behavior." />
+    <Error
+      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('BuildVersionCodes.VanillaIceCream'))"
+      Text="The Uno MAUI Android host must apply window insets for API 35 and later." />
+    <Error
+      Condition="$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('WindowOptOutEdgeToEdgeEnforcement'))"
+      Text="The Uno MAUI Android host must not rely on the API 35 edge-to-edge opt-out." />
+    <Error
+      Condition="'$(SupportedOSPlatformVersion)' != '24.0'"
+      Text="The Uno MAUI Android host must retain API 24 as its minimum supported version." />
+  </Target>
 </Project>

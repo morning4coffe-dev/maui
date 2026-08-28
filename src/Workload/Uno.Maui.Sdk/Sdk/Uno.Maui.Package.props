@@ -6,6 +6,10 @@
     <UnoMauiPackageVersion Condition="'$(UnoMauiPackageVersion)' == ''">10.0.100-dev</UnoMauiPackageVersion>
     <UnoMauiUnoVersion Condition="'$(UnoMauiUnoVersion)' == ''">6.7.0-dev.704</UnoMauiUnoVersion>
     <UnoMauiWasmBootstrapVersion Condition="'$(UnoMauiWasmBootstrapVersion)' == ''">10.0.96</UnoMauiWasmBootstrapVersion>
+    <UnoMauiAutoEnableAccessibility Condition="'$(UnoMauiAutoEnableAccessibility)' == ''">false</UnoMauiAutoEnableAccessibility>
+    <UnoMauiEnableStartupTracing Condition="'$(UnoMauiEnableStartupTracing)' == ''">false</UnoMauiEnableStartupTracing>
+    <UnoMauiOptimizeWasmRuntime Condition="'$(UnoMauiOptimizeWasmRuntime)' == ''">true</UnoMauiOptimizeWasmRuntime>
+    <UnoMauiWasmAot Condition="'$(UnoMauiWasmAot)' == ''">false</UnoMauiWasmAot>
   </PropertyGroup>
 
   <ItemGroup>

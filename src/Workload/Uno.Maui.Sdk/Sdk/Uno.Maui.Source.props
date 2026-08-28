@@ -46,6 +46,10 @@
     <PackageReference Include="Microsoft.Maui.Resizetizer" Version="$(UnoMauiPackageVersion)" PrivateAssets="all" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(IsUnoHead)' == 'true'">
+    <PackageReference Include="Microsoft.Maui.Resizetizer" Version="$(UnoMauiPackageVersion)" PrivateAssets="all" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(UnoMauiUseSource)' == 'true'">
     <ProjectReference
       Include="$(MauiSrcDirectory)Core\src\Core.csproj"

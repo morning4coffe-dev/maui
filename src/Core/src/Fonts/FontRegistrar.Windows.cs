@@ -34,6 +34,9 @@ namespace Microsoft.Maui
 		static bool AppPackageFileExists(string filename)
 		{
 #if UNO
+			if (OperatingSystem.IsBrowser())
+				return true;
+
 			return File.Exists(Path.Combine(AppContext.BaseDirectory, filename));
 #else
 			return FileSystemUtils.AppPackageFileExists(filename);

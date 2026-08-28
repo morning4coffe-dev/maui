@@ -54,6 +54,7 @@ namespace Microsoft.Maui.Controls
 				else if (!item.IconImageSource.IsNullOrEmpty())
 				{
 					var img = new WImage();
+					img.IsHitTestVisible = false;
 					img.SetBinding(WImage.SourceProperty, "Value");
 					img.SetBinding(WImage.DataContextProperty, "IconImageSource", _imageConverter);
 					button.Content = img;
