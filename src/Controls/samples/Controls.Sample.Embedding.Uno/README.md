@@ -153,18 +153,23 @@ What remains is **P5 — productization**:
 - **G12. Only Desktop and WebAssembly heads exist.** Android, iOS and Skia-desktop heads should also work
   and are untested.
 
-WebAssembly window-scoped behaviour is now verified by a **real browser run**: the probe is enabled by the
+WebAssembly window-scoped behaviour is verified by a **real browser run**: the probe is enabled by the
 `MauiUnoTier2Probe` build switch, publishes its verdict to the document title, and a headless Chromium run
-reads that title over the DevTools endpoint. The current Debug WebAssembly result is `TIER2-RESULT PASS`,
-which covers alerts, prompts, action sheets, modal navigation, stack navigation, second-page rejection,
-the off-UI-thread alert regression, and content replacement.
+reads that title over the DevTools endpoint. Both **Debug** and **trimmed Release** WebAssembly report
+`TIER2-RESULT PASS`, with all 23 assertions passing — alerts, prompts, action sheets, modal navigation,
+stack navigation, second-page rejection, the off-UI-thread alert regression, and content replacement.
 
-A **trimmed Release** WebAssembly run is still outstanding. It is blocked on the environment rather than
-the code: the Emscripten native cache under `%TEMP%\emsdk-cache` is shared by every build on the machine
-and by every installed emsdk version, and a concurrent build re-linking it leaves it half-populated
-(`unable to find library -lsockets`, then a missing `sysroot/include/emscripten/version.h`). Uno's emsdk
-wrapper does not honour `EM_CACHE`, so the cache cannot be isolated per build. Run it on a machine with no
-competing WebAssembly build, or after clearing that cache.
+The trimmed run is the more interesting of the two, because MAUI reaches a lot of its Windows handler
+surface through reflection and dynamic resource lookup. `PublishTrimmed=true` takes
+`Microsoft.Maui.Controls.dll` from 2105 KB to 1119 KB and the probe still passes, so nothing on the
+embedding path is being reached in a way the trimmer cannot see. That result depends on `MauiHost` taking
+an element instance rather than activating a `Type`; see the note at the end of this file.
+
+Reproducing a trimmed run needs a machine with no competing WebAssembly build. The Emscripten native cache
+under `%TEMP%\emsdk-cache` is shared by every build on the machine and by every installed emsdk version, and
+a concurrent build re-linking it leaves it half-populated (`unable to find library -lsockets`, then a
+missing `sysroot/include/emscripten/version.h`). Uno's emsdk wrapper does not honour `EM_CACHE`, so the
+cache cannot be isolated per build; clear it and rebuild if a run has already corrupted it.
 
 ### Verifying
 
@@ -177,11 +182,21 @@ dotnet build WebAssembly\Controls.Sample.Embedding.Uno.WebAssembly.csproj -p:Mau
 dotnet run --project WebAssembly\Controls.Sample.Embedding.Uno.WebAssembly.csproj --no-build
 chrome --headless=new --remote-debugging-port=9222 http://127.0.0.1:<port>/
 # poll http://127.0.0.1:9222/json/list until the page title reports TIER2-RESULT PASS or FAIL
+
+# WebAssembly, trimmed Release
+dotnet publish WebAssembly\Controls.Sample.Embedding.Uno.WebAssembly.csproj -c Release -p:MauiUnoTier2Probe=true
+# `dotnet run` serves build output, not publish output, so serve the published wwwroot with any static
+# server that returns application/wasm for .wasm, then point the same headless Chromium run at it.
 ```
+
+Restoring one head overwrites the shared `project.assets.json` and drops the other head's target, so
+re-restore for the head being built when switching between Desktop and WebAssembly.
 
 The probe writes `tier2-probe.log` to the temp directory where a filesystem is available, shows its report
 in the app, and always publishes `TIER2-RESULT PASS`/`FAIL` to the document title and standard output so a
-headless run can collect it.
+headless run can collect it. Uno renders to a canvas on WebAssembly, so the per-assertion report is only
+readable from the console or the on-screen text — the document title is what an automated run should key
+off.
 
 ### What was closed, and how
 
@@ -195,6 +210,7 @@ headless run can collect it.
 | G6 alert dispatch | A failed `TryEnqueue` now completes the caller's arguments instead of hanging it, and the alert and prompt queue slots are cleared in `finally` so a failed dialog cannot poison later ones. |
 | G7 API shape | `ToPlatformEmbeddedWindowRoot` is replaced by `CreateEmbeddedWindowRoot`, which validates its context and its page-is-the-window-page precondition, and returns a disposable root. |
 | G8 probe asserted nothing | `Tier2Probe` is now a pass/fail harness with per-operation timeouts, and covers two-button alerts, prompts, action sheets and the second-page rejection. |
+| G9 WebAssembly never actually run | The probe is driven in headless Chromium and reports its verdict through the document title. Debug and trimmed Release both pass all 23 assertions. |
 
 ### Checked and found not to be a problem
 
