@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Embedding.Uno;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -16,7 +17,6 @@ using MauiNavigationPage = Microsoft.Maui.Controls.NavigationPage;
 using MauiPage = Microsoft.Maui.Controls.Page;
 using AppTheme = Microsoft.Maui.ApplicationModel.AppTheme;
 using MauiApplication = Microsoft.Maui.Controls.Application;
-using MauiBinding = Microsoft.Maui.Controls.Binding;
 
 namespace Maui.Controls.Sample.Uno;
 
@@ -34,6 +34,18 @@ public sealed class Tier2ProbeResult
 
 	/// <summary>Gets the human readable report.</summary>
 	public string Report { get; }
+}
+
+/// <summary>
+/// The binding source used to verify that the host's data context reaches embedded MAUI content.
+/// </summary>
+/// <remarks>
+/// Top level rather than nested in <see cref="Tier2Probe"/> because MAUI's typed bindings are produced by
+/// an interceptor that has to be able to name this type.
+/// </remarks>
+public sealed class Tier2ProbeViewModel
+{
+	public string? Name { get; set; }
 }
 
 /// <summary>
@@ -295,12 +307,15 @@ public static class Tier2Probe
 		try
 		{
 			var label = new MauiLabel();
-			label.SetBinding(MauiLabel.TextProperty, new MauiBinding(nameof(ProbeViewModel.Name)));
+
+			// A typed binding, not a string path: string paths carry RequiresUnreferencedCode and fail the
+			// trimmed WebAssembly publish this sample is verified against.
+			label.SetBinding(MauiLabel.TextProperty, static (Tier2ProbeViewModel model) => model.Name);
 
 			viewHost.MauiContent = label;
-			viewHost.DataContext = new ProbeViewModel { Name = "bound through DataContext" };
+			viewHost.DataContext = new Tier2ProbeViewModel { Name = "bound through DataContext" };
 
-			var bridged = await WaitForAsync(() => label.BindingContext is ProbeViewModel);
+			var bridged = await WaitForAsync(() => label.BindingContext is Tier2ProbeViewModel);
 			check(ContextName, bridged, label.BindingContext?.GetType().Name ?? "null");
 
 			var resolved = await WaitForAsync(() => label.Text == "bound through DataContext");
@@ -341,10 +356,6 @@ public static class Tier2Probe
 		return condition();
 	}
 
-	sealed class ProbeViewModel
-	{
-		public string? Name { get; set; }
-	}
 
 	// Regression test for a crash found during QA: requesting an alert whose state machine runs on a
 	// thread-pool thread made Uno materialize the ContentDialog template off the UI thread. Because the
