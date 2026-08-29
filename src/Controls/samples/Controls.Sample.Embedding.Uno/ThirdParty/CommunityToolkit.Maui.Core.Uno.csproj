@@ -1,0 +1,90 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    CommunityToolkit.Maui.Core, compiled from source against the neutral net10.0 MAUI build.
+
+    Kept separate from the main library, exactly as upstream ships it, because the two halves need different
+    global usings: Core resolves ILayout to Microsoft.Maui.ILayout, while the main library resolves Layout to
+    Microsoft.Maui.Controls.Layout. Merging them makes ILayout ambiguous.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>CommunityToolkit.Maui.Core.Uno</AssemblyName>
+    <RootNamespace>CommunityToolkit.Maui.Core</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <NoWarn>$(NoWarn);CS0618;CS1591;CA1416;CS8618;CS8625;CS0067;RS0030;Uno0001;IL2072;IL2111;MCTEXP001</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <CommunityToolkitMauiSourceRoot Condition="'$(CommunityToolkitMauiSourceRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\..\external\CommunityToolkit.Maui\src\</CommunityToolkitMauiSourceRoot>
+  </PropertyGroup>
+
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
+  <PropertyGroup>
+    <_MauiUnoBuildProperties>$(_MauiUnoProjectReferenceProperties)</_MauiUnoBuildProperties>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+    <BuildInParallel>false</BuildInParallel>
+    <!-- Select the toolkit's supported "any platform" configuration; see the main project for why. -->
+    <DefineConstants>$(DefineConstants.Replace('WINDOWS;', '').Replace(';WINDOWS', ''))</DefineConstants>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ProjectReference>
+      <GlobalPropertiesToRemove>TargetFrameworks;RuntimeIdentifiers;SelfContained</GlobalPropertiesToRemove>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+
+  <!-- Core deliberately does not import Microsoft.Maui.Controls; see the note above. -->
+  <ItemGroup>
+    <Using Include="Microsoft.Maui" />
+    <Using Include="Microsoft.Maui.Graphics" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\..\Core\src\Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\..\Graphics\src\Graphics\Graphics.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <!--
+      Referenced, but deliberately not imported as a global using. MAUI's own source generators run over this
+      project and emit code that needs Microsoft.Maui.Controls types; the reference satisfies them, while
+      keeping the namespace out of the global usings is what stops ILayout becoming ambiguous.
+    -->
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\src\Core\Controls.Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\src\Xaml\Controls.Xaml.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Interfaces\IDockLayout.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Interfaces\IUniformItemsLayout.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Primitives\DockPosition.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Layouts\DockLayoutManager.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Layouts\UniformItemsLayoutManager.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Extensions\ColorConversionExtensions.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Extensions\MathExtensions.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Extensions\ObservableCollectionExtensions.shared.cs" />
+  </ItemGroup>
+
+</Project>

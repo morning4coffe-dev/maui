@@ -194,6 +194,7 @@ Results from a **trimmed Release WebAssembly publish in headless Chromium**:
 | `SwipeView` | `SwipeControl` | Content renders |
 | `IndicatorView` | `MauiPageControl` | Works |
 | Gestures (`Tap`, `Pan`) and animation | `ContentPanel`, `MauiButton` | Realized |
+| `CommunityToolkit UniformItemsLayout`, `CommunityToolkit DockLayout` | `LayoutPanel` | Works — third-party library, compiled from source |
 | `CollectionView`, `CarouselView`, `RefreshView` | `FormsListView`, `RefreshContainer` | **Realized and arranged, but nothing is painted** |
 | `GraphicsView` | — | **Hangs the layout; omitted by default** |
 
@@ -224,6 +225,54 @@ Both are triageable without a rebuild:
 $env:MAUI_UNO_GALLERY_CARDS = "4"   # build only the first four cards, to bisect a hang
 $env:MAUI_UNO_GALLERY_SKIP  = ""    # clear the default omissions, to reproduce the GraphicsView hang
 ```
+
+## Third-party MAUI controls
+
+The gallery's last card uses **CommunityToolkit.Maui**, a genuinely external MAUI control library, running
+on WebAssembly. `UniformItemsLayout` and `DockLayout` both render correctly in a trimmed Release browser
+build.
+
+### Why the NuGet package cannot be used
+
+A third-party MAUI package ships assemblies compiled against the shipping `Microsoft.Maui.Controls`, which
+is itself compiled against the Windows App SDK. This repository's `Microsoft.Maui.Controls` is a *different
+build of the same assembly*, compiled against `Uno.WinUI`. Any platform-specific type in that package would
+bind to the wrong `Microsoft.UI.Xaml`. The library therefore has to be recompiled from source — which is
+precisely the move this repository already makes for MAUI itself. **The interesting result is that this
+generalises: the trick is not MAUI-specific.**
+
+The toolkit is MIT licensed, is pinned as a submodule at `external/CommunityToolkit.Maui`, and is consumed
+**unmodified** — only the build is different. Initialise it before building:
+
+```powershell
+git submodule update --init --recursive
+```
+
+### What is compiled, and what is not
+
+`ThirdParty/CommunityToolkit.Maui.Core.Uno.csproj` and `ThirdParty/CommunityToolkit.Maui.Uno.csproj`
+compile a curated subset. Three constraints decided that subset, and each is worth knowing before extending
+it:
+
+- **The toolkit's own source generator cannot be built here.** Current `main` generates its bindable
+  properties from a `[BindableProperty]` attribute, and that generator needs `Microsoft.CodeAnalysis.CSharp`
+  and `PolySharp`, neither of which is in the local package cache while nuget.org is unreachable. On `main`
+  31 files depend on it; on the pinned **9.1.1** only one does (`Expander`), which is why 9.1.1 is pinned
+  and `Expander` is excluded.
+- **Core and the main library need different global usings.** Core resolves `ILayout` to
+  `Microsoft.Maui.ILayout`; the main library resolves `Layout` to `Microsoft.Maui.Controls.Layout`. Merging
+  them into one assembly makes `ILayout` ambiguous, so they stay split exactly as upstream ships them. Core
+  still *references* `Microsoft.Maui.Controls` — MAUI's own source generators emit code that needs it — but
+  deliberately does not import it as a global using.
+- **9.1.1 targets MAUI 8, and this repository is MAUI 10.** Areas that drifted (SpeechToText, Popup and
+  DrawingView handlers, Essentials) do not compile. The converters are excluded for a subtler reason:
+  `BaseConverter` reaches for the toolkit's `Options` type, which pulls in the Behaviors and Alerts
+  namespaces and their platform services.
+
+The `WINDOWS` define is also removed for these two projects. `UnoTargeting.props` defines it so MAUI's
+Windows handlers compile against Uno.WinUI, but the toolkit's Windows sources reach past XAML into
+`System.Speech`, `Windows.UI.Input.Inking`, `Windows.Storage.Pickers` and `Windows.UI.Notifications`, none
+of which exist in a browser. Dropping the define selects the toolkit's own supported neutral build.
 
 ## Remaining gaps
 

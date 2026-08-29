@@ -1,0 +1,109 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Compiles the .NET MAUI Community Toolkit from source against the neutral net10.0 MAUI build, so a real
+    third-party MAUI control library can run on a platform MAUI does not support.
+
+    Why from source rather than from the NuGet package: a third-party MAUI package ships assemblies compiled
+    against the shipping Microsoft.Maui.Controls, which is itself compiled against the Windows App SDK. This
+    repository's Microsoft.Maui.Controls is a different build of the same assembly, compiled against
+    Uno.WinUI. Any platform-specific type in the package would therefore bind to the wrong Microsoft.UI.Xaml.
+    Recompiling from source is the same move this repository already makes for MAUI itself.
+
+    The toolkit is MIT licensed and is consumed unmodified; only the build is different.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>CommunityToolkit.Maui.Uno</AssemblyName>
+    <RootNamespace>CommunityToolkit.Maui</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- Third-party source: its warnings are not this repository's to fix. -->
+    <NoWarn>$(NoWarn);CS0618;CS1591;CA1416;CS8618;CS8625;CS0067;RS0030;Uno0001;IL2072;IL2111;MCTEXP001;CS0612</NoWarn>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <CommunityToolkitMauiSourceRoot Condition="'$(CommunityToolkitMauiSourceRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\..\external\CommunityToolkit.Maui\src\</CommunityToolkitMauiSourceRoot>
+  </PropertyGroup>
+
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
+  <PropertyGroup>
+    <_MauiUnoBuildProperties>$(_MauiUnoProjectReferenceProperties)</_MauiUnoBuildProperties>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+    <BuildInParallel>false</BuildInParallel>
+    <!--
+      Build the toolkit's own "any platform" configuration. UnoTargeting.props defines WINDOWS so that MAUI's
+      Windows handlers compile against Uno.WinUI, but the toolkit's Windows sources reach past XAML into
+      System.Speech, Windows.UI.Input.Inking, Windows.Storage.Pickers and Windows.UI.Notifications, none of
+      which exist in a browser. Dropping the define selects the toolkit's supported neutral build, whose
+      .net.cs implementations stand in for those platform services.
+    -->
+    <DefineConstants>$(DefineConstants.Replace('WINDOWS;', '').Replace(';WINDOWS', ''))</DefineConstants>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ProjectReference>
+      <GlobalPropertiesToRemove>TargetFrameworks;RuntimeIdentifiers;SelfContained</GlobalPropertiesToRemove>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+
+  <!-- The toolkit is written against the MAUI SDK's global usings, which this project does not get. -->
+  <ItemGroup>
+    <Using Include="Microsoft.Maui" />
+    <Using Include="Microsoft.Maui.Controls" />
+    <Using Include="Microsoft.Maui.Controls.Hosting" />
+    <Using Include="Microsoft.Maui.Controls.Xaml" />
+    <Using Include="Microsoft.Maui.Graphics" />
+    <Using Include="Microsoft.Maui.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)CommunityToolkit.Maui.Core.Uno.csproj" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\..\Core\src\Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\..\Essentials\src\Essentials.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\..\Graphics\src\Graphics\Graphics.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\src\Core\Controls.Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\src\Xaml\Controls.Xaml.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+
+  <!--
+    A curated subset rather than the whole library. The toolkit release that builds without its source
+    generator is 9.1.1, which targets MAUI 8, and several of its areas no longer line up with the MAUI in
+    this repository. The layouts are self-contained; the converters are not, because BaseConverter reaches
+    for the toolkit's Options type, which in turn pulls in the Behaviors and Alerts namespaces and their
+    platform services.
+  -->
+  <ItemGroup>
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Layouts\DockLayout.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Layouts\UniformItemsLayout.shared.cs" />
+  </ItemGroup>
+
+</Project>
+

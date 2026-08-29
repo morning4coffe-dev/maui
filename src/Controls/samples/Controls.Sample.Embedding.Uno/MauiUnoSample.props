@@ -61,5 +61,17 @@
       Include="$(MSBuildThisFileDirectory)..\..\src\Embedding.Uno\Microsoft.Maui.Controls.Embedding.Uno.csproj"
       SkipGetTargetFrameworkProperties="true"
       SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <!--
+      A real third-party MAUI control library, compiled from source against this repository's neutral MAUI
+      build. See ThirdParty/CommunityToolkit.Maui.Uno.csproj for why the NuGet package cannot be used.
+    -->
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)ThirdParty\CommunityToolkit.Maui.Core.Uno.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)ThirdParty\CommunityToolkit.Maui.Uno.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
   </ItemGroup>
 </Project>
