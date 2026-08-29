@@ -20,9 +20,38 @@ public sealed class UnoEmbeddingApplication : PlatformApplication
 	{
 		Resources.MergedDictionaries.Add(new XamlControlsResources());
 
+		UnhandledException += (_, args) => Trace("Application.UnhandledException", args.Exception);
+		AppDomain.CurrentDomain.UnhandledException += (_, args) => Trace("AppDomain", args.ExceptionObject as Exception);
+		System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, args) => Trace("Task", args.Exception);
+
 		// Registering the factory is cheap; the MauiApp itself is built lazily on the UI thread when the
 		// first island is realized, which is the only point at which the bootstrap's requirements are met.
 		MauiEmbeddingSession.UseMauiApp(MauiProgram.CreateMauiApp);
+	}
+
+	/// <summary>
+	/// Records failures that would otherwise be invisible.
+	/// </summary>
+	/// <remarks>
+	/// Embedded handler failures surface late and quietly: a desktop host shows no console, and a handler
+	/// that throws during a layout pass leaves no other trace. This writes to a log next to the probe's.
+	/// </remarks>
+	static void Trace(string source, Exception? exception)
+	{
+		var message = $"=== {source} ==={Environment.NewLine}{exception}{Environment.NewLine}";
+
+		Console.WriteLine(message);
+
+		try
+		{
+			System.IO.File.AppendAllText(
+				System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shell-failure.log"),
+				message);
+		}
+		catch (Exception)
+		{
+			// Diagnostics only, and the browser head has no writable file system.
+		}
 	}
 
 	protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
@@ -34,7 +63,15 @@ public sealed class UnoEmbeddingApplication : PlatformApplication
 		// cannot move up into Program.Main.
 		_session = MauiEmbeddingSession.GetOrCreate(_window);
 
-		_window.Content = new MainShell(_session);
+		try
+		{
+			_window.Content = new MainShell(_session);
+		}
+		catch (Exception ex)
+		{
+			Trace("MainShell construction", ex);
+			throw;
+		}
 
 		// MAUI's window-scoped services wait on real activation, so these are relayed from the native
 		// window rather than raised while the content is still being constructed.

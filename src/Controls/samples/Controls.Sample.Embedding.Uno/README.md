@@ -43,6 +43,8 @@ The reusable runtime lives outside the sample, in `src/Controls/src/Embedding.Un
 | `Shared/MainShell.cs` | Uno-owned UI; MAUI islands interleaved with Uno content |
 | `Shared/MauiIslandPage.cs` | Tier 2 island: a `Page` exercising alerts and modal navigation |
 | `Shared/MyMauiContent.cs` | Tier 1 island: a plain `ContentView` |
+| `Shared/AdvancedMauiContent.cs` | Tier 1 island: a gallery of the more demanding MAUI controls |
+| `Shared/ControlCensus.cs` | Per-control report of what actually reached the platform |
 | `Shared/Tier2Probe.cs` | Code-driven verification of the window-scoped features |
 | `Shared/MauiProgram.cs`, `Shared/App.cs` | The embedded MAUI app |
 
@@ -174,6 +176,54 @@ Window overlays are a separate mechanism and remain unsupported; see below.
 - **One window page per Uno window.** A window has exactly one `Page`, so only the first page-based
   island gets Tier 2 treatment. A second page-based island now throws rather than silently inheriting the
   first island's navigation proxy and alert manager; host further islands as views, or use another window.
+
+## Advanced control gallery
+
+The third island (`AdvancedMauiContent`) is a gallery of the more demanding MAUI controls, used to map what
+actually survives the trip through Uno's renderer. `ControlCensus` runs on load and reports, per control,
+the realized Uno platform view, its arranged size, how many descendants it realized, and how many of them
+carry text. It writes to `control-census.log` and to the console, and is shown in the app.
+
+Results from a **trimmed Release WebAssembly publish in headless Chromium**:
+
+| Control | Platform view | Result |
+| --- | --- | --- |
+| `Editor`, `SearchBar`, `Picker`, `DatePicker`, `TimePicker`, `Stepper`, `Switch`, `CheckBox`, `RadioButton`, `ProgressBar` | `TextBox`, `AutoSuggestBox`, `ComboBox`, `CalendarDatePicker`, `TimePicker`, `MauiStepper`, `ToggleSwitch`, `CheckBox`, `RadioButton`, `ProgressBar` | Works |
+| `Ellipse`, `Polygon`, `Border` with gradient stroke and asymmetric corners | `W2DGraphicsView`, `ContentPanel` | Works, gradients included |
+| `FlexLayout`, `AbsoluteLayout` | `LayoutPanel` | Works, including wrapping and overlap |
+| `SwipeView` | `SwipeControl` | Content renders |
+| `IndicatorView` | `MauiPageControl` | Works |
+| Gestures (`Tap`, `Pan`) and animation | `ContentPanel`, `MauiButton` | Realized |
+| `CollectionView`, `CarouselView`, `RefreshView` | `FormsListView`, `RefreshContainer` | **Realized and arranged, but nothing is painted** |
+| `GraphicsView` | — | **Hangs the layout; omitted by default** |
+
+### The two failures, precisely
+
+**`FormsListView`-backed controls paint nothing on WebAssembly.** This is not a data, template or binding
+problem, and it is not a missing handler. The census shows the item subtrees fully realized *and* arranged
+with correct sizes — `CollectionView` reports 70 descendants of which 52 have a non-zero size,
+`CarouselView` 105 and 70, `RefreshView` 81 and 62 — and the containers themselves are laid out at the
+right dimensions. They simply never draw. `RefreshView` is blank only because it contains a
+`CollectionView`; the two genuinely distinct casualties are `CollectionView` and `CarouselView`, which
+share the `FormsListView` platform view. `IndicatorView`, which is a different platform control, paints its
+dots correctly right next to the blank carousel.
+
+This is why the census reports **realized**, not rendered: no cheap in-process signal distinguishes "laid
+out" from "painted", so painting is only ever confirmed from a screenshot.
+
+**`GraphicsView` puts the layout into a loop that never settles.** No exception is raised and nothing is
+logged; the UI thread simply never completes a pass and the working set climbs without bound — roughly
+2 GB to 6 GB in fifteen seconds before the process has to be killed. Because a hung layout takes the whole
+app down, it cannot be left in a demo gallery, so it is omitted by default. Note that `Ellipse` and
+`Polygon` render through the very same `W2DGraphicsView` platform view without trouble, so the fault is in
+the `GraphicsView` control rather than in Win2D-on-Uno generally.
+
+Both are triageable without a rebuild:
+
+```powershell
+$env:MAUI_UNO_GALLERY_CARDS = "4"   # build only the first four cards, to bisect a hang
+$env:MAUI_UNO_GALLERY_SKIP  = ""    # clear the default omissions, to reproduce the GraphicsView hang
+```
 
 ## Remaining gaps
 

@@ -22,10 +22,13 @@ internal sealed class MainShell : UserControl
 	readonly MauiEmbeddingSession _session;
 	readonly MauiHost _firstHost;
 	readonly MauiHost _secondHost;
+	readonly MauiHost _galleryHost;
+	readonly AdvancedMauiContent _gallery;
 	readonly PlatformBorder _secondHostContainer;
 	readonly StackPanel _hostPanel;
 	readonly TextBlock _diagnostics;
 	readonly TextBlock _probeResults;
+	readonly TextBlock _censusResults;
 
 	int _replacementCount;
 
@@ -35,6 +38,8 @@ internal sealed class MainShell : UserControl
 
 		_firstHost = CreateHost();
 		_secondHost = CreateHost();
+		_galleryHost = CreateHost();
+		_gallery = new AdvancedMauiContent(GalleryCardLimit, GallerySkippedCards);
 		_secondHostContainer = CreateHostContainer(_secondHost);
 
 		_diagnostics = new TextBlock
@@ -60,12 +65,29 @@ internal sealed class MainShell : UserControl
 			Margin = new Thickness(0, 4, 0, 0),
 		};
 
+		_censusResults = new TextBlock
+		{
+			TextWrapping = TextWrapping.NoWrap,
+			FontFamily = new FontFamily("Consolas"),
+			FontSize = 11,
+			Opacity = 0.8,
+			Margin = new Thickness(0, 4, 0, 0),
+		};
+
 		// Capped so the report cannot squeeze the MAUI islands out of view.
 		var probeResultsHost = new ScrollViewer
 		{
 			MaxHeight = 150,
 			VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
 			Content = _probeResults,
+		};
+
+		var censusResultsHost = new ScrollViewer
+		{
+			MaxHeight = 160,
+			VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+			HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+			Content = _censusResults,
 		};
 
 		_hostPanel = new StackPanel
@@ -81,6 +103,14 @@ internal sealed class MainShell : UserControl
 					Opacity = 0.8,
 				},
 				_secondHostContainer,
+				new TextBlock
+				{
+					Text = "Advanced MAUI controls — CollectionView, CarouselView, RefreshView, SwipeView, "
+						+ "GraphicsView, shapes, inputs, layouts, gestures and animation, all rendered by Uno.",
+					TextWrapping = TextWrapping.Wrap,
+					Opacity = 0.8,
+				},
+				CreateHostContainer(_galleryHost),
 			},
 		};
 
@@ -109,6 +139,7 @@ internal sealed class MainShell : UserControl
 				},
 				_diagnostics,
 				probeResultsHost,
+				censusResultsHost,
 			},
 		};
 
@@ -148,10 +179,36 @@ internal sealed class MainShell : UserControl
 		// that view-level embedding still works alongside it.
 		_firstHost.MauiContent = new NavigationPage(new MauiIslandPage("First MAUI island (window-level)"));
 		_secondHost.MauiContent = new MyMauiContent("Second MAUI island (view-level)");
+		_galleryHost.MauiContent = _gallery;
 
 		Loaded += OnLoaded;
 
 		UpdateDiagnostics();
+	}
+
+	/// <summary>
+	/// Gets how many gallery cards to build, so a layout that never settles can be bisected without a
+	/// rebuild. Unset means all of them.
+	/// </summary>
+	static int GalleryCardLimit =>
+		int.TryParse(Environment.GetEnvironmentVariable("MAUI_UNO_GALLERY_CARDS"), out var limit) && limit >= 0
+			? limit
+			: int.MaxValue;
+
+	/// <summary>
+	/// Gets the gallery cards to omit. Setting the variable at all replaces the defaults, so setting it to
+	/// an empty value re-enables every card, which is how the known-bad ones are reproduced.
+	/// </summary>
+	static IReadOnlyCollection<string> GallerySkippedCards
+	{
+		get
+		{
+			var configured = Environment.GetEnvironmentVariable("MAUI_UNO_GALLERY_SKIP");
+
+			return configured is null
+				? AdvancedMauiContent.DefaultSkippedCards
+				: configured.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+		}
 	}
 
 	MauiHost CreateHost()
@@ -174,9 +231,31 @@ internal sealed class MainShell : UserControl
 
 	void OnLoaded(object sender, RoutedEventArgs args)
 	{
+		// The census is cheap and read-only, so it always runs: it is the map of which advanced controls
+		// actually reach the platform, and it is useful whether or not the Tier 2 probe is enabled.
+		_ = RunCensusAsync();
+
 		if (Tier2Probe.IsEnabled)
 		{
 			RunTier2Probe();
+		}
+	}
+
+	async Task RunCensusAsync()
+	{
+		try
+		{
+			var report = await ControlCensus.RunAsync(_gallery);
+
+			ControlCensus.Publish(report);
+			_censusResults.Text = report;
+		}
+		catch (Exception ex)
+		{
+			var message = $"CENSUS-RESULT failed — {ex.GetType().Name}: {ex.Message}";
+
+			ControlCensus.Publish(message);
+			_censusResults.Text = message;
 		}
 	}
 
