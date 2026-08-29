@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
+using CommunityToolkit.Maui.Core;
+using CommunityToolkit.Maui.Layouts;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
@@ -129,6 +131,7 @@ public sealed class AdvancedMauiContent : ContentView
 			("Inputs", "Input controls", BuildInputs),
 			("Layouts", "FlexLayout and AbsoluteLayout", BuildLayouts),
 			("Gestures", "Gestures and animation", BuildGesturesAndAnimation),
+			("ThirdParty", "Third party: CommunityToolkit.Maui", BuildThirdPartyControls),
 		};
 
 		var layout = new VerticalStackLayout
@@ -560,4 +563,93 @@ public sealed class AdvancedMauiContent : ContentView
 	}
 
 	void Log(string message) => _eventLog.Text = $"Interaction log: {message}";
+
+	/// <summary>
+	/// Controls from the .NET MAUI Community Toolkit — a genuinely external library, compiled from source
+	/// against this repository's neutral MAUI build rather than consumed as a NuGet package.
+	/// </summary>
+	View BuildThirdPartyControls()
+	{
+		var uniform = Track("CommunityToolkit UniformItemsLayout", new UniformItemsLayout
+		{
+			MaxColumns = 3,
+			MaxRows = 2,
+			HeightRequest = 96,
+		});
+
+		foreach (var item in _items)
+		{
+			uniform.Children.Add(new Border
+			{
+				Margin = new Thickness(3),
+				BackgroundColor = item.Accent,
+				StrokeThickness = 0,
+				StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(6) },
+				Content = new Label
+				{
+					Text = item.Title,
+					FontSize = 11,
+					TextColor = Colors.White,
+					HorizontalOptions = LayoutOptions.Center,
+					VerticalOptions = LayoutOptions.Center,
+				},
+			});
+		}
+
+		var dock = Track("CommunityToolkit DockLayout", new DockLayout
+		{
+			HeightRequest = 130,
+			BackgroundColor = Color.FromArgb("#10808080"),
+		});
+
+		dock.Children.Add(DockedBlock("Top", Color.FromArgb("#512BD4"), DockPosition.Top, dock));
+		dock.Children.Add(DockedBlock("Bottom", Color.FromArgb("#C2255C"), DockPosition.Bottom, dock));
+		dock.Children.Add(DockedBlock("Left", Color.FromArgb("#2B8A3E"), DockPosition.Left, dock));
+		dock.Children.Add(DockedBlock("Right", Color.FromArgb("#B36A00"), DockPosition.Right, dock));
+		dock.Children.Add(DockedBlock("Fill", Color.FromArgb("#40808080"), DockPosition.None, dock));
+
+		return new VerticalStackLayout
+		{
+			Spacing = 8,
+			Children =
+			{
+				new Label
+				{
+					Text = "UniformItemsLayout — every cell the same size",
+					FontSize = 11,
+					Opacity = 0.7,
+				},
+				uniform,
+				new Label
+				{
+					Text = "DockLayout — children docked to the edges, last one fills",
+					FontSize = 11,
+					Opacity = 0.7,
+				},
+				dock,
+			},
+		};
+	}
+
+	static View DockedBlock(string text, Color color, DockPosition position, DockLayout owner)
+	{
+		var block = new Border
+		{
+			BackgroundColor = color,
+			StrokeThickness = 0,
+			Padding = new Thickness(6, 4),
+			Content = new Label
+			{
+				Text = text,
+				FontSize = 11,
+				TextColor = position == DockPosition.None ? Colors.Black : Colors.White,
+				HorizontalOptions = LayoutOptions.Center,
+				VerticalOptions = LayoutOptions.Center,
+			},
+		};
+
+		DockLayout.SetDockPosition(block, position);
+
+		return block;
+	}
 }
