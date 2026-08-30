@@ -22,10 +22,17 @@ namespace Maui.Controls.Sample.Uno;
 /// realized visible text somewhere beneath their platform view, or they are reported as EMPTY.
 /// </para>
 /// <para>
+/// Nor is size on its own a fair test. A control the MAUI element has deliberately hidden is correctly
+/// zero-sized, and an earlier version of this census reported exactly that as a failure for two toolkit
+/// converters that were in fact working — one had hidden its label, the other had bound it to empty text.
+/// The verdict is therefore taken against what the element asks for: <c>IsVisible</c> false is expected to
+/// occupy nothing, and is reported as HIDDEN rather than counted as a failure.
+/// </para>
+/// <para>
 /// <b>This census cannot tell whether anything was painted.</b> That is not a detail: on WebAssembly the
-/// items of <c>CollectionView</c>, <c>CarouselView</c> and <c>RefreshView</c> are realized and arranged
-/// with correct sizes, and still draw nothing at all. Everything here is therefore reported as
-/// <c>REALIZED</c> rather than rendered, and painting is only ever confirmed from a screenshot.
+/// items of a default-mode <c>CollectionView</c> are realized and arranged with correct sizes, and still
+/// draw nothing at all. Everything here is therefore reported as <c>REALIZED</c> rather than rendered, and
+/// painting is only ever confirmed from a screenshot.
 /// </para>
 /// </remarks>
 public static class ControlCensus
@@ -59,8 +66,37 @@ public static class ControlCensus
 				Inspect(platformView, 0, ref descendants, ref texts, ref arranged);
 			}
 
-			var passed = sized && (!expectsItems || texts > 0);
-			var verdict = !sized ? "MISSING " : passed ? "REALIZED" : "EMPTY   ";
+			// An element that asks to be hidden has done its job by occupying nothing.
+			var expectsToBeVisible = element.IsVisible;
+
+			string verdict;
+			bool passed;
+
+			if (platformView is null)
+			{
+				verdict = "MISSING ";
+				passed = false;
+			}
+			else if (!expectsToBeVisible)
+			{
+				verdict = "HIDDEN  ";
+				passed = true;
+			}
+			else if (!sized)
+			{
+				verdict = "NOSIZE  ";
+				passed = false;
+			}
+			else if (expectsItems && texts == 0)
+			{
+				verdict = "EMPTY   ";
+				passed = false;
+			}
+			else
+			{
+				verdict = "REALIZED";
+				passed = true;
+			}
 
 			if (passed)
 			{
