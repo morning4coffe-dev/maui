@@ -93,6 +93,10 @@ sealed class MauiTemplateElementFactory : ElementFactory
 		return platformView;
 	}
 
+	/// <summary>Gets the MAUI view realized for <paramref name="platformView"/>, if it is still alive.</summary>
+	public View? TryGetView(object? platformView) =>
+		platformView is PlatformView element && _realized.TryGetValue(element, out var view) ? view : null;
+
 	/// <summary>Re-applies <see cref="ItemWidth"/> and <see cref="ItemHeight"/> to realized items.</summary>
 	public void UpdateRealizedItemSizes()
 	{

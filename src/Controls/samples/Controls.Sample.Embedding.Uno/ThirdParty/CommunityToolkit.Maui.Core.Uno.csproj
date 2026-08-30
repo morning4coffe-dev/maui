@@ -77,14 +77,20 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Interfaces\IDockLayout.shared.cs" />
-    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Interfaces\IUniformItemsLayout.shared.cs" />
-    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Primitives\DockPosition.shared.cs" />
-    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Layouts\DockLayoutManager.shared.cs" />
-    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Layouts\UniformItemsLayoutManager.shared.cs" />
-    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Extensions\ColorConversionExtensions.shared.cs" />
-    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Extensions\MathExtensions.shared.cs" />
-    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Extensions\ObservableCollectionExtensions.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Interfaces\**\*.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Primitives\**\*.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Primitives\**\*.sharaed.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Layouts\**\*.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Extensions\**\*.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Options.cs" />
+    <!--
+      Essentials, Handlers, Views and Platform are left out: they are the parts that need real platform
+      services (speech, ink, pickers, notifications) or a platform handler whose neutral stub does not match
+      the handler base in this repository's MAUI.
+    -->
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Interfaces\ISpeechToText.shared.cs" />
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Interfaces\IPopup*.shared.cs" />
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui.Core\Primitives\MauiDrawingLine*.shared.cs" />
   </ItemGroup>
 
 </Project>

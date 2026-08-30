@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
+using CommunityToolkit.Maui.Animations;
+using CommunityToolkit.Maui.Behaviors;
+using CommunityToolkit.Maui.Converters;
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Layouts;
 using Microsoft.Maui;
@@ -131,7 +134,8 @@ public sealed class AdvancedMauiContent : ContentView
 			("Inputs", "Input controls", BuildInputs),
 			("Layouts", "FlexLayout and AbsoluteLayout", BuildLayouts),
 			("Gestures", "Gestures and animation", BuildGesturesAndAnimation),
-			("ThirdParty", "Third party: CommunityToolkit.Maui", BuildThirdPartyControls),
+			("ThirdParty", "Third party: CommunityToolkit.Maui layouts", BuildThirdPartyControls),
+			("ThirdPartyBehaviors", "Third party: CommunityToolkit.Maui behaviours and converters", BuildThirdPartyBehaviors),
 		};
 
 		var layout = new VerticalStackLayout
@@ -613,20 +617,98 @@ public sealed class AdvancedMauiContent : ContentView
 			Spacing = 8,
 			Children =
 			{
-				new Label
-				{
-					Text = "UniformItemsLayout — every cell the same size",
-					FontSize = 11,
-					Opacity = 0.7,
-				},
+				new Label { Text = "UniformItemsLayout — every cell the same size", FontSize = 11, Opacity = 0.7 },
 				uniform,
-				new Label
-				{
-					Text = "DockLayout — children docked to the edges, last one fills",
-					FontSize = 11,
-					Opacity = 0.7,
-				},
+				new Label { Text = "DockLayout — children docked to the edges, last one fills", FontSize = 11, Opacity = 0.7 },
 				dock,
+			},
+		};
+	}
+
+	/// <summary>
+	/// Toolkit behaviours and converters, which are the other half of what a third-party MAUI library
+	/// provides: they attach to stock MAUI controls rather than being controls themselves.
+	/// </summary>
+	View BuildThirdPartyBehaviors()
+	{
+		// MaskedBehavior rewrites input as it is typed. Seeded so the converter below has something to show.
+		var masked = Track("CommunityToolkit MaskedBehavior", new Entry
+		{
+			Placeholder = "Masked: XX-XX-XXXX",
+			Text = "ab-cd-1234",
+		});
+		masked.Behaviors.Add(new MaskedBehavior { Mask = "XX-XX-XXXX" });
+
+		// NumericValidationBehavior recolours the entry as the value moves in and out of range.
+		var numeric = Track("CommunityToolkit NumericValidationBehavior", new Entry
+		{
+			Placeholder = "Numeric 1-100, invalid turns red",
+			Keyboard = Keyboard.Numeric,
+		});
+		numeric.Behaviors.Add(new NumericValidationBehavior
+		{
+			MinimumValue = 1,
+			MaximumValue = 100,
+			MaximumDecimalPlaces = 0,
+			InvalidStyle = new Style(typeof(Entry))
+			{
+				Setters = { new Setter { Property = Entry.TextColorProperty, Value = Colors.Red } },
+			},
+			ValidStyle = new Style(typeof(Entry))
+			{
+				Setters = { new Setter { Property = Entry.TextColorProperty, Value = Color.FromArgb("#2B8A3E") } },
+			},
+			Flags = ValidationFlags.ValidateOnValueChanged,
+		});
+
+		// AnimationBehavior runs a toolkit animation on tap, with no code in the event handler.
+		var animated = Track("CommunityToolkit AnimationBehavior", new Border
+		{
+			HeightRequest = 44,
+			BackgroundColor = Color.FromArgb("#512BD4"),
+			StrokeThickness = 0,
+			StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(8) },
+			Content = new Label
+			{
+				Text = "Tap to run a toolkit FadeAnimation",
+				TextColor = Colors.White,
+				FontSize = 12,
+				HorizontalOptions = LayoutOptions.Center,
+				VerticalOptions = LayoutOptions.Center,
+			},
+		});
+		animated.Behaviors.Add(new AnimationBehavior
+		{
+			AnimationType = new FadeAnimation { Opacity = 0.2, Length = 300 },
+		});
+
+		// InvertedBoolConverter driving a stock MAUI control through an ordinary binding. The switch starts
+		// off so the inverted result is visible; toggling it on hides the label, which is the point.
+		var toggle = new Switch { IsToggled = false };
+		var invertedLabel = Track("CommunityToolkit InvertedBoolConverter", new Label { FontSize = 12 });
+		invertedLabel.SetBinding(
+			Label.IsVisibleProperty,
+			new Binding(nameof(Switch.IsToggled), source: toggle, converter: new InvertedBoolConverter()));
+		invertedLabel.Text = "Visible while the switch is off — InvertedBoolConverter";
+
+		var caseLabel = Track("CommunityToolkit TextCaseConverter", new Label { FontSize = 12 });
+		caseLabel.SetBinding(
+			Label.TextProperty,
+			new Binding(
+				nameof(Entry.Text),
+				source: masked,
+				converter: new TextCaseConverter { Type = TextCaseType.Upper }));
+
+		return new VerticalStackLayout
+		{
+			Spacing = 8,
+			Children =
+			{
+				masked,
+				numeric,
+				animated,
+				new HorizontalStackLayout { Spacing = 8, Children = { toggle, invertedLabel } },
+				caseLabel,
 			},
 		};
 	}
