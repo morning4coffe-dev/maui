@@ -39,6 +39,9 @@ public static class UnoHandlers
 			"MAUI's Windows handler renders through ListViewBase with a custom control template and " +
 			"ItemsStackPanel virtualization. On WebAssembly the item containers are realized and arranged " +
 			"at the correct sizes and then never painted.",
+		[typeof(CarouselView)] =
+			"Same cause as CollectionView: the Windows handler renders through ListViewBase and paints " +
+			"nothing on WebAssembly.",
 	};
 
 	/// <summary>
@@ -58,7 +61,10 @@ public static class UnoHandlers
 		}
 
 		builder.ConfigureMauiHandlers(handlers =>
-			handlers.AddHandler<CollectionView, UnoCollectionViewHandler>());
+		{
+			handlers.AddHandler<CollectionView, UnoCollectionViewHandler>();
+			handlers.AddHandler<CarouselView, UnoCarouselViewHandler>();
+		});
 
 		return builder;
 	}
