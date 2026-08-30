@@ -1,3 +1,6 @@
 [submodule "external/CommunityToolkit.Maui"]
 	path = external/CommunityToolkit.Maui
 	url = https://github.com/CommunityToolkit/Maui.git
+[submodule "external/Syncfusion.Maui.Toolkit"]
+	path = external/Syncfusion.Maui.Toolkit
+	url = https://github.com/syncfusion/maui-toolkit.git

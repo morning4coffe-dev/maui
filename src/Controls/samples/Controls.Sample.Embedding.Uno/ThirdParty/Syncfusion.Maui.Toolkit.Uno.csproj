@@ -1,0 +1,170 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Syncfusion's .NET MAUI Toolkit (MIT), compiled from source against the neutral net10.0 MAUI build.
+
+    Unlike CommunityToolkit.Maui, this one keeps the WINDOWS define. Its neutral "Standard" handlers are
+    deliberate stubs — SfDrawableViewHandler.Standard.cs throws NotImplementedException and declares its
+    platform view as object, which does not even satisfy the FrameworkElement constraint in this
+    repository's MAUI. The Windows handlers are the real implementations and target Microsoft.UI.Xaml,
+    which is exactly what Uno provides.
+
+    Two files are the exception: they use real Win2D (Microsoft.Graphics.Canvas), which does not exist here
+    — on the Uno target W2DGraphicsView is a Skia-backed shim in Graphics.Skia, not Win2D. Those two are
+    replaced, see below.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>Syncfusion.Maui.Toolkit.Uno</AssemblyName>
+    <RootNamespace>Syncfusion.Maui.Toolkit</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <NoWarn>$(NoWarn);CS0618;CS1591;CA1416;CS8618;CS8625;CS0067;RS0030;Uno0001;IL2072;IL2111;CS0109;CS0114</NoWarn>
+    <!-- The toolkit's resx would otherwise collide with the generated assembly attributes. -->
+    <GenerateNeutralResourcesLanguageAttribute>false</GenerateNeutralResourcesLanguageAttribute>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <SyncfusionToolkitSourceRoot Condition="'$(SyncfusionToolkitSourceRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\..\external\Syncfusion.Maui.Toolkit\maui\src\</SyncfusionToolkitSourceRoot>
+  </PropertyGroup>
+
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
+  <PropertyGroup>
+    <_MauiUnoBuildProperties>$(_MauiUnoProjectReferenceProperties)</_MauiUnoBuildProperties>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+    <BuildInParallel>false</BuildInParallel>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ProjectReference>
+      <GlobalPropertiesToRemove>TargetFrameworks;RuntimeIdentifiers;SelfContained</GlobalPropertiesToRemove>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.Maui" />
+    <Using Include="Microsoft.Maui.Controls" />
+    <Using Include="Microsoft.Maui.Controls.Hosting" />
+    <Using Include="Microsoft.Maui.Controls.Xaml" />
+    <Using Include="Microsoft.Maui.Graphics" />
+    <Using Include="Microsoft.Maui.Hosting" />
+    <Using Include="Microsoft.Maui.ApplicationModel" />
+    <Using Include="Microsoft.Maui.ApplicationModel.DataTransfer" />
+    <Using Include="Microsoft.Maui.Accessibility" />
+    <Using Include="Microsoft.Maui.Devices" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\..\Core\src\Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\..\Essentials\src\Essentials.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\..\Graphics\src\Graphics\Graphics.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\..\Graphics\src\Graphics.Skia\Graphics.Skia.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\src\Core\Controls.Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\src\Xaml\Controls.Xaml.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)TrimSuppressions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SyncfusionUnoShims.cs" />
+
+    <!--
+      Core and Charts only. Taking the whole library pulls in controls that wrap native WinUI views
+      (Carousel) or blur through Win2D composition (Popup), and each drags more of the library with it.
+      Core does reach sideways into a few control folders, which is what the removals below are for.
+    -->
+    <Compile Include="$(SyncfusionToolkitSourceRoot)Core\**\*.cs" />
+    <Compile Include="$(SyncfusionToolkitSourceRoot)Charts\**\*.cs" />
+    <Compile Include="$(SyncfusionToolkitSourceRoot)BindingHelper\**\*.cs" />
+
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)**\*.Android.cs" />
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)**\*.iOS.cs" />
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)**\*.MaciOS.cs" />
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)**\*.Tizen.cs" />
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)**\*.Standard.cs" />
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)**\obj\**\*.cs" />
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)**\bin\**\*.cs" />
+    <!-- Platform folders hold native sources that carry no suffix to filter on. -->
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)**\Platform\iOS\**\*.cs" />
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)**\Platform\Android\**\*.cs" />
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)**\Platform\MaciOS\**\*.cs" />
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)**\Platform\Tizen\**\*.cs" />
+
+    <!--
+      The two Win2D users. CanvasExtensions has a neutral counterpart that is used instead; the panel that
+      hosts the drawing surface does not, and is replaced by SyncfusionUnoShims.cs.
+    -->
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)Core\Extensions\CanvasExtensions.Windows.cs" />
+    <Compile Include="$(SyncfusionToolkitSourceRoot)Core\Extensions\CanvasExtensions.Standard.cs" />
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)Core\BaseView\PlatformView\LayoutPanelExt.Windows.cs" />
+    <!-- A third Win2D user: the popup's shadow brush composes through Microsoft.Graphics.Canvas.UI. -->
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)Popup\Helpers\ShadowHelper\**\*.Windows.cs" />
+    <!--
+      Platform\Windows holds native WinUI resource dictionaries and their code-behind, not MAUI XAML, so
+      MAUI's XAML compiler cannot parse them. They belong to the native carousel, which is not used here.
+    -->
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)**\Platform\Windows\**\*.cs" />
+    <!--
+      Syncfusion's Carousel is a wrapper around a native WinUI control, so its handler's platform view is not
+      a FrameworkElement this build can satisfy. It is dropped along with the host builder that registers it;
+      the handlers actually needed are registered explicitly in UnoHandlers instead.
+    -->
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)Carousel\**\*.cs" />
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)Core\AppHostBuilder.cs" />
+    <!-- Core's button helpers reach into the EffectsView and Chip controls, which are not built here. -->
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)Core\ButtonBase\**\*.cs" />
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)Core\Helper\IconButton\**\*.cs" />
+    <!-- Its Windows half calls helpers that live in the native platform folder dropped above. -->
+    <Compile Remove="$(SyncfusionToolkitSourceRoot)Core\KeyboardDetector\KeyboardDetector.Windows.cs" />
+    <Compile Include="$(SyncfusionToolkitSourceRoot)Core\KeyboardDetector\KeyboardDetector.Standard.cs" />
+  </ItemGroup>
+
+  <!--
+    The theme dictionaries have to be compiled: the controls reference their generated classes directly
+    (SfCartesianChartStyles and friends), so dropping the XAML drops the types with it. Link metadata keeps
+    the folder structure, without which the generator sees every file flattened into this directory.
+  -->
+  <ItemGroup>
+    <MauiXaml Include="$(SyncfusionToolkitSourceRoot)**\*.xaml"
+              Exclude="$(SyncfusionToolkitSourceRoot)**\obj\**\*.xaml;$(SyncfusionToolkitSourceRoot)**\bin\**\*.xaml;$(SyncfusionToolkitSourceRoot)**\Platform\Windows\**\*.xaml">
+      <Link>Syncfusion\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </MauiXaml>
+  </ItemGroup>
+
+  <!--
+    The toolkit's 37 XAML theme dictionaries are deliberately not compiled: MAUI's XAML compiler rejects
+    them here with MAUIG1001. Controls fall back to their coded defaults, which is enough to show them
+    rendering; full theming would need that to be solved first.
+  -->
+
+</Project>
