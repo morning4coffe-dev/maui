@@ -684,20 +684,23 @@ public sealed class AdvancedMauiContent : ContentView
 
 		// InvertedBoolConverter driving a stock MAUI control through an ordinary binding. The switch starts
 		// off so the inverted result is visible; toggling it on hides the label, which is the point.
+		// Typed rather than string-path: a string path carries RequiresUnreferencedCode and fails a trimmed
+		// publish, and the typed overload takes the converter just the same.
 		var toggle = new Switch { IsToggled = false };
 		var invertedLabel = Track("CommunityToolkit InvertedBoolConverter", new Label { FontSize = 12 });
 		invertedLabel.SetBinding(
 			Label.IsVisibleProperty,
-			new Binding(nameof(Switch.IsToggled), source: toggle, converter: new InvertedBoolConverter()));
+			static (Switch source) => source.IsToggled,
+			converter: new InvertedBoolConverter(),
+			source: toggle);
 		invertedLabel.Text = "Visible while the switch is off — InvertedBoolConverter";
 
 		var caseLabel = Track("CommunityToolkit TextCaseConverter", new Label { FontSize = 12 });
 		caseLabel.SetBinding(
 			Label.TextProperty,
-			new Binding(
-				nameof(Entry.Text),
-				source: masked,
-				converter: new TextCaseConverter { Type = TextCaseType.Upper }));
+			static (Entry source) => source.Text,
+			converter: new TextCaseConverter { Type = TextCaseType.Upper },
+			source: masked);
 
 		return new VerticalStackLayout
 		{

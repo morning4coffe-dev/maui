@@ -29,6 +29,21 @@
     <DefineConstants>$(DefineConstants);FULL_HANDLERS</DefineConstants>
   </PropertyGroup>
 
+  <!--
+    The CommunityToolkit.Maui source in the showcase is not trim-annotated: its converters call
+    Activator.CreateInstance, its behaviours build string-path bindings internally, and
+    ICommunityToolkitValueConverter annotates targetType differently from the IValueConverter it overrides.
+    None of that is fixable from here without editing third-party source, so the analysis is suppressed and
+    the result is checked the only way that actually settles it — by running the trimmed build in a browser
+    and looking at the controls.
+
+    This does mean IL2026 no longer flags a string-path binding in the sample's own code, which it has
+    caught before. Sample code therefore uses typed bindings deliberately, not incidentally.
+  -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);IL2026;IL2062;IL2089;IL2092</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Uno.Wasm.Bootstrap" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.WebAssembly.Browser" />
