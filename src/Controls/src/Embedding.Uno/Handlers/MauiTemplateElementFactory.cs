@@ -40,6 +40,17 @@ sealed class MauiTemplateElementFactory : ElementFactory
 	readonly DataTemplate _template;
 	readonly Action<object?>? _onItemInvoked;
 
+	/// <summary>
+	/// Gets or sets a fixed size for every realized item, or <see langword="null"/> to let items size to
+	/// their content.
+	/// </summary>
+	/// <remarks>
+	/// A carousel needs each item to fill the viewport, which no repeater layout does on its own.
+	/// </remarks>
+	public double? ItemWidth { get; set; }
+
+	public double? ItemHeight { get; set; }
+
 	public MauiTemplateElementFactory(
 		Element owner,
 		IMauiContext mauiContext,
@@ -72,12 +83,36 @@ sealed class MauiTemplateElementFactory : ElementFactory
 
 		_realized[platformView] = view;
 
+		ApplyItemSize(platformView);
+
 		if (_onItemInvoked is not null)
 		{
 			platformView.Tapped += OnItemTapped;
 		}
 
 		return platformView;
+	}
+
+	/// <summary>Re-applies <see cref="ItemWidth"/> and <see cref="ItemHeight"/> to realized items.</summary>
+	public void UpdateRealizedItemSizes()
+	{
+		foreach (var platformView in _realized.Keys)
+		{
+			ApplyItemSize(platformView);
+		}
+	}
+
+	void ApplyItemSize(PlatformView platformView)
+	{
+		if (ItemWidth is { } width && width > 0)
+		{
+			platformView.Width = width;
+		}
+
+		if (ItemHeight is { } height && height > 0)
+		{
+			platformView.Height = height;
+		}
 	}
 
 	protected override void RecycleElementCore(RecycleArgs args)

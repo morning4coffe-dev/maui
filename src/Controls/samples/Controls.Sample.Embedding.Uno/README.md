@@ -195,7 +195,7 @@ Results from a **trimmed Release WebAssembly publish in headless Chromium**:
 | `IndicatorView` | `MauiPageControl` | Works |
 | Gestures (`Tap`, `Pan`) and animation | `ContentPanel`, `MauiButton` | Realized |
 | `CommunityToolkit UniformItemsLayout`, `CommunityToolkit DockLayout` | `LayoutPanel` | Works — third-party library, compiled from source |
-| `CollectionView`, `CarouselView`, `RefreshView` | `FormsListView`, `RefreshContainer` | **Realized and arranged, but nothing is painted** in Default mode. Full mode fixes `CollectionView` and `RefreshView`; see Handler modes. |
+| `CollectionView`, `CarouselView`, `RefreshView` | `FormsListView`, `RefreshContainer` | **Realized and arranged, but nothing is painted** in Default mode. Full mode fixes all three; see Handler modes. |
 | `GraphicsView` | — | **Hangs the layout; omitted by default** |
 
 ### The two failures, precisely
@@ -301,18 +301,19 @@ neither an environment nor a command line the runtime can read. (The query strin
 | Virtual view | Default handler renders through | Full mode renders through |
 | --- | --- | --- |
 | `CollectionView` | `FormsListView` — a `ListViewBase` with a custom control template and `ItemsStackPanel` virtualization | `ScrollViewer` + `ItemsRepeater` with a `StackLayout` or `UniformGridLayout` |
+| `CarouselView` | `FormsListView`, same cause | `ScrollViewer` + `ItemsRepeater`, items sized to the viewport, position synced both ways |
 
 Measured on trimmed Release WebAssembly, same build, same page:
 
 | Control | Default mode | Full mode |
 | --- | --- | --- |
 | `CollectionView` | blank | **paints** |
+| `CarouselView` | blank | **paints**, with `IndicatorView` in step |
 | `RefreshView` | blank | **paints** |
-| `CarouselView` | blank | blank — still on `FormsListView` |
 
 `RefreshView` is fixed without being touched: it was only ever blank because it *contains* a
-`CollectionView`. That is the useful shape of this result — one handler replacement, two controls fixed, and
-it identifies `FormsListView` rather than the items controls as the actual fault.
+`CollectionView`. That is the useful shape of this result — it identifies `FormsListView` rather than the
+items controls as the actual fault, so replacing it fixes everything built on top of it.
 
 ### Why a replacement handler rather than a fix
 
@@ -338,8 +339,12 @@ those properties have no effect rather than throwing. Items are also not recycle
 recycled MAUI view would need re-binding and handler re-attachment; MAUI's own Windows handler does not
 recycle either.
 
-`CarouselView` is the obvious next candidate and needs its own handler; `ItemsRepeater` alone does not give
-snapping or the current-item semantics it expects.
+`UnoCarouselViewHandler` covers `ItemsSource`, `ItemTemplate`, `Position`, `CurrentItem` and
+`IsSwipeEnabled`. Snapping is done by hand — `ItemsRepeater` does not implement `IScrollSnapPointsInfo`, so
+the `ScrollViewer` has no snap points and the nearest item is scrolled to once the view stops moving.
+**`Loop` is not implemented and defaults to `true`**, so a carousel that relies on wrapping behaves
+differently here than under the default handler; `PeekAreaInsets`, `IsBounceEnabled` and `VisibleViews` are
+also unmapped.
 
 ## Remaining gaps
 
