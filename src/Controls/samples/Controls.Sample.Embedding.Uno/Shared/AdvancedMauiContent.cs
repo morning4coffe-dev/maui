@@ -702,6 +702,15 @@ public sealed class AdvancedMauiContent : ContentView
 			converter: new TextCaseConverter { Type = TextCaseType.Upper },
 			source: masked);
 
+		// The same switch bound straight through, so the pair shows the converter inverting and also keeps
+		// the census honest: this one starts hidden, which is the case that used to be reported as a failure.
+		var directLabel = Track("Bound visibility, starts hidden", new Label
+		{
+			FontSize = 12,
+			Text = "Visible while the switch is on — no converter",
+		});
+		directLabel.SetBinding(Label.IsVisibleProperty, static (Switch source) => source.IsToggled, source: toggle);
+
 		return new VerticalStackLayout
 		{
 			Spacing = 8,
@@ -711,6 +720,7 @@ public sealed class AdvancedMauiContent : ContentView
 				numeric,
 				animated,
 				new HorizontalStackLayout { Spacing = 8, Children = { toggle, invertedLabel } },
+				directLabel,
 				caseLabel,
 			},
 		};

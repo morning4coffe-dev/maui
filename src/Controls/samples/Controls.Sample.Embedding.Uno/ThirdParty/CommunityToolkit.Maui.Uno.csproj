@@ -103,6 +103,7 @@
     platform services.
   -->
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)TrimSuppressions.cs" />
     <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Layouts\**\*.shared.cs" />
     <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Converters\**\*.shared.cs" />
     <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Behaviors\**\*.shared.cs" />
