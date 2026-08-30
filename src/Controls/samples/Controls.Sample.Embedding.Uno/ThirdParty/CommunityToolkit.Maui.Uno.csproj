@@ -57,10 +57,12 @@
 
   <!-- The toolkit is written against the MAUI SDK's global usings, which this project does not get. -->
   <ItemGroup>
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
     <Using Include="Microsoft.Maui" />
     <Using Include="Microsoft.Maui.Controls" />
     <Using Include="Microsoft.Maui.Controls.Hosting" />
     <Using Include="Microsoft.Maui.Controls.Xaml" />
+    <Using Include="Microsoft.Maui.Dispatching" />
     <Using Include="Microsoft.Maui.Graphics" />
     <Using Include="Microsoft.Maui.Hosting" />
   </ItemGroup>
@@ -101,8 +103,35 @@
     platform services.
   -->
   <ItemGroup>
-    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Layouts\DockLayout.shared.cs" />
-    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Layouts\UniformItemsLayout.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Layouts\**\*.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Converters\**\*.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Behaviors\**\*.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Animations\**\*.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Extensions\**\*.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Essentials\AppTheme\**\*.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Views\LazyView\**\*.shared.cs" />
+    <Compile Include="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Options.cs" />
+    <!-- The math expression converters depend on a MathOperator type this release does not carry. -->
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Converters\MathExpressionConverter\**\*.cs" />
+    <!-- Needs CommunityToolkit.Maui.Core.Platform, which is one of the real-platform areas left out. -->
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Behaviors\PlatformBehaviors\StatusBar\**\*.cs" />
+    <!-- Registers Popup services, and Popup needs the platform handlers that are left out. -->
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Extensions\ServiceCollectionExtensions.shared.cs" />
+    <!--
+      The touch behaviours reach into MAUI internals (ImageElement) and APIs that were renamed after MAUI 8,
+      which is the version this toolkit release targets.
+    -->
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Behaviors\PlatformBehaviors\Touch\**\*.cs" />
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Behaviors\PlatformBehaviors\ImageTouch\**\*.cs" />
+    <!--
+      Further MAUI 8 to MAUI 10 drift: AppThemeBinding, IProvideParentValues and several IDispatcher
+      extensions this release calls are either internal or renamed in the MAUI in this repository.
+    -->
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Essentials\**\*.cs" />
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Extensions\AppTheme*.shared.cs" />
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Behaviors\UserStoppedTypingBehavior.shared.cs" />
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Extensions\HttpClientExtensions.shared.cs" />
+    <Compile Remove="$(CommunityToolkitMauiSourceRoot)CommunityToolkit.Maui\Layouts\StateContainer\**\*.cs" />
   </ItemGroup>
 
 </Project>
