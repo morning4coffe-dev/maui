@@ -21,6 +21,14 @@
     <DefineConstants>$(DefineConstants);TIER2_PROBE</DefineConstants>
   </PropertyGroup>
 
+  <!--
+    Selects the full handler set. The browser cannot set an environment variable and the query string does
+    not reach Environment.GetCommandLineArgs here, so the mode has to be baked in; publish twice to compare.
+  -->
+  <PropertyGroup Condition="'$(MauiUnoFullHandlers)' == 'true'">
+    <DefineConstants>$(DefineConstants);FULL_HANDLERS</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Uno.Wasm.Bootstrap" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.WebAssembly.Browser" />

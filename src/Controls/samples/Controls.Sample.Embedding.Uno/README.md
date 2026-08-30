@@ -195,7 +195,7 @@ Results from a **trimmed Release WebAssembly publish in headless Chromium**:
 | `IndicatorView` | `MauiPageControl` | Works |
 | Gestures (`Tap`, `Pan`) and animation | `ContentPanel`, `MauiButton` | Realized |
 | `CommunityToolkit UniformItemsLayout`, `CommunityToolkit DockLayout` | `LayoutPanel` | Works — third-party library, compiled from source |
-| `CollectionView`, `CarouselView`, `RefreshView` | `FormsListView`, `RefreshContainer` | **Realized and arranged, but nothing is painted** |
+| `CollectionView`, `CarouselView`, `RefreshView` | `FormsListView`, `RefreshContainer` | **Realized and arranged, but nothing is painted** in Default mode. Full mode fixes `CollectionView` and `RefreshView`; see Handler modes. |
 | `GraphicsView` | — | **Hangs the layout; omitted by default** |
 
 ### The two failures, precisely
@@ -273,6 +273,73 @@ The `WINDOWS` define is also removed for these two projects. `UnoTargeting.props
 Windows handlers compile against Uno.WinUI, but the toolkit's Windows sources reach past XAML into
 `System.Speech`, `Windows.UI.Input.Inking`, `Windows.Storage.Pickers` and `Windows.UI.Notifications`, none
 of which exist in a browser. Dropping the define selects the toolkit's own supported neutral build.
+
+## Handler modes
+
+Embedding runs in one of two handler modes.
+
+| Mode | Handlers | Use |
+| --- | --- | --- |
+| `Default` | MAUI's own, recompiled against Uno.WinUI | Unchanged behaviour; this is what every earlier result in this file describes |
+| `Full` | MAUI's own, **except** the ones that do not survive every Uno target | Opt-in, additive — only the handlers listed below are replaced |
+
+```csharp
+MauiApp.CreateBuilder()
+    .UseMauiEmbeddedApp<App>()
+    // After UseMauiEmbeddedApp: handler registration is last-one-wins, so replacing only works from here.
+    .UseUnoHandlers(UnoHandlerMode.Full)
+    .Build();
+```
+
+Selecting the mode in the sample: `MAUI_UNO_HANDLER_MODE=full` or a `handlers=full` command-line argument on
+Desktop; on WebAssembly the choice is baked in with `-p:MauiUnoFullHandlers=true`, because the browser has
+neither an environment nor a command line the runtime can read. (The query string does **not** reach
+`Environment.GetCommandLineArgs` under Uno WebAssembly, which is worth knowing before relying on it.)
+
+### What Full mode replaces, and what it fixes
+
+| Virtual view | Default handler renders through | Full mode renders through |
+| --- | --- | --- |
+| `CollectionView` | `FormsListView` — a `ListViewBase` with a custom control template and `ItemsStackPanel` virtualization | `ScrollViewer` + `ItemsRepeater` with a `StackLayout` or `UniformGridLayout` |
+
+Measured on trimmed Release WebAssembly, same build, same page:
+
+| Control | Default mode | Full mode |
+| --- | --- | --- |
+| `CollectionView` | blank | **paints** |
+| `RefreshView` | blank | **paints** |
+| `CarouselView` | blank | blank — still on `FormsListView` |
+
+`RefreshView` is fixed without being touched: it was only ever blank because it *contains* a
+`CollectionView`. That is the useful shape of this result — one handler replacement, two controls fixed, and
+it identifies `FormsListView` rather than the items controls as the actual fault.
+
+### Why a replacement handler rather than a fix
+
+The default handler's item containers are realized *and arranged at correct sizes* on WebAssembly and then
+never painted, so there is nothing the embedding layer can correct from the outside — the failure is inside
+`ListViewBase`'s templated virtualization path. `ItemsRepeater` is the portable primitive: a layout plus an
+element factory, with no control template and no platform-specific panel.
+
+Two details cost real time and are worth knowing before writing another one:
+
+- `ItemsRepeater.ItemTemplate` is typed `object` but accepts only a `DataTemplate` or something it can treat
+  as its internal element-factory shim. Assigning a bare `IElementFactory` throws
+  `ArgumentException: ItemTemplate` at assignment. Derive from `ElementFactory` instead.
+- `ElementFactory`'s `GetElementCore`/`RecycleElementCore` take the `Microsoft.UI.Xaml.Controls` args types,
+  not the identically named ones in `Microsoft.UI.Xaml`.
+
+### What the replacement does not map
+
+`UnoCollectionViewHandler` covers `ItemsSource`, `ItemTemplate` (including `DataTemplateSelector`),
+`ItemsLayout` (linear and grid, both orientations) and single selection by tap. Grouping, reordering,
+incremental loading, headers and footers, multiple selection and the empty view are **not** implemented —
+those properties have no effect rather than throwing. Items are also not recycled into new data, because a
+recycled MAUI view would need re-binding and handler re-attachment; MAUI's own Windows handler does not
+recycle either.
+
+`CarouselView` is the obvious next candidate and needs its own handler; `ItemsRepeater` alone does not give
+snapping or the current-item semantics it expects.
 
 ## Remaining gaps
 

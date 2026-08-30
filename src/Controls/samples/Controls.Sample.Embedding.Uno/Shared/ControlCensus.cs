@@ -80,7 +80,7 @@ public static class ControlCensus
 				arranged));
 		}
 
-		report.Insert(0, $"CENSUS-RESULT {ok}/{total} realized (painting is not measurable here){Environment.NewLine}");
+		report.Insert(0, $"CENSUS-RESULT {ok}/{total} realized, handlers={MauiProgram.HandlerMode} (painting is not measurable here){Environment.NewLine}");
 
 		return report.ToString();
 	}
