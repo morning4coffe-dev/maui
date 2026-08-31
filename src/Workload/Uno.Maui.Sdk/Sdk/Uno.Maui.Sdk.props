@@ -13,6 +13,9 @@
     <UnoMauiTrimMode Condition="'$(UnoMauiTrimMode)' == ''">partial</UnoMauiTrimMode>
     <UnoMauiOptimizeWasmRuntime Condition="'$(UnoMauiOptimizeWasmRuntime)' == ''">true</UnoMauiOptimizeWasmRuntime>
     <UnoMauiWasmAot Condition="'$(UnoMauiWasmAot)' == ''">false</UnoMauiWasmAot>
+    <UnoMauiAndroidProfiledAot Condition="'$(UnoMauiAndroidProfiledAot)' == ''">false</UnoMauiAndroidProfiledAot>
+    <UnoMauiAndroidExtractNativeLibs Condition="'$(UnoMauiAndroidExtractNativeLibs)' == ''">true</UnoMauiAndroidExtractNativeLibs>
+    <UnoMauiAndroidLargeHeap Condition="'$(UnoMauiAndroidLargeHeap)' == ''">false</UnoMauiAndroidLargeHeap>
     <UnoMauiGeneratedRoot Condition="'$(UnoMauiGeneratedRoot)' == ''">$(BaseIntermediateOutputPath)uno-maui-hosts\</UnoMauiGeneratedRoot>
   </PropertyGroup>
 </Project>

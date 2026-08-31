@@ -11,7 +11,19 @@
     <RollForward>Major</RollForward>
     <IsUnoHead>true</IsUnoHead>
     <UnoMauiDisableAppFactoryGeneration>true</UnoMauiDisableAppFactoryGeneration>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(UnoMauiRuntimeIdentifier)' != ''">$(UnoMauiRuntimeIdentifier)</RuntimeIdentifier>
     <DefineConstants Condition="'$(UnoMauiAutoEnableAccessibility)' == 'true'">$(DefineConstants);UNO_MAUI_AUTO_ENABLE_ACCESSIBILITY</DefineConstants>
+    <UnoMauiUseWin32Host Condition="'$(RuntimeIdentifier)' == '' or $([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-'))">true</UnoMauiUseWin32Host>
+    <UnoMauiUseX11Host Condition="'$(RuntimeIdentifier)' == '' or $([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('linux-'))">true</UnoMauiUseX11Host>
+    <UnoMauiUseFramebufferHost Condition="'$(RuntimeIdentifier)' == '' or $([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('linux-'))">true</UnoMauiUseFramebufferHost>
+    <UnoMauiUseMacOSHost Condition="'$(RuntimeIdentifier)' == '' or $([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('osx-'))">true</UnoMauiUseMacOSHost>
+    <DefineConstants Condition="'$(UnoMauiUseWin32Host)' == 'true'">$(DefineConstants);UNO_MAUI_HOST_WIN32</DefineConstants>
+    <DefineConstants Condition="'$(UnoMauiUseX11Host)' == 'true'">$(DefineConstants);UNO_MAUI_HOST_X11</DefineConstants>
+    <DefineConstants Condition="'$(UnoMauiUseFramebufferHost)' == 'true'">$(DefineConstants);UNO_MAUI_HOST_FRAMEBUFFER</DefineConstants>
+    <DefineConstants Condition="'$(UnoMauiUseMacOSHost)' == 'true'">$(DefineConstants);UNO_MAUI_HOST_MACOS</DefineConstants>
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Release' and '$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+    <PublishReadyToRunComposite>false</PublishReadyToRunComposite>
+    <_UnoMauiAppAssemblyName>$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)'))</_UnoMauiAppAssemblyName>
   </PropertyGroup>
 
   <Import Project="$(UnoMauiResourceManifest)" Condition="Exists('$(UnoMauiResourceManifest)')" />
@@ -19,10 +31,12 @@
   <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.GeneratedHost.targets" />
 
   <ItemGroup>
-    <PackageReference Include="Uno.WinUI.Runtime.Skia.Linux.FrameBuffer" Version="$(UnoMauiUnoVersion)" />
-    <PackageReference Include="Uno.WinUI.Runtime.Skia.MacOS" Version="$(UnoMauiUnoVersion)" />
-    <PackageReference Include="Uno.WinUI.Runtime.Skia.Win32" Version="$(UnoMauiUnoVersion)" />
-    <PackageReference Include="Uno.WinUI.Runtime.Skia.X11" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Condition="'$(UnoMauiUseFramebufferHost)' == 'true'" Include="Uno.WinUI.Runtime.Skia.Linux.FrameBuffer" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Condition="'$(UnoMauiUseMacOSHost)' == 'true'" Include="Uno.WinUI.Runtime.Skia.MacOS" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Condition="'$(UnoMauiUseWin32Host)' == 'true'" Include="Uno.WinUI.Runtime.Skia.Win32" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Condition="'$(UnoMauiUseX11Host)' == 'true'" Include="Uno.WinUI.Runtime.Skia.X11" Version="$(UnoMauiUnoVersion)" />
+    <PublishReadyToRunExclude Include="DirectNAot.dll" />
+    <PublishReadyToRunExclude Include="DirectNAot.Extensions.dll" />
   </ItemGroup>
 
   <ItemGroup>
@@ -32,4 +46,16 @@
       SkipGetTargetFrameworkProperties="true"
       SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true" />
   </ItemGroup>
+
+  <Target Name="_UnoMauiRemoveReleaseReferenceSymbols"
+          AfterTargets="ComputeFilesToPublish"
+          Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <ResolvedFileToPublish
+        Remove="@(ResolvedFileToPublish)"
+        Condition="'%(ResolvedFileToPublish.Extension)' == '.pdb'
+          and '%(ResolvedFileToPublish.Filename)' != '$(AssemblyName)'
+          and '%(ResolvedFileToPublish.Filename)' != '$(_UnoMauiAppAssemblyName)'" />
+    </ItemGroup>
+  </Target>
 </Project>

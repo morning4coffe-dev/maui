@@ -14,10 +14,18 @@ internal static class Program
 
 		var host = UnoPlatformHostBuilder.Create()
 			.App(() => new UnoMauiApplication())
+#if UNO_MAUI_HOST_WIN32
 			.UseWin32()
+#endif
+#if UNO_MAUI_HOST_X11
 			.UseX11()
+#endif
+#if UNO_MAUI_HOST_FRAMEBUFFER
 			.UseLinuxFrameBuffer()
+#endif
+#if UNO_MAUI_HOST_MACOS
 			.UseMacOS()
+#endif
 			.Build();
 
 		await host.RunAsync();

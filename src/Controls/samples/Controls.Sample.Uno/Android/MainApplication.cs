@@ -6,7 +6,7 @@ namespace Microsoft.Maui.Controls.Sample.Uno;
 [Application(
 	Label = "MAUI on Uno",
 	HardwareAccelerated = true,
-	LargeHeap = true,
+	ExtractNativeLibs = true,
 	Theme = "@style/AppTheme")]
 public sealed class MainApplication : Microsoft.UI.Xaml.NativeApplication
 {
