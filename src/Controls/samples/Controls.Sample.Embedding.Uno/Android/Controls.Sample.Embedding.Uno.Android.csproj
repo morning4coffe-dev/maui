@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-android36.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Maui.Controls.Sample.Uno</RootNamespace>
+    <ApplicationTitle>MAUI embedded in Uno</ApplicationTitle>
+    <ApplicationId>org.unoplatform.mauirenderer.embedding</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <AndroidManifest>AndroidManifest.xml</AndroidManifest>
+    <RuntimeIdentifier Condition="'$(Configuration)' == 'Debug'">android-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(Configuration)' == 'Release'">android-arm64</RuntimeIdentifier>
+    <!-- MAUI's default profile stalls Uno Skia startup; retain full AOT until an Uno-specific profile is available. -->
+    <AndroidEnableProfiledAot Condition="'$(Configuration)' == 'Release'">false</AndroidEnableProfiledAot>
+    <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+    <IsUnoHead>true</IsUnoHead>
+  </PropertyGroup>
+
+  <Import Project="..\MauiUnoSample.props" />
+
+  <!-- Opt-in verification build; see the WebAssembly head for why this is a build switch. -->
+  <PropertyGroup Condition="'$(MauiUnoTier2Probe)' == 'true'">
+    <DefineConstants>$(DefineConstants);TIER2_PROBE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.Android" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="..\Shared\Controls.Sample.Embedding.Uno.Shared.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+
+</Project>

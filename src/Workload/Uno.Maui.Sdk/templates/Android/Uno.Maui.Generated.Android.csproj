@@ -29,7 +29,7 @@
   <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.GeneratedHost.targets" />
 
   <ItemGroup>
-    <PackageReference Include="Uno.WinUI.Runtime.Skia.Android" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.Android" Version="$(UnoMauiAndroidRuntimeVersion)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -59,11 +59,17 @@
       Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('WindowSoftInputMode = SoftInput.AdjustResize'))"
       Text="The Uno MAUI Android host activity must retain soft-input resize behavior." />
     <Error
-      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('BuildVersionCodes.VanillaIceCream'))"
-      Text="The Uno MAUI Android host must apply window insets for API 35 and later." />
+      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('SetDecorFitsSystemWindows(window, true)'))"
+      Text="The Uno MAUI Android host must keep system bars outside the content coordinate space." />
+    <Error
+      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('IsEdgeToEdgeEnabled = false'))"
+      Text="The Uno MAUI Android host must disable Uno edge-to-edge before activity creation." />
     <Error
       Condition="$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('WindowOptOutEdgeToEdgeEnforcement'))"
       Text="The Uno MAUI Android host must not rely on the API 35 edge-to-edge opt-out." />
+    <Error
+      Condition="$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('SetOnApplyWindowInsetsListener'))"
+      Text="The Uno MAUI Android host must let Uno own content insets so native overlays stay aligned." />
     <Error
       Condition="'$(SupportedOSPlatformVersion)' != '24.0'"
       Text="The Uno MAUI Android host must retain API 24 as its minimum supported version." />

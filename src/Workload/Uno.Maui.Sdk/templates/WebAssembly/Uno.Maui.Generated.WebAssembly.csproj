@@ -41,7 +41,7 @@
 
   <ItemGroup>
     <PackageReference Include="Uno.Wasm.Bootstrap" Version="$(UnoMauiWasmBootstrapVersion)" />
-    <PackageReference Include="Uno.WinUI.Runtime.Skia.WebAssembly.Browser" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.WebAssembly.Browser" Version="$(UnoMauiWasmRuntimeVersion)" />
     <TrimmerRootAssembly Include="$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)'))" />
   </ItemGroup>
 

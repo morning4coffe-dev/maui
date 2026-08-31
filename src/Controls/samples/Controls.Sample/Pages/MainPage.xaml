@@ -38,6 +38,8 @@
                 <Setter Property="Margin" Value="0" />
                 <Setter Property="FlexLayout.Basis" Value="50%"/>
                 <Setter Property="FlexLayout.Grow" Value="0"/>
+                <Setter Property="SemanticProperties.Description" Value="{Binding Title}" />
+                <Setter Property="SemanticProperties.Hint" Value="{Binding Description}" />
             </Style>
 
             <Style x:Key="FooterStyle" TargetType="Label">

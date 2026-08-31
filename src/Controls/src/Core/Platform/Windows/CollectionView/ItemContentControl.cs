@@ -6,6 +6,9 @@ using Microsoft.Maui.Graphics;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Media;
+using NativeAutomationProperties = Microsoft.UI.Xaml.Automation.AutomationProperties;
 using WSize = Windows.Foundation.Size;
 using WThickness = Microsoft.UI.Xaml.Thickness;
 
@@ -333,6 +336,23 @@ namespace Microsoft.Maui.Controls.Platform
 			}
 
 			this.SetAutomationPropertiesAccessibilityView(_visualElement, defaultAccessibilityView);
+
+#if UNO
+			if (OperatingSystem.IsBrowser())
+			{
+				var parent = VisualTreeHelper.GetParent(this);
+				while (parent is not null && parent is not SelectorItem)
+				{
+					parent = VisualTreeHelper.GetParent(parent);
+				}
+
+				if (parent is SelectorItem itemContainer)
+				{
+					NativeAutomationProperties.SetName(itemContainer, semantics?.Description);
+					NativeAutomationProperties.SetHelpText(itemContainer, semantics?.Hint);
+				}
+			}
+#endif
 		}
 
 		/// <inheritdoc/>

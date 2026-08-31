@@ -11,6 +11,7 @@
     <RollForward>Major</RollForward>
     <IsUnoHead>true</IsUnoHead>
     <UnoMauiDisableAppFactoryGeneration>true</UnoMauiDisableAppFactoryGeneration>
+    <DefineConstants Condition="'$(UnoMauiAutoEnableAccessibility)' == 'true'">$(DefineConstants);UNO_MAUI_AUTO_ENABLE_ACCESSIBILITY</DefineConstants>
   </PropertyGroup>
 
   <Import Project="$(UnoMauiResourceManifest)" Condition="Exists('$(UnoMauiResourceManifest)')" />

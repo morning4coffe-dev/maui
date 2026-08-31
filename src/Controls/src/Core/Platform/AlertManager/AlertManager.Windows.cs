@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -40,6 +40,11 @@ namespace Microsoft.Maui.Controls.Platform
 
 			public async partial void OnAlertRequested(Page sender, AlertArguments arguments)
 			{
+#if UNO
+				if (TryDispatchToUiThread(() => OnAlertRequested(sender, arguments), () => arguments.SetResult(false)))
+					return;
+#endif
+
 				if (!PageIsInThisWindow(sender))
 					return;
 
@@ -96,12 +101,33 @@ namespace Microsoft.Maui.Controls.Platform
 				}
 
 				CurrentAlert = ShowAlert(alertDialog);
+#if UNO
+				try
+				{
+					arguments.SetResult(await CurrentAlert.ConfigureAwait(false));
+				}
+				catch (Exception)
+				{
+					// async void: a rethrow here would terminate the process instead of failing the call.
+					arguments.SetResult(false);
+				}
+				finally
+				{
+					CurrentAlert = null;
+				}
+#else
 				arguments.SetResult(await CurrentAlert.ConfigureAwait(false));
 				CurrentAlert = null;
+#endif
 			}
 
 			public async partial void OnPromptRequested(Page sender, PromptArguments arguments)
 			{
+#if UNO
+				if (TryDispatchToUiThread(() => OnPromptRequested(sender, arguments), () => arguments.SetResult(null)))
+					return;
+#endif
+
 				if (!PageIsInThisWindow(sender))
 					return;
 
@@ -140,12 +166,32 @@ namespace Microsoft.Maui.Controls.Platform
 					throw new InvalidOperationException("The window content must have a XamlRoot before showing a prompt.");
 
 				CurrentPrompt = ShowPrompt(promptDialog);
+#if UNO
+				try
+				{
+					arguments.SetResult(await CurrentPrompt.ConfigureAwait(false));
+				}
+				catch (Exception)
+				{
+					arguments.SetResult(null);
+				}
+				finally
+				{
+					CurrentPrompt = null;
+				}
+#else
 				arguments.SetResult(await CurrentPrompt.ConfigureAwait(false));
 				CurrentPrompt = null;
+#endif
 			}
 
 			public partial void OnActionSheetRequested(Page sender, ActionSheetArguments arguments)
 			{
+#if UNO
+				if (TryDispatchToUiThread(() => OnActionSheetRequested(sender, arguments), () => arguments.SetResult(null)))
+					return;
+#endif
+
 				if (!PageIsInThisWindow(sender))
 					return;
 
@@ -223,6 +269,27 @@ namespace Microsoft.Maui.Controls.Platform
 
 				return null;
 			}
+
+#if UNO
+			bool TryDispatchToUiThread(Action request, Action onCannotDispatch)
+			{
+				var dispatcher = PlatformView?.DispatcherQueue;
+
+				if (dispatcher is null || dispatcher.HasThreadAccess)
+				{
+					return false;
+				}
+
+				// A dropped enqueue would otherwise leave the caller awaiting a result that can never
+				// arrive, because these handlers are async void and cannot fault the awaited task.
+				if (!dispatcher.TryEnqueue(() => request()))
+				{
+					onCannotDispatch();
+				}
+
+				return true;
+			}
+#endif
 
 			bool PageIsInThisWindow(Page page) =>
 				page?.Window == VirtualView;

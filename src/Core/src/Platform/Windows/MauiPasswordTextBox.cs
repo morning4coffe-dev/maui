@@ -18,7 +18,11 @@ namespace Microsoft.Maui.Platform
 	//       as we lose many default password box features.
 	public partial class MauiPasswordTextBox : TextBox
 	{
+#if UNO
+		const char ObfuscationCharacter = '•';
+#else
 		const char ObfuscationCharacter = '●';
+#endif
 
 		public static readonly DependencyProperty IsPasswordProperty = DependencyProperty.Register(
 			nameof(IsPassword), typeof(bool), typeof(MauiPasswordTextBox),
