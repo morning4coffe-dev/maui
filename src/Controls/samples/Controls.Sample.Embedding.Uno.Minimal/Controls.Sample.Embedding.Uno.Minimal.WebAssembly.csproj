@@ -1,0 +1,107 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <!--
+    The smallest Uno WebAssembly app that hosts embedded .NET MAUI content.
+
+    One project on purpose: no Shared project, no other heads, no gallery. Everything an app needs in order
+    to embed MAUI is in the five source files next to this one.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Maui.Controls.Sample.Uno.Minimal</RootNamespace>
+    <IsUnoHead>true</IsUnoHead>
+    <WasmBuildNative>true</WasmBuildNative>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <MauiUnoTarget>true</MauiUnoTarget>
+    <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">1.0</ApplicationDisplayVersion>
+    <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">1</ApplicationVersion>
+  </PropertyGroup>
+
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
+  <PropertyGroup>
+    <_MauiUnoBuildProperties>$(_MauiUnoProjectReferenceProperties)</_MauiUnoBuildProperties>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+    <BuildInParallel>false</BuildInParallel>
+    <UnoDisableHotRestartHelperGeneration>true</UnoDisableHotRestartHelperGeneration>
+    <NoWarn>$(NoWarn);Uno0001;IL2072;IL2111;RS0030</NoWarn>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ProjectReference>
+      <GlobalPropertiesToRemove>TargetFrameworks;RuntimeIdentifiers;SelfContained</GlobalPropertiesToRemove>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+
+  <!--
+    The MAUI SDK injects global usings for Microsoft.Maui, Microsoft.Maui.Controls and
+    Microsoft.Maui.Graphics. In an Uno-root app almost every one of those names collides with a WinUI
+    equivalent, so the MAUI namespaces are imported per file instead.
+  -->
+  <ItemGroup>
+    <Using Remove="Microsoft.Maui" />
+    <Using Remove="Microsoft.Maui.Controls" />
+    <Using Remove="Microsoft.Maui.Graphics" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI" />
+    <PackageReference Include="Uno.Wasm.Bootstrap" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.WebAssembly.Browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="..\..\..\Core\src\Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="..\..\..\Essentials\src\Essentials.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="..\..\..\Graphics\src\Graphics\Graphics.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="..\..\..\Graphics\src\Graphics.Skia\Graphics.Skia.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="..\..\src\Core\Controls.Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="..\..\src\Xaml\Controls.Xaml.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="..\..\src\Embedding.Uno\Microsoft.Maui.Controls.Embedding.Uno.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+
+  <!-- Uno's WebAssembly bootstrap needs to be told which assembly holds Main. -->
+  <Target Name="_MauiUnoMinimalConfigureWasmMainAssembly" AfterTargets="GenerateUnoWasmAssets">
+    <PropertyGroup>
+      <_MauiUnoWasmConfigPath>$([System.IO.Path]::Combine('$(IntermediateOutputPath)', 'unowwwrootassets', 'uno-config.js'))</_MauiUnoWasmConfigPath>
+    </PropertyGroup>
+
+    <Error
+      Condition="!Exists('$(_MauiUnoWasmConfigPath)')"
+      Text="Uno WebAssembly configuration was not generated at '$(_MauiUnoWasmConfigPath)'." />
+    <WriteLinesToFile
+      Condition="$([System.IO.File]::ReadAllText('$(_MauiUnoWasmConfigPath)').Contains('config.uno_main')) != 'True'"
+      File="$(_MauiUnoWasmConfigPath)"
+      Lines="config.uno_main = &quot;$(AssemblyName)&quot;"
+      Overwrite="false"
+      Encoding="UTF-8" />
+  </Target>
+
+</Project>
