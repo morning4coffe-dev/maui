@@ -1,18 +1,48 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using CommunityToolkit.Maui.Animations;
 using CommunityToolkit.Maui.Behaviors;
 using CommunityToolkit.Maui.Converters;
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Layouts;
+using Syncfusion.Maui.Toolkit.Charts;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 using Microsoft.Maui.Graphics;
 
 namespace Maui.Controls.Sample.Uno;
+
+/// <summary>A point plotted by the Syncfusion charts.</summary>
+/// <remarks>
+/// Syncfusion binds through string paths (<c>XBindingPath</c>, <c>YBindingPath</c>) and resolves them by
+/// reflection, so the properties have to be kept explicitly or a trimmed build would plot nothing.
+/// </remarks>
+[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)]
+public sealed class ChartPoint
+{
+	public ChartPoint(string label, double value)
+	{
+		Label = label;
+		Value = value;
+	}
+
+	public string Label { get; }
+
+	public double Value { get; }
+
+	public static IReadOnlyList<ChartPoint> Sample { get; } = new[]
+	{
+		new ChartPoint("Uno", 82),
+		new ChartPoint("MAUI", 64),
+		new ChartPoint("WASM", 71),
+		new ChartPoint("Skia", 55),
+		new ChartPoint("Win32", 43),
+	};
+}
 
 /// <summary>An item rendered by the templated collection controls in the gallery.</summary>
 /// <remarks>
@@ -136,6 +166,7 @@ public sealed class AdvancedMauiContent : ContentView
 			("Gestures", "Gestures and animation", BuildGesturesAndAnimation),
 			("ThirdParty", "Third party: CommunityToolkit.Maui layouts", BuildThirdPartyControls),
 			("ThirdPartyBehaviors", "Third party: CommunityToolkit.Maui behaviours and converters", BuildThirdPartyBehaviors),
+			("SyncfusionCharts", "Third party: Syncfusion Toolkit charts", BuildSyncfusionCharts),
 		};
 
 		var layout = new VerticalStackLayout
@@ -746,5 +777,53 @@ public sealed class AdvancedMauiContent : ContentView
 		DockLayout.SetDockPosition(block, position);
 
 		return block;
+	}
+
+	/// <summary>
+	/// Charts from the Syncfusion .NET MAUI Toolkit, compiled from source against this build.
+	/// </summary>
+	/// <remarks>
+	/// These draw through Syncfusion's own <c>SfDrawableView</c>, whose Windows handler renders into a
+	/// <c>W2DGraphicsView</c> — which on the Uno target is a Skia-backed view. That is why the charts work
+	/// where MAUI's own <c>GraphicsView</c> hangs: they never touch it.
+	/// </remarks>
+	View BuildSyncfusionCharts()
+	{
+		var column = Track("Syncfusion SfCartesianChart", new SfCartesianChart
+		{
+			HeightRequest = 220,
+			Title = new Label { Text = "Cartesian — column series", FontSize = 12 },
+			XAxes = { new CategoryAxis() },
+			YAxes = { new NumericalAxis() },
+		});
+
+		column.Series.Add(new ColumnSeries
+		{
+			ItemsSource = ChartPoint.Sample,
+			XBindingPath = nameof(ChartPoint.Label),
+			YBindingPath = nameof(ChartPoint.Value),
+			Fill = new SolidColorBrush(Color.FromArgb("#512BD4")),
+			ShowDataLabels = true,
+		});
+
+		var pie = Track("Syncfusion SfCircularChart", new SfCircularChart
+		{
+			HeightRequest = 220,
+			Title = new Label { Text = "Circular — doughnut series", FontSize = 12 },
+		});
+
+		pie.Series.Add(new DoughnutSeries
+		{
+			ItemsSource = ChartPoint.Sample,
+			XBindingPath = nameof(ChartPoint.Label),
+			YBindingPath = nameof(ChartPoint.Value),
+			ShowDataLabels = true,
+		});
+
+		return new VerticalStackLayout
+		{
+			Spacing = 10,
+			Children = { column, pie },
+		};
 	}
 }

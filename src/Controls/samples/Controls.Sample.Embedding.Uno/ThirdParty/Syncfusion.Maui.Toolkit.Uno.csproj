@@ -97,6 +97,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)TrimSuppressions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SyncfusionUnoShims.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SyncfusionUnoRegistration.cs" />
 
     <!--
       Core and Charts only. Taking the whole library pulls in controls that wrap native WinUI views

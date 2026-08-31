@@ -3,6 +3,7 @@ using System.Linq;
 using Microsoft.Maui.Controls.Embedding;
 using Microsoft.Maui.Controls.Embedding.Uno;
 using Microsoft.Maui.Hosting;
+using Syncfusion.Maui.Toolkit.Uno;
 
 namespace Maui.Controls.Sample.Uno;
 
@@ -47,5 +48,6 @@ public static class MauiProgram
 			// After UseMauiEmbeddedApp, which is what registers MAUI's own handlers: registration is
 			// last-one-wins, so replacing a handler only works from here.
 			.UseUnoHandlers(HandlerMode)
+			.ConfigureSyncfusionCharts()
 			.Build();
 }
