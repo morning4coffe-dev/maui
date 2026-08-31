@@ -48,10 +48,15 @@ namespace Microsoft.Maui
 			_services.AddSpecific(typeof(TService), static state => state, instance);
 		}
 
-		internal void AddWeakSpecific<TService>(TService instance)
+		internal void RemoveSpecific<TService>()
 			where TService : class
 		{
-			_services.AddSpecific(typeof(TService), static state => ((WeakReference)state).Target, new WeakReference(instance));
+			_services.RemoveSpecific(typeof(TService));
+		}
+
+		internal void AddWeakSpecific<TService>(TService instance)
+			where TService : class
+		{			_services.AddSpecific(typeof(TService), static state => ((WeakReference)state).Target, new WeakReference(instance));
 		}
 
 		internal void SetWindowScope(IServiceScope scope)
@@ -90,6 +95,11 @@ namespace Microsoft.Maui
 			public void AddSpecific(Type type, Func<object, object?> getter, object state)
 			{
 				_scopeStatic[type] = (state, getter);
+			}
+
+			public void RemoveSpecific(Type type)
+			{
+				_scopeStatic.TryRemove(type, out _);
 			}
 		}
 

@@ -116,12 +116,6 @@
                              CopyToPublishDirectory="PreserveNewest">
         <TargetPath>%(_MauiFontCopied.Filename)%(_MauiFontCopied.Extension)</TargetPath>
       </ContentWithTargetPath>
-      <ContentWithTargetPath Include="@(_UnoMauiGeneratedAsset)"
-                             Condition="'$(UnoMauiTarget)' == 'Desktop'"
-                             CopyToOutputDirectory="PreserveNewest"
-                             CopyToPublishDirectory="PreserveNewest">
-        <TargetPath>%(_UnoMauiGeneratedAsset.LogicalName)</TargetPath>
-      </ContentWithTargetPath>
     </ItemGroup>
   </Target>
 </Project>

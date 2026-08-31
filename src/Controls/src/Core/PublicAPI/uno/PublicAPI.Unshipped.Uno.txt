@@ -1,4 +1,9 @@
 #nullable enable
+Microsoft.Maui.Controls.Embedding.EmbeddedWindowRoot
+Microsoft.Maui.Controls.Embedding.EmbeddedWindowRoot.Dispose() -> void
+Microsoft.Maui.Controls.Embedding.EmbeddedWindowRoot.PlatformView.get -> Microsoft.UI.Xaml.FrameworkElement!
+static Microsoft.Maui.Controls.Embedding.EmbeddingExtensions.CreateEmbeddedWindowContext(this Microsoft.Maui.Hosting.MauiApp! mauiApp, Microsoft.UI.Xaml.Window! platformWindow, out Microsoft.Maui.Controls.Window! window) -> Microsoft.Maui.IMauiContext!
+static Microsoft.Maui.Controls.Embedding.EmbeddingExtensions.CreateEmbeddedWindowRoot(this Microsoft.Maui.Controls.Page! page, Microsoft.Maui.IMauiContext! windowContext) -> Microsoft.Maui.Controls.Embedding.EmbeddedWindowRoot!
 *REMOVED*~Microsoft.Maui.Controls.Controls_Core_XamlTypeInfo.XamlMetaDataProvider.GetXamlType(string fullName) -> Microsoft.UI.Xaml.Markup.IXamlType
 *REMOVED*~Microsoft.Maui.Controls.Controls_Core_XamlTypeInfo.XamlMetaDataProvider.GetXamlType(System.Type type) -> Microsoft.UI.Xaml.Markup.IXamlType
 *REMOVED*~Microsoft.Maui.Controls.Controls_Core_XamlTypeInfo.XamlMetaDataProvider.GetXmlnsDefinitions() -> Microsoft.UI.Xaml.Markup.XmlnsDefinition[]

@@ -357,7 +357,7 @@ namespace Microsoft.Maui.Controls.Platform
 
 		public void PageAttachedHandler() => OnPageAttachedHandler();
 
-		void ClearModalPages(bool xplat = false, bool platform = false)
+		internal void ClearModalPages(bool xplat = false, bool platform = false)
 		{
 			if (xplat)
 				_modalPages.Clear();

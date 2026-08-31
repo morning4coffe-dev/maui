@@ -3,6 +3,8 @@
     <UnoMauiSdkRoot Condition="'$(UnoMauiSdkRoot)' == ''">$(MSBuildThisFileDirectory)..\</UnoMauiSdkRoot>
     <UnoMauiAppFactoryType Condition="'$(UnoMauiAppFactoryType)' == ''">$(RootNamespace).MauiProgram</UnoMauiAppFactoryType>
     <UnoMauiUnoVersion Condition="'$(UnoMauiUnoVersion)' == ''">6.7.0-dev.704</UnoMauiUnoVersion>
+    <UnoMauiAndroidRuntimeVersion Condition="'$(UnoMauiAndroidRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiAndroidRuntimeVersion>
+    <UnoMauiWasmRuntimeVersion Condition="'$(UnoMauiWasmRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiWasmRuntimeVersion>
     <UnoMauiWasmBootstrapVersion Condition="'$(UnoMauiWasmBootstrapVersion)' == ''">10.0.96</UnoMauiWasmBootstrapVersion>
     <UnoMauiTargets Condition="'$(UnoMauiTargets)' == ''">Desktop;WebAssembly;Android</UnoMauiTargets>
     <UnoMauiTarget Condition="'$(UnoMauiTarget)' == ''">Desktop</UnoMauiTarget>

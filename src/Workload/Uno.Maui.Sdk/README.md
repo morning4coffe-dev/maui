@@ -65,6 +65,12 @@ disable browser debugger payloads, and clean their isolated publish directory
 by default. Set `UnoMauiOptimizeWasmRuntime` to `false` when source-level
 browser debugging is required.
 
+Uno's Skia native text overlay currently ignores ancestor transforms when it
+positions Android input views and WebAssembly accessibility proxies. Nested
+text controls can therefore expose a touch or accessibility rectangle near
+the page origin instead of at their rendered position. This is tracked in
+[unoplatform/uno#24280](https://github.com/unoplatform/uno/issues/24280).
+
 Set `UnoMauiWasmAot` to `true` for Release applications whose startup graph is
 too large for the WebAssembly interpreter. The generated host imports the
 installed .NET WebAssembly AOT task pack and enables Uno's

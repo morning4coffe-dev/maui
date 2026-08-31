@@ -16,7 +16,6 @@ internal static class Program
 #if UNO_MAUI_AUTO_ENABLE_ACCESSIBILITY
 		FeatureConfiguration.AutomationPeer.AutoEnableAccessibility = true;
 #endif
-
 		var host = UnoPlatformHostBuilder.Create()
 			.App(() => new UnoMauiApplication())
 			.UseWebAssembly()
