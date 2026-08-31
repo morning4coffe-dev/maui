@@ -346,6 +346,68 @@ the `ScrollViewer` has no snap points and the nearest item is scrolled to once t
 differently here than under the default handler; `PeekAreaInsets`, `IsBounceEnabled` and `VisibleViews` are
 also unmapped.
 
+## Third-party MAUI controls
+
+Two genuinely external libraries run in the gallery, both **compiled from source** and consumed unmodified:
+
+| Library | License | Pinned at | What runs |
+| --- | --- | --- | --- |
+| CommunityToolkit.Maui | MIT | tag `9.1.1` | `UniformItemsLayout`, `DockLayout`, converters, behaviours, animations |
+| Syncfusion .NET MAUI Toolkit | MIT | `main` | `SfCartesianChart` (column), `SfCircularChart` (doughnut) |
+
+**Telerik UI for .NET MAUI is commercial**, not open source, and cannot be used here at all. Of the other
+OSS candidates, Microcharts, LiveCharts2 and FreakyControls all render through SkiaSharp, and UraniumUI
+depends on `InputKit.Maui` and `Plainer.Maui`, which are NuGet-only with no source repository.
+
+### Why the NuGet package cannot be used
+
+A third-party MAUI package ships assemblies compiled against the shipping `Microsoft.Maui.Controls`, which
+is itself compiled against the Windows App SDK. This repository's `Microsoft.Maui.Controls` is a *different
+build of the same assembly*, compiled against `Uno.WinUI`. Any platform-specific type in that package would
+bind to the wrong `Microsoft.UI.Xaml`. The library therefore has to be recompiled from source — which is
+precisely the move this repository already makes for MAUI itself. **The interesting result is that this
+generalises: the trick is not MAUI-specific.**
+
+Initialise both before building:
+
+```powershell
+git submodule update --init --recursive
+```
+
+### Syncfusion: what it took
+
+The charts were the interesting case, because Syncfusion draws through its own
+`SfDrawableView : View` rather than MAUI's `GraphicsView` — so they sidestep the layout hang described
+above entirely.
+
+- **`WINDOWS` stays defined**, unlike the CommunityToolkit build. Syncfusion's neutral "Standard" handlers
+  are deliberate stubs: `SfDrawableViewHandler.Standard.cs` throws `NotImplementedException` and types its
+  platform view as `object`, which does not even satisfy the `FrameworkElement` constraint here. The Windows
+  handlers are the real implementations and target `Microsoft.UI.Xaml`, which is what Uno provides.
+- **Three files needed replacing**, because they use real Win2D (`Microsoft.Graphics.Canvas`), which does
+  not exist here — on the Uno target `W2DGraphicsView` is a *Skia-backed shim* living in the
+  `Microsoft.Maui.Graphics.Win2D` namespace for source compatibility. `ThirdParty/SyncfusionUnoShims.cs`
+  supplies a drawing panel that hands the `IDrawable` straight to that view, written against the surface
+  the toolkit's own handlers use rather than copied from them.
+- **Core and Charts only.** Taking the whole library pulls in controls that wrap native WinUI views
+  (Carousel) or blur through Win2D composition (Popup), and each drags more of the library with it.
+- **XAML is scoped to what is compiled.** XamlC runs on Release but not Debug, and resolves every type the
+  theme dictionaries reference, so shipping themes for uncompiled controls fails the publish.
+
+### The trimming trap worth knowing
+
+Syncfusion resolves `XBindingPath`/`YBindingPath` by reflection. In a trimmed build that silently binds
+**zero points** — and because the axis still draws its gridlines, the chart looks very nearly right while
+plotting nothing. Annotating the model type with `DynamicallyAccessedMembers` does **not** preserve its
+members; a `DynamicDependency` declared from a method that is kept does.
+
+This is why the census now reports `chartPoints=[...]`. The measurement is what caught it:
+
+| | Desktop (untrimmed) | Trimmed WASM, before | Trimmed WASM, after |
+| --- | --- | --- | --- |
+| `ColumnSeries` | 5 | **0** | 5 |
+| `DoughnutSeries` | 5 | **0** | 5 |
+
 ## Remaining gaps
 
 P1–P4 of the original gap list are closed, and P5 is closed apart from actual package distribution. The

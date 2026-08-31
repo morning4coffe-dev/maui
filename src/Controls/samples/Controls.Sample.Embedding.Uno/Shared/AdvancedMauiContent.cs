@@ -785,10 +785,21 @@ public sealed class AdvancedMauiContent : ContentView
 	/// Charts from the Syncfusion .NET MAUI Toolkit, compiled from source against this build.
 	/// </summary>
 	/// <remarks>
+	/// <para>
 	/// These draw through Syncfusion's own <c>SfDrawableView</c>, whose Windows handler renders into a
 	/// <c>W2DGraphicsView</c> — which on the Uno target is a Skia-backed view. That is why the charts work
 	/// where MAUI's own <c>GraphicsView</c> hangs: they never touch it.
+	/// </para>
+	/// <para>
+	/// The <see cref="DynamicDependencyAttribute"/> is load-bearing. Syncfusion resolves
+	/// <c>XBindingPath</c> and <c>YBindingPath</c> by reflection, so a trimmed build drops
+	/// <see cref="ChartPoint"/>'s properties and every series silently binds zero points — axis gridlines
+	/// still draw, so the chart looks nearly right while plotting nothing. Annotating the type declaration
+	/// with <c>DynamicallyAccessedMembers</c> does not preserve them; the dependency has to be declared from
+	/// a method that is kept.
+	/// </para>
 	/// </remarks>
+	[DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties, typeof(ChartPoint))]
 	View BuildSyncfusionCharts()
 	{
 		var column = Track("Syncfusion SfCartesianChart", new SfCartesianChart
