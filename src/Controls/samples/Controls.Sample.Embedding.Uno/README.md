@@ -466,7 +466,31 @@ The probe writes `tier2-probe.log` to the temp directory where a filesystem is a
 in the app, and always publishes `TIER2-RESULT PASS`/`FAIL` to the document title and standard output so a
 headless run can collect it. Uno renders to a canvas on WebAssembly, so the per-assertion report is only
 readable from the console or the on-screen text — the document title is what an automated run should key
-off.
+off. Note that the probe deliberately leaves its last dialog open — the off-UI-thread alert cannot dismiss
+itself — so it has to be the **last** thing an interactive pass clicks, or the open dialog swallows
+subsequent clicks.
+
+A check whose precondition a supported host action removed is reported as `SKIP`, not `FAIL`. There is one
+today: pressing **Replace content in island 1** swaps the island's `NavigationPage` for a plain
+`ContentPage`, so there is no stack left to push onto. Skips do not fail the run, and the verdict reports
+them (`RESULT: PASS (1 skipped)`).
+
+### Interactive pass
+
+Driving the host buttons and then the probe exercises the paths the probe itself cannot reach. Verified in a
+trimmed Release WebAssembly publish in headless Chromium, with real DevTools mouse events rather than
+synthetic DOM events — Uno renders to a canvas, so only trusted input reaches managed hit-testing:
+
+| Step | Result |
+| --- | --- |
+| Baseline | `CENSUS-RESULT 43/43 realized, handlers=Full`, all ten chart series bound 5 points |
+| Replace content in island 1 | Island 1 re-renders as "First MAUI island (replaced 1x)", no exception |
+| Detach island 2 | Status flips to "Island 2 attached: no", button becomes "Re-attach island 2" |
+| Re-attach island 2 | Status flips back to "yes", island renders again |
+| Run Tier 2 probe | `PASS` from a pristine start; after the replacement above, `PASS (1 skipped)` |
+
+Do **not** reload the page between steps: the DevTools connection is starved while the WebAssembly runtime
+re-boots, and the driving script hangs rather than failing.
 
 ### What was closed, and how
 
