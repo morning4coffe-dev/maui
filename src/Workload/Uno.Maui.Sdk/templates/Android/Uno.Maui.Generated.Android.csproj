@@ -17,7 +17,11 @@
     <AndroidManifest>AndroidManifest.xml</AndroidManifest>
     <RuntimeIdentifier Condition="'$(UnoMauiRuntimeIdentifier)' != ''">$(UnoMauiRuntimeIdentifier)</RuntimeIdentifier>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">android-x64</RuntimeIdentifier>
-    <AndroidEnableProfiledAot Condition="'$(Configuration)' == 'Release'">false</AndroidEnableProfiledAot>
+    <AndroidEnableProfiledAot Condition="'$(Configuration)' == 'Release'">$(UnoMauiAndroidProfiledAot)</AndroidEnableProfiledAot>
+    <MauiUseDefaultAotProfile Condition="'$(Configuration)' == 'Release' and '$(AndroidEnableProfiledAot)' == 'true'">false</MauiUseDefaultAotProfile>
+    <AndroidUseDefaultAotProfile Condition="'$(Configuration)' == 'Release' and '$(AndroidEnableProfiledAot)' == 'true'">true</AndroidUseDefaultAotProfile>
+    <DefineConstants Condition="'$(UnoMauiAndroidExtractNativeLibs)' == 'true'">$(DefineConstants);UNO_MAUI_ANDROID_EXTRACT_NATIVE_LIBS</DefineConstants>
+    <DefineConstants Condition="'$(UnoMauiAndroidLargeHeap)' == 'true'">$(DefineConstants);UNO_MAUI_ANDROID_LARGE_HEAP</DefineConstants>
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
     <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
     <IsUnoHead>true</IsUnoHead>
