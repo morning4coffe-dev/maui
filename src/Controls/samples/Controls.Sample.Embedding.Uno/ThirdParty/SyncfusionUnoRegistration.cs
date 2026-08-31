@@ -25,4 +25,14 @@ public static class SyncfusionUnoToolkit
 			handlers.AddHandler(typeof(IDrawableLayout), typeof(SfViewHandler));
 			handlers.AddHandler(typeof(WindowOverlayContainer), typeof(OverlayContainerHandler));
 		});
+
+	/// <summary>
+	/// Gets how many points a series actually resolved from its <c>ItemsSource</c>.
+	/// </summary>
+	/// <remarks>
+	/// The census cannot see whether a chart plotted anything, and a chart with no data still draws its
+	/// axis gridlines, which looks close enough to working to be misleading. Syncfusion's
+	/// <c>PointsCount</c> is internal, so it is surfaced from inside the assembly.
+	/// </remarks>
+	public static int GetPointCount(this Syncfusion.Maui.Toolkit.Charts.ChartSeries series) => series.PointsCount;
 }

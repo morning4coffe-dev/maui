@@ -9,6 +9,7 @@ using CommunityToolkit.Maui.Converters;
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Layouts;
 using Syncfusion.Maui.Toolkit.Charts;
+using Syncfusion.Maui.Toolkit.Uno;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
@@ -121,6 +122,7 @@ public sealed class AdvancedMauiContent : ContentView
 {
 	readonly List<(string Name, VisualElement Element, bool ExpectsItems)> _showcased = new();
 	readonly ObservableCollection<DemoItem> _items = new();
+	readonly List<Syncfusion.Maui.Toolkit.Charts.ChartSeries> _chartSeries = new();
 	readonly Label _eventLog;
 	int _refreshCount;
 
@@ -806,6 +808,8 @@ public sealed class AdvancedMauiContent : ContentView
 			ShowDataLabels = true,
 		});
 
+		_chartSeries.Add(column.Series[0]);
+
 		var pie = Track("Syncfusion SfCircularChart", new SfCircularChart
 		{
 			HeightRequest = 220,
@@ -820,10 +824,24 @@ public sealed class AdvancedMauiContent : ContentView
 			ShowDataLabels = true,
 		});
 
+		_chartSeries.Add(pie.Series[0]);
+
 		return new VerticalStackLayout
 		{
 			Spacing = 10,
 			Children = { column, pie },
 		};
 	}
+
+	/// <summary>
+	/// Gets how many points the Syncfusion series resolved, for the census to report.
+	/// </summary>
+	/// <remarks>
+	/// A chart with no data still draws its axis gridlines, so "something appeared" is not evidence that the
+	/// data bound. This is the number that actually settles it.
+	/// </remarks>
+	public string ChartPointSummary =>
+		_chartSeries.Count == 0
+			? "no series"
+			: string.Join(", ", _chartSeries.Select(s => $"{s.GetType().Name}={s.GetPointCount()}"));
 }
