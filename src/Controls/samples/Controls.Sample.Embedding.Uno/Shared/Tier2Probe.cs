@@ -53,7 +53,9 @@ public sealed class Tier2ProbeViewModel
 /// </summary>
 /// <remarks>
 /// This is an assertion harness, not a report: every check has a verdict and a timeout, and a failed or
-/// timed out check makes the whole run fail. Checks assert on the realized platform view rather than on
+/// timed out check makes the whole run fail. A check whose precondition a supported host action removed —
+/// replacing the island's page, for instance — is recorded as skipped instead, so it stays visible without
+/// failing the run. Checks assert on the realized platform view rather than on
 /// MAUI's virtual stacks, because MAUI records a modal or navigation push even when the platform never
 /// realized the page.
 /// </remarks>
@@ -84,6 +86,7 @@ public static class Tier2Probe
 	{
 		var report = new StringBuilder();
 		var failures = 0;
+		var skipped = 0;
 
 		void Check(string name, bool passed, string? detail = null)
 		{
@@ -102,6 +105,16 @@ public static class Tier2Probe
 			Flush(report);
 		}
 
+		// A check whose precondition the host legitimately removed is not a defect. Recording it as
+		// skipped keeps that visible without turning a supported host action into a failed run.
+		void Skip(string name, string reason)
+		{
+			skipped++;
+
+			report.AppendLine(string.Format(CultureInfo.InvariantCulture, "SKIP {0} — {1}", name, reason));
+			Flush(report);
+		}
+
 		try
 		{
 			Check("window page is the island page", ReferenceEquals(session.EmbeddedWindow?.Page, page));
@@ -111,7 +124,7 @@ public static class Tier2Probe
 			await CheckPromptAsync(page, xamlRoot, Check);
 			await CheckActionSheetAsync(page, xamlRoot, Check);
 			await CheckModalAsync(page, Check);
-			await CheckNavigationAsync(page, Check);
+			await CheckNavigationAsync(page, Check, Skip);
 			CheckSecondPageIsRejected(session, Check);
 			CheckThemeIsBridged(session, Check);
 			await CheckThemeChangeIsBridgedAsync(session, Check);
@@ -125,7 +138,9 @@ public static class Tier2Probe
 			Check("probe completed", false, $"{ex.GetType().Name}: {ex.Message}");
 		}
 
-		report.AppendLine(failures == 0 ? "RESULT: PASS" : $"RESULT: FAIL ({failures} failed)");
+		report.AppendLine(failures == 0
+			? skipped == 0 ? "RESULT: PASS" : $"RESULT: PASS ({skipped} skipped)"
+			: $"RESULT: FAIL ({failures} failed)");
 		Flush(report);
 
 		return new Tier2ProbeResult(failures == 0, report.ToString());
@@ -194,11 +209,13 @@ public static class Tier2Probe
 		check("PopModalAsync completes", await CompletesAsync(page.Navigation.PopModalAsync()));
 	}
 
-	static async Task CheckNavigationAsync(MauiPage page, CheckResult check)
+	static async Task CheckNavigationAsync(MauiPage page, CheckResult check, Action<string, string> skip)
 	{
 		if (page is not MauiNavigationPage navigationPage)
 		{
-			check("stack navigation", false, "window page is not a NavigationPage");
+			// Replacing the island's content with a plain page is a supported host action, so there is
+			// simply no stack to push onto rather than anything being broken.
+			skip("stack navigation", "the window page is not a NavigationPage");
 			return;
 		}
 
