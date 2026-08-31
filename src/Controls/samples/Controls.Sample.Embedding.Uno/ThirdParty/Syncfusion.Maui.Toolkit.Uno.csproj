@@ -151,12 +151,12 @@
   </ItemGroup>
 
   <!--
-    The theme dictionaries have to be compiled: the controls reference their generated classes directly
-    (SfCartesianChartStyles and friends), so dropping the XAML drops the types with it. Link metadata keeps
-    the folder structure, without which the generator sees every file flattened into this directory.
+    Only the theme dictionaries for what is actually compiled. The library's root Themes folder carries a
+    style file per control, and XamlC — which runs on Release but not Debug — resolves every type they
+    reference, so shipping themes for uncompiled controls fails the publish.
   -->
   <ItemGroup>
-    <MauiXaml Include="$(SyncfusionToolkitSourceRoot)**\*.xaml"
+    <MauiXaml Include="$(SyncfusionToolkitSourceRoot)Core\**\*.xaml;$(SyncfusionToolkitSourceRoot)Charts\**\*.xaml"
               Exclude="$(SyncfusionToolkitSourceRoot)**\obj\**\*.xaml;$(SyncfusionToolkitSourceRoot)**\bin\**\*.xaml;$(SyncfusionToolkitSourceRoot)**\Platform\Windows\**\*.xaml">
       <Link>Syncfusion\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </MauiXaml>
