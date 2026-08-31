@@ -43,6 +43,16 @@ public sealed class ChartPoint
 		new ChartPoint("Skia", 55),
 		new ChartPoint("Win32", 43),
 	};
+
+	/// <summary>A second series, so the multi-series charts have something to overlay.</summary>
+	public static IReadOnlyList<ChartPoint> Secondary { get; } = new[]
+	{
+		new ChartPoint("Uno", 47),
+		new ChartPoint("MAUI", 38),
+		new ChartPoint("WASM", 52),
+		new ChartPoint("Skia", 31),
+		new ChartPoint("Win32", 26),
+	};
 }
 
 /// <summary>An item rendered by the templated collection controls in the gallery.</summary>
@@ -169,6 +179,9 @@ public sealed class AdvancedMauiContent : ContentView
 			("ThirdParty", "Third party: CommunityToolkit.Maui layouts", BuildThirdPartyControls),
 			("ThirdPartyBehaviors", "Third party: CommunityToolkit.Maui behaviours and converters", BuildThirdPartyBehaviors),
 			("SyncfusionCharts", "Third party: Syncfusion Toolkit charts", BuildSyncfusionCharts),
+			("SyncfusionSeries", "Third party: Syncfusion series types", BuildSyncfusionSeries),
+			("SyncfusionShapes", "Third party: Syncfusion funnel, pyramid and polar", BuildSyncfusionShapeCharts),
+			("ToolkitValidation", "Third party: CommunityToolkit validation and progress", BuildToolkitValidation),
 		};
 
 		var layout = new VerticalStackLayout
@@ -855,4 +868,218 @@ public sealed class AdvancedMauiContent : ContentView
 		_chartSeries.Count == 0
 			? "no series"
 			: string.Join(", ", _chartSeries.Select(s => $"{s.GetType().Name}={s.GetPointCount()}"));
+
+	/// <summary>A second Syncfusion card covering the series types beyond column and doughnut.</summary>
+	[DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties, typeof(ChartPoint))]
+	View BuildSyncfusionSeries()
+	{
+		// Two series on one chart, with a legend, to show the axis shared between them.
+		var lineChart = Track("Syncfusion line and spline", new SfCartesianChart
+		{
+			HeightRequest = 220,
+			Title = new Label { Text = "Line and spline, with legend", FontSize = 12 },
+			Legend = new ChartLegend(),
+			XAxes = { new CategoryAxis() },
+			YAxes = { new NumericalAxis() },
+		});
+
+		lineChart.Series.Add(TrackSeries(new LineSeries
+		{
+			Label = "Line",
+			ItemsSource = ChartPoint.Sample,
+			XBindingPath = nameof(ChartPoint.Label),
+			YBindingPath = nameof(ChartPoint.Value),
+			ShowMarkers = true,
+		}));
+
+		lineChart.Series.Add(TrackSeries(new SplineSeries
+		{
+			Label = "Spline",
+			ItemsSource = ChartPoint.Secondary,
+			XBindingPath = nameof(ChartPoint.Label),
+			YBindingPath = nameof(ChartPoint.Value),
+		}));
+
+		var areaChart = Track("Syncfusion area and scatter", new SfCartesianChart
+		{
+			HeightRequest = 220,
+			Title = new Label { Text = "Area with a scatter overlay", FontSize = 12 },
+			XAxes = { new CategoryAxis() },
+			YAxes = { new NumericalAxis() },
+		});
+
+		areaChart.Series.Add(TrackSeries(new AreaSeries
+		{
+			ItemsSource = ChartPoint.Sample,
+			XBindingPath = nameof(ChartPoint.Label),
+			YBindingPath = nameof(ChartPoint.Value),
+			Fill = new SolidColorBrush(Color.FromArgb("#802B8A3E")),
+		}));
+
+		areaChart.Series.Add(TrackSeries(new ScatterSeries
+		{
+			ItemsSource = ChartPoint.Secondary,
+			XBindingPath = nameof(ChartPoint.Label),
+			YBindingPath = nameof(ChartPoint.Value),
+			PointHeight = 12,
+			PointWidth = 12,
+			Fill = new SolidColorBrush(Color.FromArgb("#C2255C")),
+		}));
+
+		var stackedChart = Track("Syncfusion stacked columns", new SfCartesianChart
+		{
+			HeightRequest = 220,
+			Title = new Label { Text = "Stacked columns", FontSize = 12 },
+			XAxes = { new CategoryAxis() },
+			YAxes = { new NumericalAxis() },
+		});
+
+		stackedChart.Series.Add(TrackSeries(new StackingColumnSeries
+		{
+			ItemsSource = ChartPoint.Sample,
+			XBindingPath = nameof(ChartPoint.Label),
+			YBindingPath = nameof(ChartPoint.Value),
+			Fill = new SolidColorBrush(Color.FromArgb("#512BD4")),
+		}));
+
+		stackedChart.Series.Add(TrackSeries(new StackingColumnSeries
+		{
+			ItemsSource = ChartPoint.Secondary,
+			XBindingPath = nameof(ChartPoint.Label),
+			YBindingPath = nameof(ChartPoint.Value),
+			Fill = new SolidColorBrush(Color.FromArgb("#B36A00")),
+		}));
+
+		var pieChart = Track("Syncfusion pie", new SfCircularChart
+		{
+			HeightRequest = 220,
+			Title = new Label { Text = "Pie series", FontSize = 12 },
+		});
+
+		pieChart.Series.Add(TrackSeries(new PieSeries
+		{
+			ItemsSource = ChartPoint.Sample,
+			XBindingPath = nameof(ChartPoint.Label),
+			YBindingPath = nameof(ChartPoint.Value),
+			ShowDataLabels = true,
+		}));
+
+		return new VerticalStackLayout
+		{
+			Spacing = 10,
+			Children = { lineChart, areaChart, stackedChart, pieChart },
+		};
+	}
+
+	/// <summary>Chart types that take their data on the chart itself rather than on a series.</summary>
+	[DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties, typeof(ChartPoint))]
+	View BuildSyncfusionShapeCharts()
+	{
+		var funnel = Track("Syncfusion SfFunnelChart", new SfFunnelChart
+		{
+			HeightRequest = 220,
+			Title = new Label { Text = "Funnel", FontSize = 12 },
+			ItemsSource = ChartPoint.Sample,
+			XBindingPath = nameof(ChartPoint.Label),
+			YBindingPath = nameof(ChartPoint.Value),
+			ShowDataLabels = true,
+		});
+
+		var pyramid = Track("Syncfusion SfPyramidChart", new SfPyramidChart
+		{
+			HeightRequest = 220,
+			Title = new Label { Text = "Pyramid", FontSize = 12 },
+			ItemsSource = ChartPoint.Sample,
+			XBindingPath = nameof(ChartPoint.Label),
+			YBindingPath = nameof(ChartPoint.Value),
+			ShowDataLabels = true,
+		});
+
+		var polar = Track("Syncfusion SfPolarChart", new SfPolarChart
+		{
+			HeightRequest = 240,
+			Title = new Label { Text = "Polar area", FontSize = 12 },
+		});
+
+		polar.Series.Add(TrackSeries(new PolarAreaSeries
+		{
+			ItemsSource = ChartPoint.Sample,
+			XBindingPath = nameof(ChartPoint.Label),
+			YBindingPath = nameof(ChartPoint.Value),
+			Fill = new SolidColorBrush(Color.FromArgb("#80512BD4")),
+		}));
+
+		return new VerticalStackLayout
+		{
+			Spacing = 10,
+			Children = { funnel, pyramid, polar },
+		};
+	}
+
+	/// <summary>More CommunityToolkit behaviours, the validation and progress family.</summary>
+	View BuildToolkitValidation()
+	{
+		var emailish = Track("CommunityToolkit TextValidationBehavior", new Entry
+		{
+			Placeholder = "Between 5 and 12 characters",
+			Text = "ok",
+		});
+		emailish.Behaviors.Add(new TextValidationBehavior
+		{
+			MinimumLength = 5,
+			MaximumLength = 12,
+			Flags = ValidationFlags.ValidateOnValueChanged,
+			InvalidStyle = new Style(typeof(Entry))
+			{
+				Setters = { new Setter { Property = Entry.TextColorProperty, Value = Colors.Red } },
+			},
+			ValidStyle = new Style(typeof(Entry))
+			{
+				Setters = { new Setter { Property = Entry.TextColorProperty, Value = Color.FromArgb("#2B8A3E") } },
+			},
+		});
+
+		var capped = Track("CommunityToolkit MaxLengthReachedBehavior", new Entry
+		{
+			Placeholder = "Stops reporting at 8 characters",
+			MaxLength = 8,
+		});
+		var cappedStatus = new Label { Text = "MaxLengthReached: not yet", FontSize = 11, Opacity = 0.75 };
+		var maxLength = new MaxLengthReachedBehavior();
+		maxLength.MaxLengthReached += (_, args) =>
+		{
+			cappedStatus.Text = $"MaxLengthReached: '{args.Text}'";
+			Log($"MaxLengthReachedBehavior fired with '{args.Text}'");
+		};
+		capped.Behaviors.Add(maxLength);
+
+		var progress = Track("CommunityToolkit ProgressBarAnimationBehavior", new ProgressBar
+		{
+			Progress = 0.1,
+			HeightRequest = 8,
+		});
+		var animateProgress = new ProgressBarAnimationBehavior();
+		progress.Behaviors.Add(animateProgress);
+
+		var progressButton = new Button { Text = "Animate progress to 90%", FontSize = 12 };
+		progressButton.Clicked += (_, _) =>
+		{
+			animateProgress.Length = 800;
+			animateProgress.Progress = animateProgress.Progress > 0.5 ? 0.1 : 0.9;
+			Log($"ProgressBarAnimationBehavior to {animateProgress.Progress:0.0}");
+		};
+
+		return new VerticalStackLayout
+		{
+			Spacing = 8,
+			Children = { emailish, capped, cappedStatus, progress, progressButton },
+		};
+	}
+
+	T TrackSeries<T>(T series)
+		where T : ChartSeries
+	{
+		_chartSeries.Add(series);
+		return series;
+	}
 }
