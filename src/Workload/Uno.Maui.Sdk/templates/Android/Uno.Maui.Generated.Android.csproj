@@ -33,7 +33,9 @@
   <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.GeneratedHost.targets" />
 
   <ItemGroup>
-    <PackageReference Include="Uno.WinUI.Runtime.Skia.Android" Version="$(UnoMauiAndroidRuntimeVersion)" />
+    <PackageReference Update="Uno.WinUI" VersionOverride="$(UnoMauiCoreRuntimeVersion)" Condition="'$(UnoMauiUseSource)' == 'true'" />
+    <PackageReference Include="Uno.WinUI" Version="$(UnoMauiCoreRuntimeVersion)" VersionOverride="$(UnoMauiCoreRuntimeVersion)" Condition="'$(UnoMauiUseSource)' != 'true'" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.Android" Version="$(UnoMauiAndroidRuntimeVersion)" VersionOverride="$(UnoMauiAndroidRuntimeVersion)" />
   </ItemGroup>
 
   <ItemGroup>

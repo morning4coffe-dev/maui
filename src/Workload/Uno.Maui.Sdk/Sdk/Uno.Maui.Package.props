@@ -5,6 +5,7 @@
     <UnoMauiPackageReferencesProvided>true</UnoMauiPackageReferencesProvided>
     <UnoMauiPackageVersion Condition="'$(UnoMauiPackageVersion)' == ''">10.0.100-dev</UnoMauiPackageVersion>
     <UnoMauiUnoVersion Condition="'$(UnoMauiUnoVersion)' == ''">6.7.0-dev.704</UnoMauiUnoVersion>
+    <UnoMauiCoreRuntimeVersion Condition="'$(UnoMauiCoreRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiCoreRuntimeVersion>
     <UnoMauiAndroidRuntimeVersion Condition="'$(UnoMauiAndroidRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiAndroidRuntimeVersion>
     <UnoMauiWasmRuntimeVersion Condition="'$(UnoMauiWasmRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiWasmRuntimeVersion>
     <UnoMauiWasmBootstrapVersion Condition="'$(UnoMauiWasmBootstrapVersion)' == ''">10.0.96</UnoMauiWasmBootstrapVersion>
