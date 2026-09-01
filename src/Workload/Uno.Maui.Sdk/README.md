@@ -71,6 +71,18 @@ text controls can therefore expose a touch or accessibility rectangle near
 the page origin instead of at their rendered position. This is tracked in
 [unoplatform/uno#24280](https://github.com/unoplatform/uno/issues/24280).
 
+Generated hosts can test independently versioned Uno runtime packages without
+changing the rest of the Uno package graph:
+
+```xml
+<UnoMauiCoreRuntimeVersion>6.8.0-dev.123</UnoMauiCoreRuntimeVersion>
+<UnoMauiAndroidRuntimeVersion>6.8.0-dev.123</UnoMauiAndroidRuntimeVersion>
+<UnoMauiWasmRuntimeVersion>6.8.0-dev.123</UnoMauiWasmRuntimeVersion>
+```
+
+Each property defaults to `UnoMauiUnoVersion`. The core override is useful when
+a platform runtime fix also requires a matching `Uno.WinUI` runtime assembly.
+
 Set `UnoMauiWasmAot` to `true` for Release applications whose startup graph is
 too large for the WebAssembly interpreter. The generated host imports the
 installed .NET WebAssembly AOT task pack and enables Uno's
