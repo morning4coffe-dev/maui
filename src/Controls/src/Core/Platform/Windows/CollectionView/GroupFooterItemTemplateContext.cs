@@ -13,12 +13,18 @@ namespace Microsoft.Maui.Controls.Platform
 
 		public static void EnsureSelectionDisabled(DependencyObject element, object item)
 		{
-			if (item is GroupFooterItemTemplateContext)
+			if (element is FrameworkElement frameworkElement)
 			{
-				// Prevent the group footer from being selectable
-				(element as FrameworkElement).IsHitTestVisible = false;
+#if UNO
+				// Containers are recycled, so restore hit testing when a former footer is reused for an item.
+				frameworkElement.IsHitTestVisible = item is not GroupFooterItemTemplateContext;
+#else
+				if (item is GroupFooterItemTemplateContext)
+				{
+					frameworkElement.IsHitTestVisible = false;
+				}
+#endif
 			}
-
 		}
 	}
 }

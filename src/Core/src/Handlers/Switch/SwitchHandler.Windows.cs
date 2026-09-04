@@ -1,5 +1,8 @@
 #nullable enable
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
+using Microsoft.UI.Xaml.Media;
 
 namespace Microsoft.Maui.Handlers
 {
@@ -60,7 +63,36 @@ namespace Microsoft.Maui.Handlers
 				// so we set its width to 0 to reduce unwanted layout padding.
 				rootGrid.ColumnDefinitions[1].Width = new UI.Xaml.GridLength(0);
 			}
+
+#if UNO
+			if (System.OperatingSystem.IsBrowser())
+			{
+				AutomationProperties.SetAccessibilityView(toggleSwitch, AccessibilityView.Content);
+				if (string.IsNullOrWhiteSpace(AutomationProperties.GetName(toggleSwitch)))
+				{
+					AutomationProperties.SetName(toggleSwitch, "Switch");
+				}
+
+				HideAccessibilityDescendants(toggleSwitch);
+			}
+#endif
 		}
+
+#if UNO
+		static void HideAccessibilityDescendants(UI.Xaml.DependencyObject parent)
+		{
+			for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+			{
+				var child = VisualTreeHelper.GetChild(parent, index);
+				if (child is UI.Xaml.FrameworkElement element)
+				{
+					AutomationProperties.SetAccessibilityView(element, AccessibilityView.Raw);
+				}
+
+				HideAccessibilityDescendants(child);
+			}
+		}
+#endif
 
 		// TODO: Make it public in .NET 10.0
 		internal static void MapSwitchMinimumWidth(IViewHandler handler, IView view)

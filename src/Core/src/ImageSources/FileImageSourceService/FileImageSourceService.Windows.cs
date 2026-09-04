@@ -45,6 +45,25 @@ namespace Microsoft.Maui
 			// Handle LogicalName with path separators (e.g., "challenges/groceries.png")
 			// Extract just the filename since Windows app package has flattened resources
 			var resourceName = Path.GetFileName(filename);
+#if UNO
+			if (OperatingSystem.IsBrowser())
+			{
+				var extension = Path.GetExtension(resourceName);
+				var name = Path.GetFileNameWithoutExtension(resourceName);
+
+				if (string.IsNullOrEmpty(extension))
+				{
+					extension = ".png";
+					name = resourceName;
+				}
+				else if (extension.Equals(".svg", StringComparison.OrdinalIgnoreCase))
+				{
+					extension = ".png";
+				}
+
+				resourceName = $"{name}.scale-100{extension}";
+			}
+#endif
 			return new BitmapImage(new Uri("ms-appx:///" + resourceName));
 		}
 

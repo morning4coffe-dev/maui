@@ -23,11 +23,13 @@
                 <Label 
                     Text="GraphicsView Interactions" />
                 <Label 
-                    x:Name="labelInteractions" />
+                    x:Name="labelInteractions"
+                    AutomationProperties.IsInAccessibleTree="True" />
                 <Label 
                     Text="GraphicsView Gestures" />
                 <Label 
-                    x:Name="labelGestures" />
+                    x:Name="labelGestures"
+                    AutomationProperties.IsInAccessibleTree="True" />
             </StackLayout>
             <GraphicsView
                 x:Name="GraphicsView"

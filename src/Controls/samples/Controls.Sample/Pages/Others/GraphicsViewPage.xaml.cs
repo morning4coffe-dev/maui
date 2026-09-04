@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using Microsoft.Maui.Accessibility;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Dispatching;
 using Microsoft.Maui.Graphics;
@@ -49,22 +50,38 @@ namespace Maui.Controls.Sample.Pages
 		void UpdateInteractions(string name, TouchEventArgs e)
 		{
 			Dispatcher.DispatchAsync(() =>
+			{
 				labelInteractions.Text = $"{name}: "
 					+ string.Join(", ", e.Touches.Select(t => $"[{MathF.Round(t.X, 1)},{MathF.Round(t.Y, 1)}]"))
-					+ $" IsInsideBounds: {e.IsInsideBounds}");
+					+ $" IsInsideBounds: {e.IsInsideBounds}";
+				SemanticProperties.SetDescription(labelInteractions, labelInteractions.Text);
+				SemanticScreenReader.Announce(labelInteractions.Text);
+			});
 
 			Dispatcher.DispatchAsync(() =>
-				labelGestures.Text = string.Empty);
+			{
+				labelGestures.Text = string.Empty;
+				SemanticProperties.SetDescription(labelGestures, string.Empty);
+			});
 		}
 
 		void UpdateGestures(string name)
 		{
 			Dispatcher.DispatchAsync(() =>
-				labelGestures.Text = $"{name}");
+			{
+				labelGestures.Text = name;
+				SemanticProperties.SetDescription(labelGestures, name);
+				SemanticScreenReader.Announce(name);
+			});
 		}
 
 		void UpdateInteractions(string name)
-			=> Dispatcher.DispatchAsync(() => labelInteractions.Text = name);
+			=> Dispatcher.DispatchAsync(() =>
+			{
+				labelInteractions.Text = name;
+				SemanticProperties.SetDescription(labelInteractions, name);
+				SemanticScreenReader.Announce(name);
+			});
 	}
 
 	public class GraphicsDrawable : IDrawable

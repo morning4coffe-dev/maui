@@ -7,9 +7,13 @@
         Padding="24"
         Spacing="16">
         <Label
+            FontFamily="AutomaticSegoe"
             FontAttributes="Bold"
             FontSize="32"
             Text="Automatic MAUI targeting on Uno" />
+        <Image
+            HeightRequest="96"
+            Source="header_background.png" />
         <Label
             Text="This project contains no Desktop, Android, or WebAssembly host." />
         <Entry
