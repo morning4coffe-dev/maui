@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls.Embedding;
@@ -42,6 +43,7 @@ public sealed class MauiEmbeddingSession : IDisposable
 	PlatformView? _themeRoot;
 	bool _isCreated;
 	bool _isActivated;
+	bool _hostIsActivated;
 	bool _isDisposed;
 
 	MauiEmbeddingSession(PlatformWindow platformWindow) => _platformWindow = platformWindow;
@@ -146,6 +148,7 @@ public sealed class MauiEmbeddingSession : IDisposable
 				_windowContext = SharedApp.CreateEmbeddedWindowContext(_platformWindow, out var window);
 				_embeddedWindow = window;
 				AttachThemeBridge();
+				ActivateEmbeddedWindow();
 			}
 
 			return _windowContext;
@@ -225,19 +228,28 @@ public sealed class MauiEmbeddingSession : IDisposable
 	/// </remarks>
 	public void NotifyWindowActivated()
 	{
-		if (_isDisposed || _embeddedWindow is not { } window)
+		if (_isDisposed)
+		{
+			return;
+		}
+
+		_hostIsActivated = true;
+		ActivateEmbeddedWindow();
+	}
+
+	void ActivateEmbeddedWindow()
+	{
+		if (!_hostIsActivated || _embeddedWindow is not { } window)
 		{
 			return;
 		}
 
 		var embedded = (IWindow)window;
-
 		if (!_isCreated)
 		{
 			_isCreated = true;
 			embedded.Created();
 		}
-
 		if (!_isActivated)
 		{
 			_isActivated = true;
@@ -248,7 +260,13 @@ public sealed class MauiEmbeddingSession : IDisposable
 	/// <summary>Reports that the hosting Uno window was deactivated.</summary>
 	public void NotifyWindowDeactivated()
 	{
-		if (_isDisposed || !_isActivated || _embeddedWindow is not { } window)
+		if (_isDisposed)
+		{
+			return;
+		}
+
+		_hostIsActivated = false;
+		if (!_isActivated || _embeddedWindow is not { } window)
 		{
 			return;
 		}
@@ -292,9 +310,27 @@ public sealed class MauiEmbeddingSession : IDisposable
 		// Keeps PlatformAppTheme in step with the host application for anything that reads it directly.
 		application.ThemeChanged();
 
-		if (_themeRoot is { } root && application is MauiApplication controlsApplication)
+		UpdateSharedTheme(application);
+	}
+
+	static void UpdateSharedTheme(IApplication application)
+	{
+		if (application is MauiApplication controlsApplication)
 		{
-			controlsApplication.UserAppTheme = ToAppTheme(root.ActualTheme);
+			AppTheme[] windowThemes;
+			lock (Gate)
+			{
+				windowThemes = Sessions.Values
+					.Select(session => session._themeRoot)
+					.Where(themeRoot => themeRoot is not null)
+					.Select(themeRoot => ToAppTheme(themeRoot!.ActualTheme))
+					.Distinct()
+					.ToArray();
+			}
+
+			controlsApplication.UserAppTheme = windowThemes.Length == 1
+				? windowThemes[0]
+				: AppTheme.Unspecified;
 		}
 	}
 
@@ -383,6 +419,10 @@ public sealed class MauiEmbeddingSession : IDisposable
 		try
 		{
 			DetachThemeBridge();
+			if (sharedApp?.Services.GetService<IApplication>() is { } application)
+			{
+				UpdateSharedTheme(application);
+			}
 
 			foreach (var content in _embeddedContent.ToArray())
 			{

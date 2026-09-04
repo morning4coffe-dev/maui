@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Maui.Controls.Sample.Models;
@@ -31,14 +31,18 @@ namespace Maui.Controls.Sample.ViewModels.Base
 			}
 		}
 
-		public IEnumerable<SectionModel> FilteredItems { get; private set; } = Enumerable.Empty<SectionModel>();
+		public IReadOnlyList<SectionModel> FilteredItems { get; private set; } = Array.Empty<SectionModel>();
 
 		protected abstract IEnumerable<SectionModel> CreateItems();
 
 		void Filter()
 		{
 			FilterValue ??= string.Empty;
-			FilteredItems = string.IsNullOrEmpty(FilterValue) ? Items! : Items!.Where(item => item.Title.IndexOf(FilterValue, StringComparison.InvariantCultureIgnoreCase) >= 0);
+			var filteredItems = string.IsNullOrEmpty(FilterValue)
+				? Items!
+				: Items!.Where(item => item.Title.IndexOf(FilterValue, StringComparison.InvariantCultureIgnoreCase) >= 0);
+
+			FilteredItems = filteredItems.ToList();
 			OnPropertyChanged(nameof(FilteredItems));
 		}
 	}

@@ -4,6 +4,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
+using Microsoft.UI.Xaml.Media;
 
 namespace Microsoft.Maui.Handlers
 {
@@ -111,8 +114,37 @@ namespace Microsoft.Maui.Handlers
 					_thumbSize = new Size(thumb.Width, thumb.Height);
 
 				platformView.ValueChanged += OnPlatformValueChanged;
+
+#if UNO
+				if (System.OperatingSystem.IsBrowser())
+				{
+					AutomationProperties.SetAccessibilityView(platformView, AccessibilityView.Content);
+					if (string.IsNullOrWhiteSpace(AutomationProperties.GetName(platformView)))
+					{
+						AutomationProperties.SetName(platformView, "Slider");
+					}
+
+					HideAccessibilityDescendants(platformView);
+				}
+#endif
 			}
 		}
+
+#if UNO
+		static void HideAccessibilityDescendants(DependencyObject parent)
+		{
+			for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+			{
+				var child = VisualTreeHelper.GetChild(parent, index);
+				if (child is FrameworkElement element)
+				{
+					AutomationProperties.SetAccessibilityView(element, AccessibilityView.Raw);
+				}
+
+				HideAccessibilityDescendants(child);
+			}
+		}
+#endif
 
 		void OnPlatformValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
 		{

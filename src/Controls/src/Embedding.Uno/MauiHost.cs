@@ -168,6 +168,7 @@ public sealed partial class MauiHost : ContentControl
 			var owner = _realizedSession;
 			_realizedContent = null;
 			_realizedSession = null;
+			_isBindingContextBridged = false;
 
 			// Releasing unparents the element and disconnects its handlers. Without it, replaced content
 			// stays rooted in the embedded window for the lifetime of the Uno window.

@@ -50,6 +50,8 @@
         <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource LightBorderColor}, Dark={StaticResource DarkBorderColor}}" />
         <Setter Property="Padding" Value="12" />
         <Setter Property="Margin" Value="0" />
+        <Setter Property="SemanticProperties.Description" Value="{Binding Title}" />
+        <Setter Property="SemanticProperties.Hint" Value="{Binding Description}" />
     </Style>
 
     <Style x:Key="GalleryItemTitleStyle" TargetType="Label">

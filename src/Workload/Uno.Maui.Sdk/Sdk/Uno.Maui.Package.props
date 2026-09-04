@@ -5,7 +5,17 @@
     <UnoMauiPackageReferencesProvided>true</UnoMauiPackageReferencesProvided>
     <UnoMauiPackageVersion Condition="'$(UnoMauiPackageVersion)' == ''">10.0.100-dev</UnoMauiPackageVersion>
     <UnoMauiUnoVersion Condition="'$(UnoMauiUnoVersion)' == ''">6.7.0-dev.704</UnoMauiUnoVersion>
+    <UnoMauiCoreRuntimeVersion Condition="'$(UnoMauiCoreRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiCoreRuntimeVersion>
+    <UnoMauiAndroidRuntimeVersion Condition="'$(UnoMauiAndroidRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiAndroidRuntimeVersion>
+    <UnoMauiWasmRuntimeVersion Condition="'$(UnoMauiWasmRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiWasmRuntimeVersion>
     <UnoMauiWasmBootstrapVersion Condition="'$(UnoMauiWasmBootstrapVersion)' == ''">10.0.96</UnoMauiWasmBootstrapVersion>
+    <UnoMauiAutoEnableAccessibility Condition="'$(UnoMauiAutoEnableAccessibility)' == ''">false</UnoMauiAutoEnableAccessibility>
+    <UnoMauiEnableStartupTracing Condition="'$(UnoMauiEnableStartupTracing)' == ''">false</UnoMauiEnableStartupTracing>
+    <UnoMauiOptimizeWasmRuntime Condition="'$(UnoMauiOptimizeWasmRuntime)' == ''">true</UnoMauiOptimizeWasmRuntime>
+    <UnoMauiWasmAot Condition="'$(UnoMauiWasmAot)' == ''">false</UnoMauiWasmAot>
+    <UnoMauiAndroidProfiledAot Condition="'$(UnoMauiAndroidProfiledAot)' == ''">false</UnoMauiAndroidProfiledAot>
+    <UnoMauiAndroidExtractNativeLibs Condition="'$(UnoMauiAndroidExtractNativeLibs)' == ''">true</UnoMauiAndroidExtractNativeLibs>
+    <UnoMauiAndroidLargeHeap Condition="'$(UnoMauiAndroidLargeHeap)' == ''">false</UnoMauiAndroidLargeHeap>
   </PropertyGroup>
 
   <ItemGroup>

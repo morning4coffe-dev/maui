@@ -3,9 +3,20 @@
     <UnoMauiSdkRoot Condition="'$(UnoMauiSdkRoot)' == ''">$(MSBuildThisFileDirectory)..\</UnoMauiSdkRoot>
     <UnoMauiAppFactoryType Condition="'$(UnoMauiAppFactoryType)' == ''">$(RootNamespace).MauiProgram</UnoMauiAppFactoryType>
     <UnoMauiUnoVersion Condition="'$(UnoMauiUnoVersion)' == ''">6.7.0-dev.704</UnoMauiUnoVersion>
+    <UnoMauiCoreRuntimeVersion Condition="'$(UnoMauiCoreRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiCoreRuntimeVersion>
+    <UnoMauiAndroidRuntimeVersion Condition="'$(UnoMauiAndroidRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiAndroidRuntimeVersion>
+    <UnoMauiWasmRuntimeVersion Condition="'$(UnoMauiWasmRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiWasmRuntimeVersion>
     <UnoMauiWasmBootstrapVersion Condition="'$(UnoMauiWasmBootstrapVersion)' == ''">10.0.96</UnoMauiWasmBootstrapVersion>
     <UnoMauiTargets Condition="'$(UnoMauiTargets)' == ''">Desktop;WebAssembly;Android</UnoMauiTargets>
     <UnoMauiTarget Condition="'$(UnoMauiTarget)' == ''">Desktop</UnoMauiTarget>
+    <UnoMauiAutoEnableAccessibility Condition="'$(UnoMauiAutoEnableAccessibility)' == ''">false</UnoMauiAutoEnableAccessibility>
+    <UnoMauiEnableStartupTracing Condition="'$(UnoMauiEnableStartupTracing)' == ''">false</UnoMauiEnableStartupTracing>
+    <UnoMauiTrimMode Condition="'$(UnoMauiTrimMode)' == ''">partial</UnoMauiTrimMode>
+    <UnoMauiOptimizeWasmRuntime Condition="'$(UnoMauiOptimizeWasmRuntime)' == ''">true</UnoMauiOptimizeWasmRuntime>
+    <UnoMauiWasmAot Condition="'$(UnoMauiWasmAot)' == ''">false</UnoMauiWasmAot>
+    <UnoMauiAndroidProfiledAot Condition="'$(UnoMauiAndroidProfiledAot)' == ''">false</UnoMauiAndroidProfiledAot>
+    <UnoMauiAndroidExtractNativeLibs Condition="'$(UnoMauiAndroidExtractNativeLibs)' == ''">true</UnoMauiAndroidExtractNativeLibs>
+    <UnoMauiAndroidLargeHeap Condition="'$(UnoMauiAndroidLargeHeap)' == ''">false</UnoMauiAndroidLargeHeap>
     <UnoMauiGeneratedRoot Condition="'$(UnoMauiGeneratedRoot)' == ''">$(BaseIntermediateOutputPath)uno-maui-hosts\</UnoMauiGeneratedRoot>
   </PropertyGroup>
 </Project>

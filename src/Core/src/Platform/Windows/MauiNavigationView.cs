@@ -2,6 +2,8 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Windows.Foundation;
 using WGridLength = Microsoft.UI.Xaml.GridLength;
 using WThickness = Microsoft.UI.Xaml.Thickness;
 
@@ -100,6 +102,16 @@ namespace Microsoft.Maui.Platform
 			UpdateNavigationBackButtonSize();
 			UpdateNavigationViewBackButtonMargin();
 			UpdateNavigationViewButtonHolderGridMargin();
+#if UNO
+			if (System.OperatingSystem.IsBrowser())
+			{
+				NavigationViewBackButton.Content = new PathIcon
+				{
+					Data = CreateBrowserBackIconGeometry()
+				};
+				NavigationViewBackButton.Padding = new WThickness(0);
+			}
+#endif
 			OnApplyTemplateCore();
 			OnApplyTemplateFinished?.Invoke(this, EventArgs.Empty);
 
@@ -169,6 +181,28 @@ namespace Microsoft.Maui.Platform
 		private protected virtual void OnApplyTemplateCore()
 		{
 		}
+
+#if UNO
+		static PathGeometry CreateBrowserBackIconGeometry()
+		{
+			var figure = new PathFigure
+			{
+				StartPoint = new Point(10, 4),
+				IsClosed = true,
+				IsFilled = true
+			};
+			figure.Segments.Add(new LineSegment { Point = new Point(2, 12) });
+			figure.Segments.Add(new LineSegment { Point = new Point(10, 20) });
+			figure.Segments.Add(new LineSegment { Point = new Point(10, 15) });
+			figure.Segments.Add(new LineSegment { Point = new Point(22, 15) });
+			figure.Segments.Add(new LineSegment { Point = new Point(22, 9) });
+			figure.Segments.Add(new LineSegment { Point = new Point(10, 9) });
+
+			var geometry = new PathGeometry();
+			geometry.Figures.Add(figure);
+			return geometry;
+		}
+#endif
 
 		internal void UpdatePaneDisplayModeFromFlyoutBehavior(FlyoutBehavior flyoutBehavior)
 		{

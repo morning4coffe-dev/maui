@@ -140,8 +140,29 @@ namespace Microsoft.Maui.Platform
 						Toolbar.TextBlockBorderVerticalAlignment = VerticalAlignment.Top;
 					}
 				}
+
+			}
+
+#if UNO
+			UpdateUnoToolbarBackButtonMargin();
+#endif
+		}
+
+#if UNO
+		void UpdateUnoToolbarBackButtonMargin()
+		{
+			if ((OperatingSystem.IsBrowser() || OperatingSystem.IsAndroid())
+				&& Toolbar is not null
+				&& PaneDisplayMode != NavigationViewPaneDisplayMode.Top)
+			{
+				Toolbar.ContentGridMargin = new UI.Xaml.Thickness(
+					IsBackButtonVisible == NavigationViewBackButtonVisible.Visible ? NavigationBackButtonWidth : 0,
+					0,
+					0,
+					0);
 			}
 		}
+#endif
 
 		void HeaderPropertyChanged(DependencyObject sender, DependencyProperty dp) =>
 			UpdateHeaderPropertyBinding();
@@ -196,6 +217,9 @@ namespace Microsoft.Maui.Platform
 				(Toolbar?.IsBackEnabled ?? true);
 
 			UpdateToolbarPlacement();
+#if UNO
+			UpdateUnoToolbarBackButtonMargin();
+#endif
 		}
 
 		private protected override void OnApplyTemplateCore()

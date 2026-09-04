@@ -11,5 +11,10 @@ public sealed class UnoMauiApplication : MauiWinUIApplication
 		Resources.MergedDictionaries.Add(new XamlControlsResources());
 	}
 
-	protected override MauiApp CreateMauiApp() => AppFactory.Create();
+	protected override MauiApp CreateMauiApp()
+	{
+		var app = AppFactory.Create();
+		Resources["ContentControlThemeFontFamily"] = new Microsoft.UI.Xaml.Media.FontFamily("Arial");
+		return app;
+	}
 }

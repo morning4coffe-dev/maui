@@ -1,0 +1,121 @@
+<Project>
+  <PropertyGroup>
+    <ResizetizerIncludeSelfProject Condition="'$(UnoMauiTarget)' != 'Android'">true</ResizetizerIncludeSelfProject>
+    <ResizetizerPlatformType Condition="'$(UnoMauiTarget)' != 'Android'">uwp</ResizetizerPlatformType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <_UnoMauiApplicationRuntimeAssembly
+      Include="$(UnoMauiAppTargetDir)*.dll"
+      Exclude="$(UnoMauiAppTargetDir)$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)')).dll"
+      Condition="'$(UnoMauiAppTargetDir)' != '' and Exists('$(UnoMauiAppTargetDir)')" />
+    <Reference Include="@(_UnoMauiApplicationRuntimeAssembly)">
+      <HintPath>%(_UnoMauiApplicationRuntimeAssembly.Identity)</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <MauiImage Include="@(_UnoMauiGeneratedImage)"
+               Link="%(_UnoMauiGeneratedImage.LogicalName)"
+               BaseSize="%(_UnoMauiGeneratedImage.BaseSize)"
+               Resize="%(_UnoMauiGeneratedImage.Resize)"
+               TintColor="%(_UnoMauiGeneratedImage.TintColor)"
+               Color="%(_UnoMauiGeneratedImage.Color)"
+               ForegroundScale="%(_UnoMauiGeneratedImage.ForegroundScale)"
+               ForegroundFile="%(_UnoMauiGeneratedImage.ForegroundFile)" />
+    <MauiIcon Include="@(_UnoMauiGeneratedIcon)"
+              Link="%(_UnoMauiGeneratedIcon.LogicalName)"
+              BaseSize="%(_UnoMauiGeneratedIcon.BaseSize)"
+              Resize="%(_UnoMauiGeneratedIcon.Resize)"
+              TintColor="%(_UnoMauiGeneratedIcon.TintColor)"
+              Color="%(_UnoMauiGeneratedIcon.Color)"
+              ForegroundScale="%(_UnoMauiGeneratedIcon.ForegroundScale)"
+              ForegroundFile="%(_UnoMauiGeneratedIcon.ForegroundFile)" />
+    <MauiSplashScreen Include="@(_UnoMauiGeneratedSplashScreen)"
+                      Link="%(_UnoMauiGeneratedSplashScreen.LogicalName)"
+                      BaseSize="%(_UnoMauiGeneratedSplashScreen.BaseSize)"
+                      Resize="%(_UnoMauiGeneratedSplashScreen.Resize)"
+                      TintColor="%(_UnoMauiGeneratedSplashScreen.TintColor)"
+                      Color="%(_UnoMauiGeneratedSplashScreen.Color)"
+                      ForegroundScale="%(_UnoMauiGeneratedSplashScreen.ForegroundScale)" />
+    <MauiAsset Include="@(_UnoMauiGeneratedAsset)"
+               Link="%(_UnoMauiGeneratedAsset.LogicalName)"
+               LogicalName="%(_UnoMauiGeneratedAsset.LogicalName)" />
+    <MauiFont Include="@(_UnoMauiGeneratedFont)"
+              Link="%(_UnoMauiGeneratedFont.LogicalName)"
+              Alias="%(_UnoMauiGeneratedFont.Alias)" />
+  </ItemGroup>
+
+  <Target Name="_UnoMauiConfigureApplicationResourceReference"
+          BeforeTargets="ResizetizeCollectItems">
+    <ItemGroup>
+      <_ResolvedProjectReferencePaths Update="@(_ResolvedProjectReferencePaths)"
+                                      Condition="'%(_ResolvedProjectReferencePaths.OriginalProjectReferenceItemSpec)' == '$(UnoMauiAppProject)'">
+        <NearestTargetFramework>net10.0</NearestTargetFramework>
+        <AdditionalProperties>%(_ResolvedProjectReferencePaths.AdditionalProperties);$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true</AdditionalProperties>
+      </_ResolvedProjectReferencePaths>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_UnoMauiDeduplicateCollectedResources"
+          AfterTargets="ResizetizeCollectItems">
+    <ItemGroup>
+      <MauiImage Remove="@(_UnoMauiGeneratedImage);@(_UnoMauiGeneratedIcon)" />
+      <MauiImage Include="@(_UnoMauiGeneratedImage)"
+                 Link="%(_UnoMauiGeneratedImage.LogicalName)"
+                 BaseSize="%(_UnoMauiGeneratedImage.BaseSize)"
+                 Resize="%(_UnoMauiGeneratedImage.Resize)"
+                 TintColor="%(_UnoMauiGeneratedImage.TintColor)"
+                 Color="%(_UnoMauiGeneratedImage.Color)"
+                 ForegroundScale="%(_UnoMauiGeneratedImage.ForegroundScale)"
+                 ForegroundFile="%(_UnoMauiGeneratedImage.ForegroundFile)" />
+      <MauiImage Include="@(_UnoMauiGeneratedIcon)"
+                 Link="%(_UnoMauiGeneratedIcon.LogicalName)"
+                 BaseSize="%(_UnoMauiGeneratedIcon.BaseSize)"
+                 Resize="%(_UnoMauiGeneratedIcon.Resize)"
+                 TintColor="%(_UnoMauiGeneratedIcon.TintColor)"
+                 Color="%(_UnoMauiGeneratedIcon.Color)"
+                 ForegroundScale="%(_UnoMauiGeneratedIcon.ForegroundScale)"
+                 ForegroundFile="%(_UnoMauiGeneratedIcon.ForegroundFile)"
+                 IsAppIcon="True" />
+      <MauiFont Remove="@(_UnoMauiGeneratedFont)" />
+      <MauiFont Include="@(_UnoMauiGeneratedFont)"
+                Link="%(_UnoMauiGeneratedFont.LogicalName)"
+                Alias="%(_UnoMauiGeneratedFont.Alias)" />
+      <MauiAsset Remove="@(_UnoMauiGeneratedAsset)" />
+      <MauiAsset Include="@(_UnoMauiGeneratedAsset)"
+                 Link="%(_UnoMauiGeneratedAsset.LogicalName)"
+                 LogicalName="%(_UnoMauiGeneratedAsset.LogicalName)" />
+      <MauiSplashScreen Remove="@(_UnoMauiGeneratedSplashScreen)" />
+      <MauiSplashScreen Include="@(_UnoMauiGeneratedSplashScreen)"
+                        Link="%(_UnoMauiGeneratedSplashScreen.LogicalName)"
+                        BaseSize="%(_UnoMauiGeneratedSplashScreen.BaseSize)"
+                        Resize="%(_UnoMauiGeneratedSplashScreen.Resize)"
+                        TintColor="%(_UnoMauiGeneratedSplashScreen.TintColor)"
+                        Color="%(_UnoMauiGeneratedSplashScreen.Color)"
+                        ForegroundScale="%(_UnoMauiGeneratedSplashScreen.ForegroundScale)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_UnoMauiPackageGeneratedResources"
+          Condition="'$(UnoMauiTarget)' != 'Android'"
+          AfterTargets="ProcessMauiUnoAssets"
+          DependsOnTargets="ResizetizeCollectItems;ProcessMauiAssets;ProcessMauiFonts;ResizetizeImages">
+    <ItemGroup>
+      <ContentWithTargetPath Include="@(_ResizetizerCollectedImages)"
+                             CopyToOutputDirectory="PreserveNewest"
+                             CopyToPublishDirectory="PreserveNewest">
+        <TargetPath>%(_ResizetizerCollectedImages.Filename)%(_ResizetizerCollectedImages.Extension)</TargetPath>
+      </ContentWithTargetPath>
+      <ContentWithTargetPath Include="@(_UnoMauiGeneratedImage)"
+                             Condition="'$(UnoMauiTarget)' == 'WebAssembly' and '%(_UnoMauiGeneratedImage.Extension)' != '.svg'"
+                             CopyToOutputDirectory="PreserveNewest"
+                             CopyToPublishDirectory="PreserveNewest">
+        <TargetPath>%(_UnoMauiGeneratedImage.LogicalName)</TargetPath>
+      </ContentWithTargetPath>
+      <ContentWithTargetPath Include="@(_MauiFontCopied)"
+                             CopyToOutputDirectory="PreserveNewest"
+                             CopyToPublishDirectory="PreserveNewest">
+        <TargetPath>%(_MauiFontCopied.Filename)%(_MauiFontCopied.Extension)</TargetPath>
+      </ContentWithTargetPath>
+    </ItemGroup>
+  </Target>
+</Project>

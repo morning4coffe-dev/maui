@@ -11,6 +11,8 @@ using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Handlers;
 using Microsoft.Maui.Platform;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
+using Microsoft.UI.Xaml.Automation.Provider;
 using Xunit;
 using static Microsoft.Maui.DeviceTests.AssertHelpers;
 using WSetter = Microsoft.UI.Xaml.Setter;
@@ -212,6 +214,119 @@ namespace Microsoft.Maui.DeviceTests
 				// If this is broken we'll get way more than 1000 elements
 				Assert.True(childCount < 1000);
 			});
+		}
+
+		[Fact]
+		public async Task GridItemsVirtualizeAndHaveNonzeroSize()
+		{
+			SetupBuilder();
+
+			var collectionView = new CollectionView
+			{
+				HeightRequest = 240,
+				WidthRequest = 320,
+				ItemsLayout = new GridItemsLayout(ItemsLayoutOrientation.Vertical)
+				{
+					Span = 2,
+					HorizontalItemSpacing = 4,
+					VerticalItemSpacing = 6
+				},
+				ItemTemplate = new Controls.DataTemplate(() => new Label { HeightRequest = 40 }),
+				ItemsSource = Enumerable.Range(0, 100_000).ToList()
+			};
+
+			await CreateHandlerAndAddToWindow<CollectionViewHandler>(collectionView, async handler =>
+			{
+				var gridView = Assert.IsType<FormsGridView>(handler.PlatformView);
+
+				await AssertEventually(() =>
+					gridView.GetFirstDescendant<UI.Xaml.Controls.ItemsWrapGrid>() is not null &&
+					gridView.GetChildren<ItemContentControl>().Any());
+
+				var wrapGrid = gridView.GetFirstDescendant<UI.Xaml.Controls.ItemsWrapGrid>();
+				var realizedItems = gridView.GetChildren<ItemContentControl>().ToList();
+
+				Assert.Equal(2, wrapGrid.MaximumRowsOrColumns);
+				Assert.All(realizedItems, item =>
+				{
+					Assert.True(item.DesiredSize.Width > 0);
+					Assert.True(item.DesiredSize.Height > 0);
+				});
+				Assert.InRange(realizedItems.Count, 1, 100);
+			});
+		}
+
+		[Theory]
+		[InlineData(SelectionMode.Single)]
+		[InlineData(SelectionMode.Multiple)]
+		public async Task PlatformAndAutomationSelectionSynchronizeOnce(SelectionMode selectionMode)
+		{
+			SetupBuilder();
+
+			var items = new[] { "One", "Two", "Three" };
+			var selectionChangedCount = 0;
+			var commandCount = 0;
+			var collectionView = new CollectionView
+			{
+				HeightRequest = 240,
+				WidthRequest = 320,
+				ItemsLayout = new GridItemsLayout(ItemsLayoutOrientation.Vertical) { Span = 2 },
+				ItemTemplate = new Controls.DataTemplate(() => new Label()),
+				ItemsSource = items,
+				SelectionMode = selectionMode,
+				SelectionChangedCommand = new Command(() => commandCount++)
+			};
+			collectionView.SelectionChanged += (_, _) => selectionChangedCount++;
+
+			await CreateHandlerAndAddToWindow<CollectionViewHandler>(collectionView, async handler =>
+			{
+				var gridView = Assert.IsType<FormsGridView>(handler.PlatformView);
+				await AssertEventually(() => gridView.ContainerFromItem(gridView.Items[1]) is not null);
+
+				var firstContainer = Assert.IsType<UI.Xaml.Controls.GridViewItem>(gridView.ContainerFromItem(gridView.Items[0]));
+				Assert.True(firstContainer.IsHitTestVisible);
+
+				if (selectionMode == SelectionMode.Single)
+				{
+					gridView.SelectedItem = gridView.Items[0];
+				}
+				else
+				{
+					gridView.SelectedItems.Add(gridView.Items[0]);
+				}
+
+				SelectWithAutomation(gridView, 1, addToSelection: selectionMode == SelectionMode.Multiple);
+
+				await AssertEventually(() => selectionChangedCount == 2 && commandCount == 2);
+
+				if (selectionMode == SelectionMode.Single)
+				{
+					Assert.Equal(items[1], collectionView.SelectedItem);
+				}
+				else
+				{
+					Assert.Equal(items.Take(2), collectionView.SelectedItems.Cast<string>());
+				}
+
+				Assert.Equal(2, selectionChangedCount);
+				Assert.Equal(2, commandCount);
+			});
+		}
+
+		static void SelectWithAutomation(FormsGridView gridView, int index, bool addToSelection)
+		{
+			var container = Assert.IsType<UI.Xaml.Controls.GridViewItem>(gridView.ContainerFromItem(gridView.Items[index]));
+			var peer = new GridViewItemAutomationPeer(container);
+			var selectionProvider = Assert.IsAssignableFrom<ISelectionItemProvider>(peer.GetPattern(PatternInterface.SelectionItem));
+
+			if (addToSelection)
+			{
+				selectionProvider.AddToSelection();
+			}
+			else
+			{
+				selectionProvider.Select();
+			}
 		}
 
 		[Fact]
