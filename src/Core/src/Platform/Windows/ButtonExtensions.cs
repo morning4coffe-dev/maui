@@ -60,6 +60,10 @@ namespace Microsoft.Maui.Platform
 			else
 				platformButton.Resources.RemoveKeys(CornerRadiusResourceKeys);
 
+#if UNO
+			platformButton.UpdateProperty(Button.CornerRadiusProperty,
+				radius >= 0 ? WinUIHelpers.CreateCornerRadius(radius) : null);
+#endif
 			platformButton.RefreshThemeResources();
 		}
 

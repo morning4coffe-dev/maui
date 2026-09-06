@@ -33,8 +33,8 @@ When this fork is checked out through `uno.maui.renderer`, use its root wrapper:
 ```
 
 `Desktop` is the default target. Android, iOS, Mac Catalyst, and WebAssembly
-require their corresponding .NET 10 workloads. Apple heads compile on Windows,
-but running them requires macOS. On Apple Silicon macOS the default
+require their corresponding .NET 10 workloads. Apple native builds and runtime
+require macOS and a compatible Xcode installation. On Apple Silicon macOS the default
 simulator/Catalyst RID is arm64; on Intel macOS it remains x64. Windows keeps
 the existing Debug x64 / Release arm64 defaults. Use `-RuntimeIdentifier` to
 override the default RID, for example:
@@ -55,6 +55,57 @@ project:
 
 The generated projects live under `obj/uno-maui-hosts`; applications do not
 need to add or maintain Uno host projects.
+
+### Apple native dependencies
+
+Use an Xcode version supported by the selected .NET Apple SDK. A successful
+restore or static-graph evaluation does not validate the native linker.
+
+The published `Uno.icu-ios` archives target iOS devices and simulators, not
+Mac Catalyst. Catalyst builds therefore compile ICU 77.1 from its upstream
+source archive, checked against the release SHA-512, using Xcode's `macabi`
+target. The build retains the complete Unicode data archive, caches output by
+architecture, minimum OS version, compiler/SDK and recipe, and includes ICU's
+license in the app. Neither the package cache nor iOS native assets are modified.
+The first Catalyst build requires internet access, Bash, curl, make and Xcode;
+later builds reuse the verified source and native-build cache.
+
+`UnoMauiCatalystIcuDirectory` optionally selects a reusable native cache root.
+Each configuration is published atomically to its own immutable keyed directory;
+concurrent architectures never replace archives already selected by a linker.
+`MAUI_ICU_BUILD_JOBS` controls native build parallelism (default: 4).
+
+The cache regressions run without downloading or compiling ICU:
+
+```powershell
+pwsh -NoProfile -File src/Workload/Uno.Maui.Runtime/tests/BuildIcu.Tests.ps1
+```
+
+Mac Catalyst Keychain access also requires an appropriately provisioned signing
+identity and entitlements. An ad-hoc signature (`CodesignKey=-`) is sufficient
+for local rendering experiments, but does not establish that `SecureStorage`
+works. The Essentials probe reports Keychain entitlement failures rather than
+falling back to unencrypted storage. See
+[Mac Catalyst capabilities](https://learn.microsoft.com/dotnet/maui/mac-catalyst/capabilities)
+for signing and provisioning setup.
+
+### Runtime regression probes
+
+The sample's colors use app-theme bindings, including page surfaces, button
+captions, formatted text and the drawing canvas. The runtime section includes
+theme, RTL and safe-area toggles, and the Essentials probe verifies missing
+secure-storage keys as well as round-trip/removal.
+
+For an automated, in-process pass against the real rendered controls, build with
+`MauiUnoRuntimeQa=true` and launch the app normally. This opt-in runs first-load
+font layout and display-density sizing, entry/command, light/dark/light caption
+and surface, post-load color/border updates without a theme change, RTL/LTR
+alignment, font-pixel, screenshot and Essentials probes
+after the page loads. The first-load assertions run before any capture or forced
+layout, so screenshot rendering cannot conceal an image-loading defect. Results are written to
+`FileSystem.CacheDirectory/uno-maui-runtime-qa.txt`; require the `COMPLETE` marker
+and no `FAIL:` records. This does not replace physical pointer/touch, keyboard,
+rotation or lifecycle testing. Normal builds do not run the probes automatically.
 
 Release publishing is currently available for the heads that do not require
 signing:

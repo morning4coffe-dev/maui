@@ -78,7 +78,7 @@ namespace Microsoft.Maui.Handlers
 				[nameof(IContextFlyoutElement.ContextFlyout)] = MapContextFlyout,
 #endif
 
-#if ANDROID || IOS
+#if ANDROID || IOS || UNO
 				[nameof(ISafeAreaElement.SafeAreaEdges)] = MapSafeAreaEdges
 #endif
 			};
@@ -412,6 +412,12 @@ namespace Microsoft.Maui.Handlers
 #endif
 
 			((PlatformView?)handler.PlatformView)?.UpdateFlowDirection(view);
+#if UNO
+			if (view is ITextAlignment)
+			{
+				handler.UpdateValue(nameof(ITextAlignment.HorizontalTextAlignment));
+			}
+#endif
 		}
 
 		/// <summary>

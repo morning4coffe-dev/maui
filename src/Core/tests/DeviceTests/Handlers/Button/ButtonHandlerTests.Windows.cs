@@ -6,12 +6,43 @@ using Microsoft.Maui.Handlers;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Automation.Provider;
 using Microsoft.UI.Xaml.Controls;
+#if UNO
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
+#endif
 using Xunit;
 
 namespace Microsoft.Maui.DeviceTests
 {
 	public partial class ButtonHandlerTests
 	{
+#if UNO
+		[Fact]
+		public Task ContentForegroundTracksThemeAndTextColorChanges()
+		{
+			var button = new ButtonStub { Text = "Themed button", TextColor = Colors.Black };
+			return AttachAndRun(button, handler =>
+			{
+				var nativeButton = handler.PlatformView;
+				foreach (var (theme, color) in new[]
+				{
+					(ElementTheme.Dark, Colors.White),
+					(ElementTheme.Light, Colors.Black),
+					(ElementTheme.Dark, Colors.Yellow),
+				})
+				{
+					nativeButton.RequestedTheme = theme;
+					button.TextColor = color;
+					handler.UpdateValue(nameof(ITextStyle.TextColor));
+					var text = nativeButton.GetContent<TextBlock>();
+					Assert.NotNull(text);
+					Assert.Equal(color.ToWindowsColor(), Assert.IsType<SolidColorBrush>(text.Foreground).Color);
+				}
+				return Task.CompletedTask;
+			});
+		}
+#endif
+
 		[Fact(DisplayName = "CharacterSpacing Initializes Correctly")]
 		public async Task CharacterSpacingInitializesCorrectly()
 		{

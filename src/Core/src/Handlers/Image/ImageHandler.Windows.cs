@@ -403,10 +403,20 @@ namespace Microsoft.Maui.Handlers
 		{
 			public override void SetImageSource(ImageSource? platformImage)
 			{
-				if (Handler?.PlatformView is not WImage image)
+				var handler = Handler;
+				if (handler?.PlatformView is not WImage image)
 					return;
 
 				image.Source = platformImage;
+#if UNO
+				// Density retries bypass MapSourceAsync. Apply the new bitmap's caps
+				// before Uno measures it, not during its ImageOpened measure callback.
+				if (handler is ImageHandler imageHandler)
+				{
+					imageHandler._cachedImageSize = Graphics.Size.Zero;
+					imageHandler.UpdatePlatformMaxConstraints();
+				}
+#endif
 			}
 		}
 	}

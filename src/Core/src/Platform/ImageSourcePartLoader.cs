@@ -80,14 +80,16 @@ namespace Microsoft.Maui.Platform
 #else
 				var scale = handler.MauiContext?.GetOptionalPlatformWindow()?.GetDisplayDensity() ?? 1.0f;
 #endif
-				var result = await imageSource.UpdateSourceAsync(platformView, _imageSourceServiceProvider, Setter.SetImageSource, scale, token)
-					.ConfigureAwait(false);
-
 #if UNO
+				// A density retry creates and assigns another XAML image source.
+				// Keep it on the UI context that initiated the load.
+				var result = await imageSource.UpdateSourceAsync(platformView, _imageSourceServiceProvider, Setter.SetImageSource, scale, token);
 				SourceManager.CompleteLoad(result, scale);
 				if (allowResolutionRetry && SourceManager.RequiresReload(platformView))
-					await UpdateImageSourceAsync(allowResolutionRetry: false).ConfigureAwait(false);
+					await UpdateImageSourceAsync(allowResolutionRetry: false);
 #else
+				var result = await imageSource.UpdateSourceAsync(platformView, _imageSourceServiceProvider, Setter.SetImageSource, scale, token)
+					.ConfigureAwait(false);
 				SourceManager.CompleteLoad(result);
 #endif
 #elif ANDROID || TIZEN

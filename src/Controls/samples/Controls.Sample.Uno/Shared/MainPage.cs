@@ -16,20 +16,24 @@ using Windows.Storage;
 
 namespace Microsoft.Maui.Controls.Sample.Uno;
 
-public sealed class MainPage : ContentPage
+public sealed partial class MainPage : ContentPage
 {
 	const string FileSystemProbeAssetName = "FileSystemProbe.txt";
 	const string FileSystemProbeAssetContents = "Uno FileSystem sample asset.";
 	const string FileSystemProbeLocalContents = "Uno FileSystem local file probe.";
 	const string SecureStorageProbeKey = "__uno_securestorage_probe__";
 	const string SecureStorageProbeValue = "Uno SecureStorage probe.";
+	readonly Image _fontImage;
+	readonly Button _commandButton;
+	readonly Label _commandStatus;
 
 	public MainPage()
 	{
 		Title = "MAUI on Uno";
+		SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.Container);
 
 		var count = 0;
-		var status = new Label
+		var status = _commandStatus = new Label
 		{
 			Text = "Rendered by MAUI's WinUI handlers on Uno",
 			FontSize = 20,
@@ -41,7 +45,7 @@ public sealed class MainPage : ContentPage
 			Placeholder = "Type into a MAUI Entry",
 		};
 
-		var button = new Button
+		var button = _commandButton = new Button
 		{
 			AutomationId = "MauiButton",
 			Text = "Click me",
@@ -54,24 +58,28 @@ public sealed class MainPage : ContentPage
 			{
 				Spans =
 				{
-					new Span { Text = "Formatted ", TextColor = Microsoft.Maui.Graphics.Colors.DarkBlue },
+					new Span { Text = "Formatted " },
 					new Span { Text = "MAUI text", FontAttributes = FontAttributes.Bold },
 				},
 			},
 		};
+		formattedLabel.FormattedText.Spans[0].SetAppThemeColor(
+			Span.TextColorProperty, SampleTheme.LightAccent, SampleTheme.DarkAccent);
 
-		var fontImage = new Image
+		var fontImageSource = new FontImageSource
+		{
+			Glyph = "A",
+			FontFamily = "sans-serif",
+			Size = 32,
+		};
+		fontImageSource.SetAppThemeColor(
+			FontImageSource.ColorProperty, SampleTheme.LightAccent, SampleTheme.DarkAccent);
+		_fontImage = new Image
 		{
 			AutomationId = "MauiFontImage",
 			HeightRequest = 32,
 			HorizontalOptions = LayoutOptions.Start,
-			Source = new FontImageSource
-			{
-				Glyph = "A",
-				FontFamily = "sans-serif",
-				Size = 32,
-				Color = Microsoft.Maui.Graphics.Colors.DarkBlue,
-			},
+			Source = fontImageSource,
 			WidthRequest = 32,
 		};
 
@@ -104,7 +112,7 @@ public sealed class MainPage : ContentPage
 					},
 					status,
 					formattedLabel,
-					fontImage,
+					_fontImage,
 					entry,
 					button,
 					toolkitExpander,
@@ -127,6 +135,7 @@ public sealed class MainPage : ContentPage
 				},
 			},
 		};
+		SampleTheme.ApplyTo(this);
 	}
 
 	static View CreateRuntimeDiagnosticsProbe(MainPage page, Entry entry)
@@ -211,11 +220,49 @@ public sealed class MainPage : ContentPage
 				return;
 			}
 
-			application.UserAppTheme = application.UserAppTheme == AppTheme.Dark
+			application.UserAppTheme = application.RequestedTheme == AppTheme.Dark
 				? AppTheme.Light
 				: AppTheme.Dark;
 			status.Text = Probe("Runtime", () => GetRuntimeDiagnostics(page));
 		};
+
+		var edgeToEdge = false;
+		var safeAreaButton = new Button
+		{
+			AutomationId = "RuntimeSafeAreaToggle",
+			Text = "Toggle safe area / edge-to-edge",
+		};
+		safeAreaButton.Clicked += (_, _) =>
+		{
+			edgeToEdge = !edgeToEdge;
+			page.SafeAreaEdges = edgeToEdge ? SafeAreaEdges.None : new SafeAreaEdges(SafeAreaRegions.Container);
+			status.Text = Probe("Runtime", () => GetRuntimeDiagnostics(page));
+		};
+
+		var fontButton = new Button
+		{
+			AutomationId = "RuntimeFontImageReload",
+			Text = "Reload font image",
+		};
+		fontButton.Clicked += (_, _) => RunSerializedButtonAction(fontButton, status, async () =>
+		{
+			if (page._fontImage.Handler is not Microsoft.Maui.Handlers.IImageHandler handler)
+			{
+				return "Font image handler unavailable.";
+			}
+
+			await handler.SourceLoader.UpdateImageSourceAsync();
+			return await page.Dispatcher.DispatchAsync(() => GetRuntimeDiagnostics(page));
+		}, "Font image");
+
+#if MAUI_UNO_RUNTIME_QA
+		page.Loaded += RunRuntimeQa;
+		void RunRuntimeQa(object? sender, EventArgs args)
+		{
+			page.Loaded -= RunRuntimeQa;
+			RunSerializedButtonAction(refreshButton, status, () => page.RunRuntimeQaAsync(entry), "Runtime QA");
+		}
+#endif
 
 		return new VerticalStackLayout
 		{
@@ -233,6 +280,8 @@ public sealed class MainPage : ContentPage
 				hideSoftInputButton,
 				flowDirectionButton,
 				themeButton,
+				safeAreaButton,
+				fontButton,
 				status,
 			},
 		};
@@ -282,12 +331,24 @@ public sealed class MainPage : ContentPage
 			: $"{xamlRoot.Size.Width:0}x{xamlRoot.Size.Height:0} @ {xamlRoot.RasterizationScale:0.##}x";
 		var windowHandle = platformWindow?.WindowHandle ?? IntPtr.Zero;
 		var settingsSupport = OperatingSystem.IsWindows() ? "available" : "unsupported";
+		var visibleBounds = global::Windows.UI.ViewManagement.ApplicationView.GetForCurrentView().VisibleBounds;
+		var fontImage = page._fontImage.Handler?.PlatformView as Microsoft.UI.Xaml.Controls.Image;
+		var fontBitmap = fontImage?.Source as Microsoft.UI.Xaml.Media.Imaging.BitmapSource;
+		var fontVisual = fontImage is null
+			? null
+			: Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(fontImage) as Microsoft.UI.Composition.ContainerVisual;
+		var fontChildren = fontVisual is null
+			? "none"
+			: string.Join(", ", fontVisual.Children.Select(child => $"{child.GetType().Name} {child.Size.X:0}x{child.Size.Y:0}"));
 
 		return string.Join(
 			Environment.NewLine,
 			$"Device: {DeviceInfo.Platform}; {DeviceInfo.Idiom}; {DeviceInfo.DeviceType}; {DeviceInfo.Model}; {DeviceInfo.VersionString}",
 			$"XamlRoot: {xamlRootText}; HWND: 0x{windowHandle.ToInt64():X}",
-			$"Theme: {Application.Current?.UserAppTheme}; FlowDirection: {page.FlowDirection}; App settings: {settingsSupport}");
+			$"Visible bounds: {visibleBounds.X:0},{visibleBounds.Y:0} {visibleBounds.Width:0}x{visibleBounds.Height:0}; SafeAreaEdges: {page.SafeAreaEdges}",
+			$"Font image: {fontBitmap?.PixelWidth}x{fontBitmap?.PixelHeight}; view {fontImage?.ActualWidth:0}x{fontImage?.ActualHeight:0}; opacity {fontImage?.Opacity}; loading {page._fontImage.IsLoading}",
+			$"Font visuals: {fontChildren}",
+			$"Theme: {Application.Current?.RequestedTheme}; root: {(platformWindow?.Content as Microsoft.UI.Xaml.FrameworkElement)?.ActualTheme}; page background: {page.BackgroundColor?.ToArgbHex()}; FlowDirection: {page.FlowDirection}; App settings: {settingsSupport}");
 	}
 
 	static View CreateClipProbe()
@@ -636,13 +697,16 @@ public sealed class MainPage : ContentPage
 		try
 		{
 			SecureStorage.Remove(SecureStorageProbeKey);
+			var missingValue = await SecureStorage.GetAsync(SecureStorageProbeKey);
+			var removedMissing = SecureStorage.Remove(SecureStorageProbeKey);
 			await SecureStorage.SetAsync(SecureStorageProbeKey, SecureStorageProbeValue);
 			var storedValue = await SecureStorage.GetAsync(SecureStorageProbeKey);
 			var removed = SecureStorage.Remove(SecureStorageProbeKey);
 			var removedValue = await SecureStorage.GetAsync(SecureStorageProbeKey);
 
-			return storedValue == SecureStorageProbeValue && removed && removedValue is null
-				? "round-trip and removal passed"
+			return missingValue is null && !removedMissing &&
+				storedValue == SecureStorageProbeValue && removed && removedValue is null
+				? "missing keys, round-trip and removal passed"
 				: $"unexpected values: {storedValue ?? "<null>"}, removed={removed}, after remove={removedValue ?? "<null>"}";
 		}
 		finally
@@ -826,12 +890,13 @@ public sealed class MainPage : ContentPage
 		var drawingView = new DrawingView
 		{
 			AutomationId = "ToolkitDrawingView",
-			BackgroundColor = Microsoft.Maui.Graphics.Colors.White,
 			HeightRequest = 180,
 			IsMultiLineModeEnabled = true,
-			LineColor = Microsoft.Maui.Graphics.Colors.DarkBlue,
+			LineColor = Microsoft.Maui.Graphics.Colors.RoyalBlue,
 			LineWidth = 4,
 		};
+		drawingView.SetAppThemeColor(
+			VisualElement.BackgroundColorProperty, Microsoft.Maui.Graphics.Colors.White, SampleTheme.DarkSurface);
 		drawingView.DrawingLineCompleted += (_, _) =>
 		{
 			status.Text = $"Drawing lines: {drawingView.Lines.Count}";

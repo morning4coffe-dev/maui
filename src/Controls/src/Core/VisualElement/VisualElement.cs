@@ -2109,7 +2109,12 @@ namespace Microsoft.Maui.Controls
 		}
 
 		/// <inheritdoc/>
-		FlowDirection IView.FlowDirection => FlowDirection;
+		FlowDirection IView.FlowDirection =>
+#if UNO
+			FlowController.EffectiveFlowDirection.ToFlowDirection();
+#else
+			FlowDirection;
+#endif
 
 		/// <inheritdoc/>
 		Primitives.LayoutAlignment IView.HorizontalLayoutAlignment => default;
