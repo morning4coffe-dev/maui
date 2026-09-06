@@ -1,0 +1,35 @@
+<Project>
+  <PropertyGroup>
+    <_UnoMauiRuntimeTargetsImported>true</_UnoMauiRuntimeTargetsImported>
+    <_UnoMauiCatalystBuildScript>$(MSBuildThisFileDirectory)build-icu-catalyst.sh</_UnoMauiCatalystBuildScript>
+  </PropertyGroup>
+
+  <Target Name="_BuildUnoMauiCatalystIcu"
+          BeforeTargets="AssignTargetPaths;_ExpandNativeReferences"
+          Condition="'$(IsUnoHead)' == 'true' and '$(TargetPlatformIdentifier)' == 'maccatalyst'">
+    <Error Condition="!$([MSBuild]::IsOSPlatform('OSX'))"
+           Text="Building the Uno MAUI Catalyst native dependencies requires macOS and Xcode." />
+    <Error Condition="'$(RuntimeIdentifier)' != 'maccatalyst-arm64' and '$(RuntimeIdentifier)' != 'maccatalyst-x64'"
+           Text="Uno MAUI Catalyst requires maccatalyst-arm64 or maccatalyst-x64." />
+    <PropertyGroup>
+      <UnoMauiCatalystIcuDirectory Condition="'$(UnoMauiCatalystIcuDirectory)' == ''">$([System.IO.Path]::GetFullPath('$(BaseIntermediateOutputPath)uno-icu/$(RuntimeIdentifier)/'))</UnoMauiCatalystIcuDirectory>
+      <_UnoMauiCatalystArchitecture Condition="'$(RuntimeIdentifier)' == 'maccatalyst-arm64'">arm64</_UnoMauiCatalystArchitecture>
+      <_UnoMauiCatalystArchitecture Condition="'$(RuntimeIdentifier)' == 'maccatalyst-x64'">x86_64</_UnoMauiCatalystArchitecture>
+    </PropertyGroup>
+    <Exec Command="bash &quot;$(_UnoMauiCatalystBuildScript)&quot; --print-output-directory &quot;$(UnoMauiCatalystIcuDirectory)&quot; $(_UnoMauiCatalystArchitecture) &quot;$(SupportedOSPlatformVersion)&quot;"
+          ConsoleToMSBuild="true" StandardOutputImportance="Low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_UnoMauiCatalystIcuOutput" />
+    </Exec>
+    <Exec Command="bash &quot;$(_UnoMauiCatalystBuildScript)&quot; &quot;$(UnoMauiCatalystIcuDirectory)&quot; $(_UnoMauiCatalystArchitecture) &quot;$(SupportedOSPlatformVersion)&quot;" />
+    <Error Condition="!Exists('$(_UnoMauiCatalystIcuOutput)/libicuuc.a') or !Exists('$(_UnoMauiCatalystIcuOutput)/libicudata.a')"
+           Text="The resolved ICU cache entry was not built. Check whether the selected Xcode changed during the build." />
+    <ItemGroup>
+      <!-- The upstream package only distinguishes iOS devices from iOS simulators. Neither is Catalyst. -->
+      <NativeReference Remove="@(NativeReference)"
+                       Condition="$([System.String]::Copy('%(NativeReference.Identity)').Replace('\', '/').Contains('/uno.icu-ios/'))" />
+      <NativeReference Include="$(_UnoMauiCatalystIcuOutput)/libicuuc.a;$(_UnoMauiCatalystIcuOutput)/libicudata.a"
+                       Kind="Static" ForceLoad="true" />
+      <BundleResource Include="$(_UnoMauiCatalystIcuOutput)/ICU-LICENSE.txt" LogicalName="ICU-LICENSE.txt" />
+    </ItemGroup>
+  </Target>
+</Project>
