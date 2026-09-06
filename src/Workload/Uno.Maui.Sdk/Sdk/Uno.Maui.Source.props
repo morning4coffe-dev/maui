@@ -4,6 +4,7 @@
     <UnoMauiUseSource Condition="'$(UnoMauiUseSource)' == ''">false</UnoMauiUseSource>
     <UnoMauiPackageVersion Condition="'$(UnoMauiPackageVersion)' == ''">10.0.100-dev</UnoMauiPackageVersion>
     <MauiUnoTarget>true</MauiUnoTarget>
+    <_MauiTargetPlatformIsUno>True</_MauiTargetPlatformIsUno>
     <MauiUnoRenderer Condition="'$(MauiUnoRenderer)' == ''">WinUI</MauiUnoRenderer>
     <MauiUnoHostPlatform Condition="'$(MauiUnoHostPlatform)' == '' and '$(UnoMauiTarget)' != ''">$(UnoMauiTarget)</MauiUnoHostPlatform>
     <_MauiUnoUsesRuntimeIdentifier Condition="'$(UnoMauiRuntimeIdentifier)' != ''">true</_MauiUnoUsesRuntimeIdentifier>

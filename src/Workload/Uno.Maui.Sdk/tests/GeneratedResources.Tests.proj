@@ -1,0 +1,39 @@
+<Project DefaultTargets="Validate">
+  <PropertyGroup>
+    <SdkUnderTestRoot Condition="'$(SdkUnderTestRoot)' == ''">$(MSBuildThisFileDirectory)../Sdk/</SdkUnderTestRoot>
+    <UnoMauiUseSource>false</UnoMauiUseSource>
+    <UnoMauiPackageReferencesProvided>true</UnoMauiPackageReferencesProvided>
+    <UnoMauiTarget>WebAssembly</UnoMauiTarget>
+    <_ValidationDependsOn Condition="'$(DeduplicateResources)' == 'true'">_UnoMauiDeduplicateCollectedResources</_ValidationDependsOn>
+  </PropertyGroup>
+  <ItemGroup>
+    <_UnoMauiGeneratedImage Include="fixtures/original.svg" LogicalName="images/renamed.svg"
+                            BaseSize="300,185" Resize="true" TintColor="Red" CustomMetadata="preserved" />
+    <_UnoMauiGeneratedIcon Include="fixtures/icon.svg" LogicalName="icons/app.svg"
+                           ForegroundFile="fixtures/foreground.svg" ForegroundScale="0.5" />
+    <_UnoMauiGeneratedSplashScreen Include="fixtures/splash.svg" LogicalName="splash/screen.svg"
+                                   Color="Blue" BaseSize="100,100" />
+    <_UnoMauiGeneratedAsset Include="fixtures/original.txt" LogicalName="data/nested.json" />
+    <_UnoMauiGeneratedFont Include="fixtures/original.ttf" LogicalName="fonts/renamed.ttf" Alias="ExampleFont" />
+  </ItemGroup>
+  <Import Project="$(SdkUnderTestRoot)Uno.Maui.Source.props" />
+  <Import Project="$(SdkUnderTestRoot)Uno.Maui.GeneratedHost.targets" />
+  <Target Name="Validate" DependsOnTargets="$(_ValidationDependsOn)">
+    <Error Condition="'$(MauiUnoTarget)' != 'true' or '$(_MauiTargetPlatformIsUno)' != 'True'"
+           Text="Package-only hosts must activate the Uno resource pipeline." />
+    <Error Condition="'@(MauiAsset->'%(LogicalName)')' != 'data/nested.json' or '@(MauiAsset->'%(Link)')' != 'data/nested.json'"
+           Text="Raw assets must retain their renamed nested logical path." />
+    <Error Condition="'@(MauiFont->'%(LogicalName)')' != 'fonts/renamed.ttf' or '@(MauiFont->'%(Link)')' != 'fonts/renamed.ttf' or '@(MauiFont->'%(Alias)')' != 'ExampleFont'"
+           Text="Fonts must retain their logical path and alias." />
+    <ItemGroup>
+      <_Image Include="@(MauiImage->WithMetadataValue('LogicalName', 'images/renamed.svg'))" />
+    </ItemGroup>
+    <Error Condition="'@(_Image->'%(Link)')' != 'images/renamed.svg' or '@(_Image->'%(BaseSize)')' != '300,185' or '@(_Image->'%(Resize)')' != 'true' or '@(_Image->'%(TintColor)')' != 'Red' or '@(_Image->'%(CustomMetadata)')' != 'preserved'"
+           Text="Image projection must preserve all inherited metadata." />
+    <Error Condition="'@(MauiIcon->'%(Link)')' != 'icons/app.svg' or '@(MauiIcon->'%(ForegroundFile)')' != 'fixtures/foreground.svg' or '@(MauiIcon->'%(ForegroundScale)')' != '0.5'"
+           Text="Icon projection must preserve foreground metadata." />
+    <Error Condition="'@(MauiSplashScreen->'%(Link)')' != 'splash/screen.svg' or '@(MauiSplashScreen->'%(Color)')' != 'Blue' or '@(MauiSplashScreen->'%(BaseSize)')' != '100,100'"
+           Text="Splash projection must preserve logical and sizing metadata." />
+    <Message Importance="high" Text="Generated resource metadata passed (deduplication: $(DeduplicateResources))." />
+  </Target>
+</Project>

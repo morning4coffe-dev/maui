@@ -13,35 +13,12 @@
       <HintPath>%(_UnoMauiApplicationRuntimeAssembly.Identity)</HintPath>
       <Private>true</Private>
     </Reference>
-    <MauiImage Include="@(_UnoMauiGeneratedImage)"
-               Link="%(_UnoMauiGeneratedImage.LogicalName)"
-               BaseSize="%(_UnoMauiGeneratedImage.BaseSize)"
-               Resize="%(_UnoMauiGeneratedImage.Resize)"
-               TintColor="%(_UnoMauiGeneratedImage.TintColor)"
-               Color="%(_UnoMauiGeneratedImage.Color)"
-               ForegroundScale="%(_UnoMauiGeneratedImage.ForegroundScale)"
-               ForegroundFile="%(_UnoMauiGeneratedImage.ForegroundFile)" />
-    <MauiIcon Include="@(_UnoMauiGeneratedIcon)"
-              Link="%(_UnoMauiGeneratedIcon.LogicalName)"
-              BaseSize="%(_UnoMauiGeneratedIcon.BaseSize)"
-              Resize="%(_UnoMauiGeneratedIcon.Resize)"
-              TintColor="%(_UnoMauiGeneratedIcon.TintColor)"
-              Color="%(_UnoMauiGeneratedIcon.Color)"
-              ForegroundScale="%(_UnoMauiGeneratedIcon.ForegroundScale)"
-              ForegroundFile="%(_UnoMauiGeneratedIcon.ForegroundFile)" />
-    <MauiSplashScreen Include="@(_UnoMauiGeneratedSplashScreen)"
-                      Link="%(_UnoMauiGeneratedSplashScreen.LogicalName)"
-                      BaseSize="%(_UnoMauiGeneratedSplashScreen.BaseSize)"
-                      Resize="%(_UnoMauiGeneratedSplashScreen.Resize)"
-                      TintColor="%(_UnoMauiGeneratedSplashScreen.TintColor)"
-                      Color="%(_UnoMauiGeneratedSplashScreen.Color)"
-                      ForegroundScale="%(_UnoMauiGeneratedSplashScreen.ForegroundScale)" />
-    <MauiAsset Include="@(_UnoMauiGeneratedAsset)"
-               Link="%(_UnoMauiGeneratedAsset.LogicalName)"
-               LogicalName="%(_UnoMauiGeneratedAsset.LogicalName)" />
-    <MauiFont Include="@(_UnoMauiGeneratedFont)"
-              Link="%(_UnoMauiGeneratedFont.LogicalName)"
-              Alias="%(_UnoMauiGeneratedFont.Alias)" />
+    <!-- Included items retain their metadata; qualified source metadata is empty during evaluation. -->
+    <MauiImage Include="@(_UnoMauiGeneratedImage)" Link="%(LogicalName)" />
+    <MauiIcon Include="@(_UnoMauiGeneratedIcon)" Link="%(LogicalName)" />
+    <MauiSplashScreen Include="@(_UnoMauiGeneratedSplashScreen)" Link="%(LogicalName)" />
+    <MauiAsset Include="@(_UnoMauiGeneratedAsset)" Link="%(LogicalName)" />
+    <MauiFont Include="@(_UnoMauiGeneratedFont)" Link="%(LogicalName)" />
   </ItemGroup>
 
   <Target Name="_UnoMauiConfigureApplicationResourceReference"
@@ -59,39 +36,14 @@
           AfterTargets="ResizetizeCollectItems">
     <ItemGroup>
       <MauiImage Remove="@(_UnoMauiGeneratedImage);@(_UnoMauiGeneratedIcon)" />
-      <MauiImage Include="@(_UnoMauiGeneratedImage)"
-                 Link="%(_UnoMauiGeneratedImage.LogicalName)"
-                 BaseSize="%(_UnoMauiGeneratedImage.BaseSize)"
-                 Resize="%(_UnoMauiGeneratedImage.Resize)"
-                 TintColor="%(_UnoMauiGeneratedImage.TintColor)"
-                 Color="%(_UnoMauiGeneratedImage.Color)"
-                 ForegroundScale="%(_UnoMauiGeneratedImage.ForegroundScale)"
-                 ForegroundFile="%(_UnoMauiGeneratedImage.ForegroundFile)" />
-      <MauiImage Include="@(_UnoMauiGeneratedIcon)"
-                 Link="%(_UnoMauiGeneratedIcon.LogicalName)"
-                 BaseSize="%(_UnoMauiGeneratedIcon.BaseSize)"
-                 Resize="%(_UnoMauiGeneratedIcon.Resize)"
-                 TintColor="%(_UnoMauiGeneratedIcon.TintColor)"
-                 Color="%(_UnoMauiGeneratedIcon.Color)"
-                 ForegroundScale="%(_UnoMauiGeneratedIcon.ForegroundScale)"
-                 ForegroundFile="%(_UnoMauiGeneratedIcon.ForegroundFile)"
-                 IsAppIcon="True" />
+      <MauiImage Include="@(_UnoMauiGeneratedImage)" Link="%(LogicalName)" />
+      <MauiImage Include="@(_UnoMauiGeneratedIcon)" Link="%(LogicalName)" IsAppIcon="True" />
       <MauiFont Remove="@(_UnoMauiGeneratedFont)" />
-      <MauiFont Include="@(_UnoMauiGeneratedFont)"
-                Link="%(_UnoMauiGeneratedFont.LogicalName)"
-                Alias="%(_UnoMauiGeneratedFont.Alias)" />
+      <MauiFont Include="@(_UnoMauiGeneratedFont)" Link="%(LogicalName)" />
       <MauiAsset Remove="@(_UnoMauiGeneratedAsset)" />
-      <MauiAsset Include="@(_UnoMauiGeneratedAsset)"
-                 Link="%(_UnoMauiGeneratedAsset.LogicalName)"
-                 LogicalName="%(_UnoMauiGeneratedAsset.LogicalName)" />
+      <MauiAsset Include="@(_UnoMauiGeneratedAsset)" Link="%(LogicalName)" />
       <MauiSplashScreen Remove="@(_UnoMauiGeneratedSplashScreen)" />
-      <MauiSplashScreen Include="@(_UnoMauiGeneratedSplashScreen)"
-                        Link="%(_UnoMauiGeneratedSplashScreen.LogicalName)"
-                        BaseSize="%(_UnoMauiGeneratedSplashScreen.BaseSize)"
-                        Resize="%(_UnoMauiGeneratedSplashScreen.Resize)"
-                        TintColor="%(_UnoMauiGeneratedSplashScreen.TintColor)"
-                        Color="%(_UnoMauiGeneratedSplashScreen.Color)"
-                        ForegroundScale="%(_UnoMauiGeneratedSplashScreen.ForegroundScale)" />
+      <MauiSplashScreen Include="@(_UnoMauiGeneratedSplashScreen)" Link="%(LogicalName)" />
     </ItemGroup>
   </Target>
 

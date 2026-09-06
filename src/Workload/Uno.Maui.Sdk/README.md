@@ -14,6 +14,17 @@ and font aliases) are then processed by the target-specific generated head.
 Missing files and duplicate image, asset, font, or alias logical names fail the
 build.
 
+Package-only hosts activate the same Uno asset pipeline as source-based hosts.
+Resource projection preserves inherited metadata, including renamed nested
+asset paths, font aliases, image sizing and icon/splash settings.
+
+The metadata regression checks require only MSBuild, not platform workloads:
+
+```powershell
+dotnet msbuild src/Workload/Uno.Maui.Sdk/tests/GeneratedResources.Tests.proj
+dotnet msbuild src/Workload/Uno.Maui.Sdk/tests/GeneratedResources.Tests.proj -p:DeduplicateResources=true
+```
+
 ## Application project
 
 Import the SDK props before application items and the targets at the end:
