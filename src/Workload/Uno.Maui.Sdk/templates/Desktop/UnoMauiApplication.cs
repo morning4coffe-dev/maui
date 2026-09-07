@@ -28,7 +28,7 @@ public sealed class UnoMauiApplication : MauiWinUIApplication
 
 		foreach (var window in Microsoft.Maui.Controls.Application.Current!.Windows)
 		{
-			if (window.Handler?.PlatformView is Window { Content: FrameworkElement root })
+			if (window.Handler?.PlatformView is Microsoft.UI.Xaml.Window { Content: FrameworkElement root })
 			{
 				_themeRoot = root;
 				_themeRoot.ActualThemeChanged += OnActualThemeChanged;

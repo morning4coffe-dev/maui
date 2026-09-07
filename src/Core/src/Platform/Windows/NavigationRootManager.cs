@@ -2,6 +2,9 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+#if UNO
+using VisibleBoundsPadding = global::Uno.UI.Toolkit.VisibleBoundsPadding;
+#endif
 
 namespace Microsoft.Maui.Platform
 {
@@ -10,6 +13,9 @@ namespace Microsoft.Maui.Platform
 		readonly WeakReference<Window> _platformWindow;
 		WindowRootView _rootView;
 		bool _disconnected = true;
+#if UNO
+		IView? _safeAreaContent;
+#endif
 		internal event EventHandler? OnApplyTemplateFinished;
 
 		public NavigationRootManager(Window platformWindow)
@@ -97,6 +103,10 @@ namespace Microsoft.Maui.Platform
 			var previousRootView = RootView;
 
 			Disconnect();
+#if UNO
+			_safeAreaContent = handler.VirtualView.Content;
+			UpdateSafeArea(_safeAreaContent);
+#endif
 			Connect(handler.VirtualView.Content?.ToPlatform(handler.MauiContext));
 
 			if (platformWindow.Content is WindowRootViewContainer container)
@@ -140,6 +150,10 @@ namespace Microsoft.Maui.Platform
 
 		public virtual void Disconnect()
 		{
+#if UNO
+			_safeAreaContent = null;
+			VisibleBoundsPadding.SetPaddingMask(_rootView, VisibleBoundsPadding.PaddingMask.None);
+#endif
 			_rootView.OnWindowTitleBarContentSizeChanged -= WindowRootViewOnWindowTitleBarContentSizeChanged;
 
 			if (_platformWindow.TryGetTarget(out var platformWindow))
@@ -157,6 +171,40 @@ namespace Microsoft.Maui.Platform
 			_rootView.Content = null;
 			_disconnected = true;
 		}
+
+#if UNO
+		internal void UpdateSafeArea(IView? view)
+		{
+			if ((!OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst()) ||
+				!ReferenceEquals(view, _safeAreaContent))
+			{
+				return;
+			}
+
+			var mask = VisibleBoundsPadding.PaddingMask.None;
+			if (view is ISafeAreaView2 safeArea)
+			{
+				for (var edge = 0; edge < 4; edge++)
+				{
+					var region = safeArea.GetSafeAreaRegionsForEdge(edge);
+					if (!SafeAreaEdges.IsContainer(region))
+					{
+						continue;
+					}
+
+					mask |= edge switch
+					{
+						0 => VisibleBoundsPadding.PaddingMask.Left,
+						1 => VisibleBoundsPadding.PaddingMask.Top,
+						2 => VisibleBoundsPadding.PaddingMask.Right,
+						_ => VisibleBoundsPadding.PaddingMask.Bottom,
+					};
+				}
+			}
+
+			VisibleBoundsPadding.SetPaddingMask(_rootView, mask);
+		}
+#endif
 
 		internal void SetMenuBar(MenuBar? menuBar)
 		{

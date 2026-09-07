@@ -9,8 +9,6 @@ namespace Microsoft.Maui.Storage
 {
 	partial class SecureStorageImplementation : ISecureStorage
 	{
-		const int ElementNotFoundHResult = unchecked((int)0x80070490);
-
 		static string PasswordVaultResource =>
 			GetSecureStoragePasswordVaultResource(AppInfo.Current.PackageName);
 
@@ -72,15 +70,15 @@ namespace Microsoft.Maui.Storage
 			return new PasswordVault();
 		}
 
-		static IReadOnlyList<PasswordCredential> GetCredentials(PasswordVault vault)
+		static IEnumerable<PasswordCredential> GetCredentials(PasswordVault vault)
 		{
-			try
+			var resource = PasswordVaultResource;
+			foreach (var credential in vault.RetrieveAll())
 			{
-				return vault.FindAllByResource(PasswordVaultResource);
-			}
-			catch (Exception ex) when (ex.HResult == ElementNotFoundHResult)
-			{
-				return Array.Empty<PasswordCredential>();
+				if (string.Equals(credential.Resource, resource, StringComparison.Ordinal))
+				{
+					yield return credential;
+				}
 			}
 		}
 

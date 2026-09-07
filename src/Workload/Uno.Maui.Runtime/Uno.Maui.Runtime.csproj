@@ -33,6 +33,7 @@
 
   <ItemGroup>
     <None Include="nuget\_._" Pack="true" PackagePath="lib\netstandard2.0\_._" />
+    <None Include="nuget\buildTransitive\**\*" Pack="true" PackagePath="buildTransitive\%(RecursiveDir)%(Filename)%(Extension)" />
     <None Include="$(ArtifactsBinDir)uno\Core\$(Configuration)\net10.0\Microsoft.Maui.dll" Pack="true" PackagePath="lib\net10.0" />
     <None Include="$(ArtifactsBinDir)uno\Essentials\$(Configuration)\net10.0\Microsoft.Maui.Essentials.dll" Pack="true" PackagePath="lib\net10.0" />
     <None Include="$(ArtifactsBinDir)uno\Graphics\$(Configuration)\net10.0\Microsoft.Maui.Graphics.dll" Pack="true" PackagePath="lib\net10.0" />

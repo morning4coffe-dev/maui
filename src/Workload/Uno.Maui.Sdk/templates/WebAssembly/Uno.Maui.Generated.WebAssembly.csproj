@@ -17,6 +17,7 @@
     <UnoMauiTrimMode Condition="'$(UnoMauiTrimMode)' == ''">partial</UnoMauiTrimMode>
     <TrimMode>$(UnoMauiTrimMode)</TrimMode>
     <WasmBuildNative Condition="'$(WasmBuildNative)' == ''">true</WasmBuildNative>
+    <WasmShellEnableIDBFS Condition="'$(WasmShellEnableIDBFS)' == ''">true</WasmShellEnableIDBFS>
     <Optimize Condition="'$(UnoMauiOptimizeWasmRuntime)' == 'true'">true</Optimize>
     <DebugSymbols Condition="'$(UnoMauiOptimizeWasmRuntime)' == 'true'">false</DebugSymbols>
     <WasmDebugLevel Condition="'$(UnoMauiOptimizeWasmRuntime)' == 'true'">0</WasmDebugLevel>
@@ -48,11 +49,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference
-      Include="$(UnoMauiAppProject)"
-      AdditionalProperties="$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true"
-      SkipGetTargetFrameworkProperties="true"
-      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true" />
+    <Reference
+      Include="$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)'))"
+      Condition="'$(UnoMauiAppTargetDir)' != ''">
+      <HintPath>$(UnoMauiAppTargetDir)$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)')).dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 
   <Target Name="_UnoMauiRemoveDisabledHotReloadAssets"

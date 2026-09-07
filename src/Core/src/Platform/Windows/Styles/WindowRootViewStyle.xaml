@@ -94,7 +94,7 @@
                             <!-- Remove all the padding around the Flyout Items. This way the user can just control the margins. -->
                             <Thickness x:Key="NavigationViewItemContentPresenterMargin">0,0,0,0</Thickness>
                         </Page.Resources>
-                        <Grid x:Name="RootGrid" RowSpacing="0" ColumnSpacing="0" Margin="0" Padding="0">
+                        <Grid x:Name="RootGrid" RowSpacing="0" ColumnSpacing="0" Margin="0" Padding="{TemplateBinding Padding}">
                             <ContentControl x:Name="AppTitleBarContainer"
                                             IsTabStop="False"
                                             VerticalAlignment="Top"

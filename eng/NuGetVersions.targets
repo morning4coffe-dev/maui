@@ -189,7 +189,9 @@
     <PackageReference
         Update="Uno.WinUI.Runtime.Skia.WebAssembly.Browser"
         Version="$(UnoWinUIPackageVersion)"
-    />
+    >
+      <Version Condition="'$(UnoMauiWasmRuntimeVersion)' != ''">$(UnoMauiWasmRuntimeVersion)</Version>
+    </PackageReference>
     <PackageReference
         Update="Uno.WinUI.Runtime.Skia.X11"
         Version="$(UnoWinUIPackageVersion)"

@@ -14,6 +14,33 @@ and font aliases) are then processed by the target-specific generated head.
 Missing files and duplicate image, asset, font, or alias logical names fail the
 build.
 
+The application is built as a library with `CopyLocalLockFileAssemblies=true`
+for generated-host builds. Its runtime package dependencies are then included
+in the host, without replacing the host's framework or existing package
+assemblies. This is required for dependencies used during startup, such as
+logging providers, SQLite, and Blazor services.
+
+WebAssembly `NativeFileReference` items also cross the generated-host boundary,
+so package-provided archives such as `e_sqlite3.a` reach the native linker.
+The generated browser host enables IndexedDB-backed filesystem persistence
+by default. Set `WasmShellEnableIDBFS=false` only for applications that do not
+need local files to survive a page reload.
+Native libraries must also match the .NET WebAssembly toolchain. For example,
+the TodoSQLite sample's transitive SQLitePCLRaw 2.1.2 browser archive loads but
+fails with disk I/O errors on .NET 10; explicitly selecting
+`SQLitePCLRaw.bundle_green` 2.1.11 supplies a compatible archive.
+
+Package-only hosts activate the same Uno asset pipeline as source-based hosts.
+Resource projection preserves inherited metadata, including renamed nested
+asset paths, font aliases, image sizing and icon/splash settings.
+
+The metadata regression checks require only MSBuild, not platform workloads:
+
+```powershell
+dotnet msbuild src/Workload/Uno.Maui.Sdk/tests/GeneratedResources.Tests.proj
+dotnet msbuild src/Workload/Uno.Maui.Sdk/tests/GeneratedResources.Tests.proj -p:DeduplicateResources=true
+```
+
 ## Application project
 
 Import the SDK props before application items and the targets at the end:
@@ -107,6 +134,12 @@ The underlying MSBuild targets are also callable directly:
 dotnet msbuild MyApp.csproj -t:BuildUnoMaui -p:UnoMauiTarget=Desktop
 dotnet msbuild MyApp.csproj -t:BuildUnoMaui -p:UnoMauiTarget=Android -p:UnoMauiRuntimeIdentifier=android-x64
 dotnet msbuild MyApp.csproj -t:PublishUnoMaui -p:UnoMauiTarget=WebAssembly
+```
+
+Run the generated-host runtime asset contract checks without restoring packages:
+
+```powershell
+dotnet msbuild src\Workload\Uno.Maui.Sdk\tests\RuntimeAssets.proj
 ```
 
 ## Package mode

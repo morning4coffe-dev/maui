@@ -13,6 +13,7 @@
     <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
     <BuildInParallel>false</BuildInParallel>
     <UnoDisableHotRestartHelperGeneration>true</UnoDisableHotRestartHelperGeneration>
+    <DefineConstants Condition="'$(MauiUnoRuntimeQa)' == 'true'">$(DefineConstants);MAUI_UNO_RUNTIME_QA</DefineConstants>
     <!-- The IL20xx diagnostics originate in the fully rooted CommunityToolkit assemblies below. -->
     <NoWarn>$(NoWarn);Uno0001;IL2062;IL2072;IL2089;IL2092;IL2111;IL2112;RS0030</NoWarn>
   </PropertyGroup>

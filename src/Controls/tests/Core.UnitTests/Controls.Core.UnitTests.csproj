@@ -37,6 +37,7 @@
 
   <ItemGroup>
     <Compile Include="..\..\..\Core\tests\UnitTests\TestClasses\DispatcherStub.cs" Link="TestClasses\DispatcherStub.cs" />
+    <Compile Include="..\..\samples\Controls.Sample.Uno\Shared\SampleTheme.cs" Link="TestClasses\UnoSampleTheme.cs" />
   </ItemGroup>
 
 </Project>

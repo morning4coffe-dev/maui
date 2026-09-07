@@ -20,12 +20,13 @@
     <_UnoMauiGeneratedProjectName>Uno.Maui.Generated.$(UnoMauiTarget).$(MSBuildProjectName)</_UnoMauiGeneratedProjectName>
     <_UnoMauiGeneratedBaseOutputPath>$(ArtifactsBinDir)uno\$(_UnoMauiGeneratedProjectName)\</_UnoMauiGeneratedBaseOutputPath>
     <_UnoMauiGeneratedBaseIntermediatePath>$(ArtifactsObjDir)uno\$(_UnoMauiGeneratedProjectName)\</_UnoMauiGeneratedBaseIntermediatePath>
-    <_UnoMauiResourceManifest>$(IntermediateOutputPath)uno-maui\Uno.Maui.Generated.Resources.props</_UnoMauiResourceManifest>
+    <_UnoMauiResourceManifest>$([System.IO.Path]::GetFullPath('$(IntermediateOutputPath)uno-maui\Uno.Maui.Generated.Resources.props', '$(MSBuildProjectDirectory)'))</_UnoMauiResourceManifest>
     <_UnoMauiApplicationOptimize>$(Optimize)</_UnoMauiApplicationOptimize>
     <_UnoMauiApplicationDebugSymbols>$(DebugSymbols)</_UnoMauiApplicationDebugSymbols>
     <_UnoMauiApplicationOptimize Condition="'$(UnoMauiTarget)' == 'WebAssembly' and '$(UnoMauiOptimizeWasmRuntime)' == 'true'">true</_UnoMauiApplicationOptimize>
     <_UnoMauiApplicationDebugSymbols Condition="'$(UnoMauiTarget)' == 'WebAssembly' and '$(UnoMauiOptimizeWasmRuntime)' == 'true'">false</_UnoMauiApplicationDebugSymbols>
     <_UnoMauiRestoreNoWarn Condition="'$(RestoreIgnoreFailedSources)' == 'true'">NU1801%3BNU1900</_UnoMauiRestoreNoWarn>
+    <_UnoMauiHostRemoveProperties>TargetFramework;TargetFrameworks;RuntimeIdentifier;RuntimeIdentifiers;OutputType;SelfContained;UseAppHost</_UnoMauiHostRemoveProperties>
   </PropertyGroup>
 
   <Target Name="_UnoMauiGenerateAppFactory" BeforeTargets="CoreCompile" Condition="'$(UnoMauiDisableAppFactoryGeneration)' != 'true'">
@@ -108,6 +109,9 @@
         <LogicalName Condition="'%(MauiFont.Link)' != ''">%(MauiFont.Link)</LogicalName>
         <LogicalName Condition="'%(MauiFont.Link)' == ''">%(MauiFont.Filename)%(MauiFont.Extension)</LogicalName>
       </_UnoMauiFont>
+      <_UnoMauiNativeFileReference Include="@(NativeFileReference)" Condition="'$(UnoMauiTarget)' == 'WebAssembly'">
+        <Source>%(NativeFileReference.FullPath)</Source>
+      </_UnoMauiNativeFileReference>
       <_UnoMauiImageLogicalName Include="@(_UnoMauiImage->'%(LogicalName)');@(_UnoMauiIcon->'%(LogicalName)');@(_UnoMauiSplashScreen->'%(LogicalName)')" />
       <_UnoMauiAssetLogicalName Include="@(_UnoMauiAsset->'%(LogicalName)')" />
       <_UnoMauiFontLogicalName Include="@(_UnoMauiFont->'%(LogicalName)')" />
@@ -125,6 +129,7 @@
     <Error Condition="'@(_UnoMauiSplashScreen)' != '' and !Exists('%(_UnoMauiSplashScreen.Source)')" Text="Uno MAUI splash screen '%(_UnoMauiSplashScreen.Source)' does not exist." />
     <Error Condition="'@(_UnoMauiAsset)' != '' and !Exists('%(_UnoMauiAsset.Source)')" Text="Uno MAUI asset '%(_UnoMauiAsset.Source)' does not exist." />
     <Error Condition="'@(_UnoMauiFont)' != '' and !Exists('%(_UnoMauiFont.Source)')" Text="Uno MAUI font '%(_UnoMauiFont.Source)' does not exist." />
+    <Error Condition="'@(_UnoMauiNativeFileReference)' != '' and !Exists('%(_UnoMauiNativeFileReference.Source)')" Text="Uno MAUI native library '%(_UnoMauiNativeFileReference.Source)' does not exist." />
 
     <RemoveDuplicates Inputs="@(_UnoMauiImageLogicalName)">
       <Output TaskParameter="Filtered" ItemName="_UnoMauiUniqueImageLogicalName" />
@@ -185,6 +190,9 @@
         <LogicalName>$([System.String]::Copy('%(_UnoMauiFont.LogicalName)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</LogicalName>
         <Alias>$([System.String]::Copy('%(_UnoMauiFont.Alias)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Alias>
       </_UnoMauiEscapedFont>
+      <_UnoMauiEscapedNativeFileReference Include="@(_UnoMauiNativeFileReference)">
+        <Source>$([System.String]::Copy('%(_UnoMauiNativeFileReference.Source)').Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;').Replace('&quot;', '&amp;quot;'))</Source>
+      </_UnoMauiEscapedNativeFileReference>
       <_UnoMauiResourceManifestLine Include="&lt;Project&gt;" />
       <_UnoMauiResourceManifestLine Include="  &lt;ItemGroup&gt;" />
       <_UnoMauiResourceManifestLine Include="@(_UnoMauiEscapedImage->'    &lt;_UnoMauiGeneratedImage Include=&quot;%(Source)&quot; LogicalName=&quot;%(LogicalName)&quot; BaseSize=&quot;%(BaseSize)&quot; Resize=&quot;%(Resize)&quot; TintColor=&quot;%(TintColor)&quot; Color=&quot;%(Color)&quot; ForegroundScale=&quot;%(ForegroundScale)&quot; ForegroundFile=&quot;%(ForegroundFile)&quot; /&gt;')" />
@@ -192,6 +200,7 @@
       <_UnoMauiResourceManifestLine Include="@(_UnoMauiEscapedSplashScreen->'    &lt;_UnoMauiGeneratedSplashScreen Include=&quot;%(Source)&quot; LogicalName=&quot;%(LogicalName)&quot; BaseSize=&quot;%(BaseSize)&quot; Resize=&quot;%(Resize)&quot; TintColor=&quot;%(TintColor)&quot; Color=&quot;%(Color)&quot; ForegroundScale=&quot;%(ForegroundScale)&quot; /&gt;')" />
       <_UnoMauiResourceManifestLine Include="@(_UnoMauiEscapedAsset->'    &lt;_UnoMauiGeneratedAsset Include=&quot;%(Source)&quot; LogicalName=&quot;%(LogicalName)&quot; /&gt;')" />
       <_UnoMauiResourceManifestLine Include="@(_UnoMauiEscapedFont->'    &lt;_UnoMauiGeneratedFont Include=&quot;%(Source)&quot; LogicalName=&quot;%(LogicalName)&quot; Alias=&quot;%(Alias)&quot; /&gt;')" />
+      <_UnoMauiResourceManifestLine Include="@(_UnoMauiEscapedNativeFileReference->'    &lt;_UnoMauiGeneratedNativeFileReference Include=&quot;%(Source)&quot; /&gt;')" />
       <_UnoMauiResourceManifestLine Include="  &lt;/ItemGroup&gt;" />
       <_UnoMauiResourceManifestLine Include="&lt;/Project&gt;" />
     </ItemGroup>
@@ -219,6 +228,7 @@
       Projects="$(_UnoMauiHostProject)"
       Targets="Restore"
       BuildInParallel="false"
+      RemoveProperties="$(_UnoMauiHostRemoveProperties)"
       Properties="Configuration=$(Configuration);MauiUnoTarget=true;UnoMauiGeneratedProjectName=$(_UnoMauiGeneratedProjectName);UnoMauiAppProject=$(MSBuildProjectFullPath);UnoMauiResourceManifest=$(_UnoMauiResourceManifest);UnoMauiAppFactoryType=$(UnoMauiAppFactoryType);UnoMauiApplicationId=$(UnoMauiApplicationId);UnoMauiApplicationTitle=$(UnoMauiApplicationTitle);UnoMauiAutoEnableAccessibility=$(UnoMauiAutoEnableAccessibility);UnoMauiEnableStartupTracing=$(UnoMauiEnableStartupTracing);UnoMauiOptimizeWasmRuntime=$(UnoMauiOptimizeWasmRuntime);UnoMauiWasmAot=$(UnoMauiWasmAot);UnoMauiAndroidProfiledAot=$(UnoMauiAndroidProfiledAot);UnoMauiAndroidExtractNativeLibs=$(UnoMauiAndroidExtractNativeLibs);UnoMauiAndroidLargeHeap=$(UnoMauiAndroidLargeHeap);UnoMauiTrimMode=$(UnoMauiTrimMode);UnoMauiTrimmerNoWarn=$(UnoMauiTrimmerNoWarn);UnoMauiSdkRoot=$(UnoMauiSdkRoot);UnoMauiUseSource=$(UnoMauiUseSource);UnoMauiPackageVersion=$(UnoMauiPackageVersion);UnoMauiUnoVersion=$(UnoMauiUnoVersion);UnoMauiCoreRuntimeVersion=$(UnoMauiCoreRuntimeVersion);UnoMauiAndroidRuntimeVersion=$(UnoMauiAndroidRuntimeVersion);UnoMauiWasmRuntimeVersion=$(UnoMauiWasmRuntimeVersion);UnoMauiWasmBootstrapVersion=$(UnoMauiWasmBootstrapVersion);MauiSrcDirectory=$(MauiSrcDirectory);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);RestoreIgnoreFailedSources=$(RestoreIgnoreFailedSources);NuGetAudit=$(NuGetAudit);NoWarn=$(_UnoMauiRestoreNoWarn);WarningsNotAsErrors=$(_UnoMauiRestoreNoWarn)" />
   </Target>
 
@@ -227,7 +237,7 @@
       Projects="$(MSBuildProjectFullPath)"
       Targets="Build"
       BuildInParallel="false"
-      Properties="Configuration=$(Configuration);MauiUnoTarget=true;TargetFramework=net10.0;RuntimeIdentifier=$(UnoMauiRuntimeIdentifier);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);Optimize=$(_UnoMauiApplicationOptimize);DebugSymbols=$(_UnoMauiApplicationDebugSymbols);TypeScriptCompileBlocked=true" />
+      Properties="Configuration=$(Configuration);MauiUnoTarget=true;TargetFramework=net10.0;RuntimeIdentifier=$(UnoMauiRuntimeIdentifier);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);Optimize=$(_UnoMauiApplicationOptimize);DebugSymbols=$(_UnoMauiApplicationDebugSymbols);CopyLocalLockFileAssemblies=true;TypeScriptCompileBlocked=true" />
     <MSBuild
       Projects="$(MSBuildProjectFullPath)"
       Targets="_UnoMauiGetApplicationTargetDirectory"
@@ -261,6 +271,7 @@
       Projects="$(_UnoMauiHostProject)"
       Targets="Build"
       BuildInParallel="false"
+      RemoveProperties="$(_UnoMauiHostRemoveProperties)"
       Properties="Configuration=$(Configuration);BuildProjectReferences=false;MauiUnoTarget=true;UnoMauiGeneratedProjectName=$(_UnoMauiGeneratedProjectName);UnoMauiAppProject=$(MSBuildProjectFullPath);UnoMauiAppTargetDir=$(_UnoMauiApplicationTargetDir);UnoMauiResourceManifest=$(_UnoMauiResourceManifest);UnoMauiAppFactoryType=$(UnoMauiAppFactoryType);UnoMauiApplicationId=$(UnoMauiApplicationId);UnoMauiApplicationTitle=$(UnoMauiApplicationTitle);UnoMauiAutoEnableAccessibility=$(UnoMauiAutoEnableAccessibility);UnoMauiEnableStartupTracing=$(UnoMauiEnableStartupTracing);UnoMauiOptimizeWasmRuntime=$(UnoMauiOptimizeWasmRuntime);UnoMauiWasmAot=$(UnoMauiWasmAot);UnoMauiAndroidProfiledAot=$(UnoMauiAndroidProfiledAot);UnoMauiAndroidExtractNativeLibs=$(UnoMauiAndroidExtractNativeLibs);UnoMauiAndroidLargeHeap=$(UnoMauiAndroidLargeHeap);UnoMauiTrimMode=$(UnoMauiTrimMode);UnoMauiTrimmerNoWarn=$(UnoMauiTrimmerNoWarn);UnoMauiSdkRoot=$(UnoMauiSdkRoot);UnoMauiUseSource=$(UnoMauiUseSource);UnoMauiPackageVersion=$(UnoMauiPackageVersion);UnoMauiUnoVersion=$(UnoMauiUnoVersion);UnoMauiCoreRuntimeVersion=$(UnoMauiCoreRuntimeVersion);UnoMauiAndroidRuntimeVersion=$(UnoMauiAndroidRuntimeVersion);UnoMauiWasmRuntimeVersion=$(UnoMauiWasmRuntimeVersion);UnoMauiWasmBootstrapVersion=$(UnoMauiWasmBootstrapVersion);MauiSrcDirectory=$(MauiSrcDirectory);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);TypeScriptCompileBlocked=true" />
   </Target>
 
@@ -269,6 +280,7 @@
       Projects="$(_UnoMauiHostProject)"
       Targets="Publish"
       BuildInParallel="false"
+      RemoveProperties="$(_UnoMauiHostRemoveProperties)"
       Properties="Configuration=$(Configuration);BuildProjectReferences=false;MauiUnoTarget=true;UnoMauiGeneratedProjectName=$(_UnoMauiGeneratedProjectName);UnoMauiAppProject=$(MSBuildProjectFullPath);UnoMauiAppTargetDir=$(_UnoMauiApplicationTargetDir);UnoMauiResourceManifest=$(_UnoMauiResourceManifest);UnoMauiAppFactoryType=$(UnoMauiAppFactoryType);UnoMauiApplicationId=$(UnoMauiApplicationId);UnoMauiApplicationTitle=$(UnoMauiApplicationTitle);UnoMauiAutoEnableAccessibility=$(UnoMauiAutoEnableAccessibility);UnoMauiEnableStartupTracing=$(UnoMauiEnableStartupTracing);UnoMauiOptimizeWasmRuntime=$(UnoMauiOptimizeWasmRuntime);UnoMauiWasmAot=$(UnoMauiWasmAot);UnoMauiAndroidProfiledAot=$(UnoMauiAndroidProfiledAot);UnoMauiAndroidExtractNativeLibs=$(UnoMauiAndroidExtractNativeLibs);UnoMauiAndroidLargeHeap=$(UnoMauiAndroidLargeHeap);UnoMauiTrimMode=$(UnoMauiTrimMode);UnoMauiTrimmerNoWarn=$(UnoMauiTrimmerNoWarn);UnoMauiSdkRoot=$(UnoMauiSdkRoot);UnoMauiUseSource=$(UnoMauiUseSource);UnoMauiPackageVersion=$(UnoMauiPackageVersion);UnoMauiUnoVersion=$(UnoMauiUnoVersion);UnoMauiCoreRuntimeVersion=$(UnoMauiCoreRuntimeVersion);UnoMauiAndroidRuntimeVersion=$(UnoMauiAndroidRuntimeVersion);UnoMauiWasmRuntimeVersion=$(UnoMauiWasmRuntimeVersion);UnoMauiWasmBootstrapVersion=$(UnoMauiWasmBootstrapVersion);MauiSrcDirectory=$(MauiSrcDirectory);UnoMauiRuntimeIdentifier=$(UnoMauiRuntimeIdentifier);TypeScriptCompileBlocked=true" />
   </Target>
 </Project>

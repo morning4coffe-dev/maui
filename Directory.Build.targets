@@ -31,9 +31,12 @@
   </PropertyGroup>
 
   <!-- platform version number information -->
-  <PropertyGroup Condition="'$(_MauiTargetPlatformIsiOS)' == 'True'">
+  <PropertyGroup Condition="'$(_MauiTargetPlatformIsiOS)' == 'True' and '$(MauiUnoTarget)' != 'true'">
     <SupportedOSPlatformVersion>13.0</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion>13.0</TargetPlatformMinVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(MauiUnoTarget)' == 'true' and '$(TargetPlatformIdentifier)' == 'ios'">
+    <TargetPlatformMinVersion>$(SupportedOSPlatformVersion)</TargetPlatformMinVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(_MauiTargetPlatformIstvOS)' == 'True'">
     <SupportedOSPlatformVersion>10.0</SupportedOSPlatformVersion>
@@ -43,6 +46,8 @@
     <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion>15.0</TargetPlatformMinVersion>
   </PropertyGroup>
+  <Import Project="src\Workload\Uno.Maui.Runtime\nuget\buildTransitive\Uno.Maui.Runtime.targets"
+          Condition="'$(MauiUnoTarget)' == 'true' and '$(_UnoMauiRuntimeTargetsImported)' != 'true'" />
   <PropertyGroup Condition="'$(_MauiTargetPlatformIsmacOS)' == 'True'">
     <SupportedOSPlatformVersion>12.0</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion>12.0</TargetPlatformMinVersion>

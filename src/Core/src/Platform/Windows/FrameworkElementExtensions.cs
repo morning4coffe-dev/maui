@@ -271,6 +271,14 @@ namespace Microsoft.Maui.Platform
 
 		internal static void RefreshThemeResources(this FrameworkElement nativeView)
 		{
+#if UNO
+			// Re-resolve local resources without changing the control's theme boundary.
+			global::Uno.UI.Xaml.BindingHelper.UpdateResourceBindings(nativeView);
+			foreach (var child in nativeView.GetChildren<FrameworkElement>())
+			{
+				child?.RefreshThemeResources();
+			}
+#else
 			var previous = nativeView.RequestedTheme;
 
 			// Workaround for https://github.com/dotnet/maui/issues/7820
@@ -281,6 +289,7 @@ namespace Microsoft.Maui.Platform
 			};
 
 			nativeView.RequestedTheme = previous;
+#endif
 		}
 
 		internal static float GetDisplayDensity(this UIElement? element) =>

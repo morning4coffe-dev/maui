@@ -39,6 +39,9 @@ namespace Microsoft.Maui.Platform
 			else
 				textBox.Resources.SetValueForAllKey(BackgroundResourceKeys, brush);
 
+#if UNO
+			textBox.UpdateProperty(TextBox.BackgroundProperty, brush);
+#endif
 			textBox.RefreshThemeResources();
 		}
 
@@ -59,6 +62,9 @@ namespace Microsoft.Maui.Platform
 			else
 				textBox.Resources.SetValueForAllKey(TextColorResourceKeys, brush);
 
+#if UNO
+			textBox.UpdateProperty(TextBox.ForegroundProperty, brush);
+#endif
 			textBox.RefreshThemeResources();
 		}
 
@@ -212,10 +218,15 @@ namespace Microsoft.Maui.Platform
 
 		public static void UpdateHorizontalTextAlignment(this TextBox textBox, ITextAlignment textAlignment)
 		{
+#if UNO
+			textBox.TextAlignment = textAlignment.HorizontalTextAlignment.ToPlatform(
+				textBox.FlowDirection != UI.Xaml.FlowDirection.RightToLeft);
+#else
 			// We don't have a FlowDirection yet, so there's nothing to pass in here. 
 			// TODO: Update this when FlowDirection is available 
 			// (or update the extension to take an ILabel instead of an alignment and work it out from there) 
 			textBox.TextAlignment = textAlignment.HorizontalTextAlignment.ToPlatform(true);
+#endif
 		}
 
 		public static void UpdateVerticalTextAlignment(this TextBox textBox, ITextAlignment textAlignment) =>
