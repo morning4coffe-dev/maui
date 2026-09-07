@@ -1,0 +1,22 @@
+<Project DefaultTargets="Test">
+  <Import Project="$(UnoMauiResourceManifest)" />
+  <ItemGroup>
+    <Reference Include="$(MSBuildThisFileDirectory)host\Existing.dll" />
+    <RuntimePackAsset Include="$(MSBuildThisFileDirectory)framework\System.Runtime.dll" />
+    <NativeFileReference Include="$(MSBuildThisFileDirectory)obj\native &amp; assets\shared.a" />
+  </ItemGroup>
+  <Import Project="..\Sdk\Uno.Maui.GeneratedHost.targets" />
+  <Target Name="ResolveRuntimePackAssets" />
+
+  <Target Name="Test" DependsOnTargets="_UnoMauiAddApplicationRuntimeReferences">
+    <Error Condition="'@(Reference->Count())' != '2'"
+           Text="Only the host dependency and missing application dependency should be referenced: @(Reference)" />
+    <Error Condition="'@(_UnoMauiApplicationManagedAssembly->'%(Filename)')' != 'Dependency'"
+           Text="Framework, native, application, or existing host assemblies leaked into runtime references." />
+    <Error Condition="'@(NativeFileReference->Count())' != '2'"
+           Text="Application native libraries must be exported, XML-escaped, and deduplicated: @(NativeFileReference)" />
+    <Error Condition="!Exists('%(NativeFileReference.FullPath)')"
+           Text="Native library path did not survive manifest export." />
+    <Message Importance="high" Text="Generated-host runtime asset contracts passed." />
+  </Target>
+</Project>

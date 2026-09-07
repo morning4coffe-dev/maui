@@ -1,0 +1,37 @@
+<Project DefaultTargets="Test">
+  <PropertyGroup>
+    <UnoMauiSkipSourceImport>true</UnoMauiSkipSourceImport>
+    <UnoMauiTarget>WebAssembly</UnoMauiTarget>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)obj\</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>
+    <TargetDir>$(BaseIntermediateOutputPath)app\</TargetDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <NativeFileReference Include="$(BaseIntermediateOutputPath)native &amp; assets\sqlite.a" />
+    <NativeFileReference Include="$(BaseIntermediateOutputPath)native &amp; assets\shared.a" />
+  </ItemGroup>
+  <Import Project="..\Sdk\Uno.Maui.Sdk.targets" />
+
+  <Target Name="Initialize">
+    <MakeDir Directories="$(TargetDir);$(BaseIntermediateOutputPath)native &amp; assets" />
+    <WriteLinesToFile File="$(TargetDir)App.dll" Lines="app" Overwrite="true" />
+    <WriteLinesToFile File="$(TargetDir)Dependency.dll" Lines="dependency" Overwrite="true" />
+    <WriteLinesToFile File="$(TargetDir)Existing.dll" Lines="host dependency" Overwrite="true" />
+    <WriteLinesToFile File="$(TargetDir)System.Runtime.dll" Lines="framework" Overwrite="true" />
+    <WriteLinesToFile File="$(TargetDir)libSkiaSharp.dll" Lines="native" Overwrite="true" />
+    <WriteLinesToFile File="%(NativeFileReference.Identity)" Lines="native archive" Overwrite="true" />
+  </Target>
+
+  <Target Name="Build">
+    <Error Condition="'$(CopyLocalLockFileAssemblies)' != 'true'"
+           Text="Generated hosts must build the application with its runtime package dependencies." />
+  </Target>
+
+  <Target Name="Test" DependsOnTargets="Initialize;_UnoMauiBuildApplication;_UnoMauiExportApplicationResources">
+    <Error Condition="'$(_UnoMauiApplicationTargetDir)' != '$(TargetDir)'" Text="Application output path was lost." />
+    <MSBuild Projects="RuntimeAssetsHost.proj"
+             Properties="UnoMauiResourceManifest=$(_UnoMauiResourceManifest);UnoMauiAppTargetDir=$(TargetDir);UnoMauiAppProject=$(TargetDir)App.csproj" />
+    <MSBuild Projects="GeneratedResources.Tests.proj" Properties="DeduplicateResources=false" />
+    <MSBuild Projects="GeneratedResources.Tests.proj" Properties="DeduplicateResources=true" />
+  </Target>
+</Project>

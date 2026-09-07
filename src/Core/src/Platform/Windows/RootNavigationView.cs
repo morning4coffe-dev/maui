@@ -29,6 +29,9 @@ namespace Microsoft.Maui.Platform
 			AlwaysShowHeader = false;
 
 			RegisterPropertyChangedCallback(IsBackButtonVisibleProperty, BackButtonVisibleChanged);
+#if UNO
+			RegisterPropertyChangedCallback(IsPaneToggleButtonVisibleProperty, (_, _) => UpdateUnoToolbarBackButtonMargin());
+#endif
 			RegisterPropertyChangedCallback(OpenPaneLengthProperty, PaneLengthPropertyChanged);
 			RegisterPropertyChangedCallback(HeaderProperty, HeaderPropertyChanged);
 			RegisterPropertyChangedCallback(PaneFooterProperty, HeaderPropertyChanged);
@@ -155,8 +158,16 @@ namespace Microsoft.Maui.Platform
 				&& Toolbar is not null
 				&& PaneDisplayMode != NavigationViewPaneDisplayMode.Top)
 			{
+				var backButtonWidth = NavigationViewBackButton?.ActualWidth ?? 0;
+				var toggleButtonWidth = TogglePaneButton?.ActualWidth ?? 0;
+				var leadingButtonWidth = IsBackButtonVisible == NavigationViewBackButtonVisible.Visible
+					? backButtonWidth > 0 ? backButtonWidth : NavigationBackButtonWidth
+					: IsPaneToggleButtonVisible
+						? toggleButtonWidth > 0 ? toggleButtonWidth : PaneToggleButtonWidth
+						: 0;
+
 				Toolbar.ContentGridMargin = new UI.Xaml.Thickness(
-					IsBackButtonVisible == NavigationViewBackButtonVisible.Visible ? NavigationBackButtonWidth : 0,
+					leadingButtonWidth,
 					0,
 					0,
 					0);
@@ -258,7 +269,14 @@ namespace Microsoft.Maui.Platform
 			TogglePaneButton!.SizeChanged += (_, args) =>
 			{
 				UpdateNavigationAndPaneButtonHolderGridStyles();
+#if UNO
+				UpdateUnoToolbarBackButtonMargin();
+#endif
 			};
+
+#if UNO
+			NavigationViewBackButton!.SizeChanged += (_, _) => UpdateUnoToolbarBackButtonMargin();
+#endif
 
 			UpdateToolbarPlacement();
 

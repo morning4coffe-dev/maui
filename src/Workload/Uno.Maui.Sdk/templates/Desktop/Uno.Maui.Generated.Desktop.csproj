@@ -40,11 +40,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference
-      Include="$(UnoMauiAppProject)"
-      AdditionalProperties="$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true"
-      SkipGetTargetFrameworkProperties="true"
-      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true" />
+    <Reference
+      Include="$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)'))"
+      Condition="'$(UnoMauiAppTargetDir)' != ''">
+      <HintPath>$(UnoMauiAppTargetDir)$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)')).dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 
   <Target Name="_UnoMauiRemoveReleaseReferenceSymbols"

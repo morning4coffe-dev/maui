@@ -7,12 +7,8 @@
   <ItemGroup>
     <_UnoMauiApplicationRuntimeAssembly
       Include="$(UnoMauiAppTargetDir)*.dll"
-      Exclude="$(UnoMauiAppTargetDir)$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)')).dll"
+      Exclude="$(UnoMauiAppTargetDir)$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)')).dll;$(UnoMauiAppTargetDir)libSkiaSharp.dll"
       Condition="'$(UnoMauiAppTargetDir)' != '' and Exists('$(UnoMauiAppTargetDir)')" />
-    <Reference Include="@(_UnoMauiApplicationRuntimeAssembly)">
-      <HintPath>%(_UnoMauiApplicationRuntimeAssembly.Identity)</HintPath>
-      <Private>true</Private>
-    </Reference>
     <!-- Included items retain their metadata; qualified source metadata is empty during evaluation. -->
     <MauiImage Include="@(_UnoMauiGeneratedImage)" Link="%(LogicalName)" />
     <MauiIcon Include="@(_UnoMauiGeneratedIcon)" Link="%(LogicalName)" />
@@ -21,14 +17,22 @@
     <MauiFont Include="@(_UnoMauiGeneratedFont)" Link="%(LogicalName)" />
   </ItemGroup>
 
-  <Target Name="_UnoMauiConfigureApplicationResourceReference"
-          BeforeTargets="ResizetizeCollectItems">
+  <Target Name="_UnoMauiAddApplicationRuntimeReferences"
+          DependsOnTargets="ResolveRuntimePackAssets"
+          BeforeTargets="ResolveAssemblyReferences">
     <ItemGroup>
-      <_ResolvedProjectReferencePaths Update="@(_ResolvedProjectReferencePaths)"
-                                      Condition="'%(_ResolvedProjectReferencePaths.OriginalProjectReferenceItemSpec)' == '$(UnoMauiAppProject)'">
-        <NearestTargetFramework>net10.0</NearestTargetFramework>
-        <AdditionalProperties>%(_ResolvedProjectReferencePaths.AdditionalProperties);$(_MauiUnoBuildProperties);UnoMauiDisableResourceItems=true</AdditionalProperties>
-      </_ResolvedProjectReferencePaths>
+      <_UnoMauiApplicationManagedAssembly Include="@(_UnoMauiApplicationRuntimeAssembly)" />
+      <_UnoMauiApplicationManagedAssembly Remove="@(RuntimePackAsset)"
+                                          MatchOnMetadata="Filename;Extension" />
+      <_UnoMauiApplicationManagedAssembly Remove="@(Reference)"
+                                          MatchOnMetadata="Filename;Extension" />
+      <Reference Include="@(_UnoMauiApplicationManagedAssembly)">
+        <HintPath>%(_UnoMauiApplicationManagedAssembly.Identity)</HintPath>
+        <Private>true</Private>
+      </Reference>
+      <_UnoMauiApplicationNativeFileReference Include="@(_UnoMauiGeneratedNativeFileReference)" />
+      <_UnoMauiApplicationNativeFileReference Remove="@(NativeFileReference)" MatchOnMetadata="FullPath" />
+      <NativeFileReference Include="@(_UnoMauiApplicationNativeFileReference)" />
     </ItemGroup>
   </Target>
 
