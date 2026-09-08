@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Maui.Animations;
 using CommunityToolkit.Maui.Behaviors;
@@ -14,6 +15,11 @@ using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 using Microsoft.Maui.Graphics;
+
+// Aliased rather than imported: the namespace segment "DataGrid" would otherwise shadow the type of the
+// same name, and `Maui.DataGrid` collides with this sample's own `Maui.Controls.Sample.Uno` root.
+using MauiDataGrid = global::Maui.DataGrid.DataGrid;
+using MauiDataGridColumn = global::Maui.DataGrid.DataGridColumn;
 
 namespace Maui.Controls.Sample.Uno;
 
@@ -181,6 +187,7 @@ public sealed class AdvancedMauiContent : ContentView
 			("SyncfusionCharts", "Third party: Syncfusion Toolkit charts", BuildSyncfusionCharts),
 			("SyncfusionSeries", "Third party: Syncfusion series types", BuildSyncfusionSeries),
 			("SyncfusionShapes", "Third party: Syncfusion funnel, pyramid and polar", BuildSyncfusionShapeCharts),
+			("DataGrid", "Third party: Maui.DataGrid", BuildDataGrid),
 			("ToolkitValidation", "Third party: CommunityToolkit validation and progress", BuildToolkitValidation),
 		};
 
@@ -613,6 +620,61 @@ public sealed class AdvancedMauiContent : ContentView
 	}
 
 	void Log(string message) => _eventLog.Text = $"Interaction log: {message}";
+
+	/// <summary>
+	/// Maui.DataGrid — the most demanding third-party control here, and the most informative one.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// Its rows are rendered by a MAUI <c>RefreshView</c> wrapping a <c>CollectionView</c>, which are exactly
+	/// the two controls that realize and arrange but never paint on WebAssembly under MAUI's own handlers.
+	/// The grid is therefore blank in Default mode and populated in Full mode, which makes it a real-library
+	/// demonstration of what replacing those handlers buys rather than a synthetic one.
+	/// </para>
+	/// <para>
+	/// The columns bind by property name, which the grid resolves reflectively — the same trimming hazard the
+	/// Syncfusion charts hit, where a trimmed build silently renders headers over an empty body. The
+	/// dependency below is what keeps <see cref="DemoItem"/>'s properties alive.
+	/// </para>
+	/// </remarks>
+	[DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties, typeof(DemoItem))]
+	View BuildDataGrid()
+	{
+		var grid = Track("Maui.DataGrid", new MauiDataGrid
+		{
+			ItemsSource = _items,
+			HeightRequest = 240,
+			RowHeight = 34,
+			HeaderHeight = 36,
+			SelectionMode = Microsoft.Maui.Controls.SelectionMode.Single,
+			PaginationEnabled = true,
+			PageSize = 4,
+			BorderThickness = new Thickness(1),
+			// The grid defaults HeaderBackground to white while its default header label style resolves the
+			// text colour from the app theme. Under a dark theme that is white on white, so the header is
+			// given a background that its own default text colour is legible against.
+			HeaderBackground = Color.FromArgb("#512BD4"),
+		});
+
+		grid.Columns =
+		[
+			new MauiDataGridColumn { Title = "Title", PropertyName = nameof(DemoItem.Title), Width = new GridLength(2, GridUnitType.Star) },
+			new MauiDataGridColumn { Title = "Subtitle", PropertyName = nameof(DemoItem.Subtitle), Width = new GridLength(3, GridUnitType.Star) },
+		];
+
+		grid.ItemSelected += (_, args) =>
+			Log($"DataGrid selected {(args.CurrentSelection.FirstOrDefault() as DemoItem)?.Title ?? "nothing"}");
+
+		return new VerticalStackLayout
+		{
+			Spacing = 6,
+			Children =
+			{
+				new Label { Text = "Sortable, paged grid — rows render through CollectionView", FontSize = 12 },
+				grid,
+			},
+		};
+	}
 
 	/// <summary>
 	/// Controls from the .NET MAUI Community Toolkit — a genuinely external library, compiled from source

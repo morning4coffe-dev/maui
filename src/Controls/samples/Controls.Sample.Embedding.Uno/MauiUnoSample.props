@@ -77,5 +77,9 @@
       Include="$(MSBuildThisFileDirectory)ThirdParty\Syncfusion.Maui.Toolkit.Uno.csproj"
       SkipGetTargetFrameworkProperties="true"
       SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)ThirdParty\Maui.DataGrid.Uno.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
   </ItemGroup>
 </Project>

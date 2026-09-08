@@ -1,0 +1,110 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Maui.DataGrid, compiled from source against the neutral net10.0 MAUI build.
+
+    This is the most demanding third-party control in the sample, and the most informative one: its rows are
+    rendered by a MAUI RefreshView wrapping a CollectionView, which are exactly the two controls that realize
+    and arrange but never paint on WebAssembly under MAUI's own handlers. It therefore fails in Default mode
+    and works in Full mode, on a real library nobody wrote for this experiment.
+
+    Upstream already targets a bare net10.0 with no Platforms folder and a single Microsoft.Maui.Controls
+    package reference, so nothing is excluded here — the whole library compiles, and the only change is that
+    the package reference becomes a project reference to this repository's MAUI.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Deliberately the upstream assembly name rather than a ".Uno" suffix: DataGrid.xaml declares
+      xmlns:local="clr-namespace:Maui.DataGrid;assembly=Maui.DataGrid", and XamlC resolves that reference by
+      name at compile time. Nothing else here provides that assembly, so there is no clash.
+    -->
+    <AssemblyName>Maui.DataGrid</AssemblyName>
+    <RootNamespace>Maui.DataGrid</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <NoWarn>$(NoWarn);CS0618;CS1591;CA1416;CS8618;CS8625;CS0067;RS0030;Uno0001;IL2072;IL2111</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <MauiDataGridSourceRoot Condition="'$(MauiDataGridSourceRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\..\external\Maui.DataGrid\Maui.DataGrid\</MauiDataGridSourceRoot>
+  </PropertyGroup>
+
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+
+  <PropertyGroup>
+    <_MauiUnoBuildProperties>$(_MauiUnoProjectReferenceProperties)</_MauiUnoBuildProperties>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+    <BuildInParallel>false</BuildInParallel>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ProjectReference>
+      <GlobalPropertiesToRemove>TargetFrameworks;RuntimeIdentifiers;SelfContained</GlobalPropertiesToRemove>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+
+  <!-- The MAUI SDK would inject these; this project uses the plain SDK, so they are declared explicitly. -->
+  <ItemGroup>
+    <Using Include="Microsoft.Maui" />
+    <Using Include="Microsoft.Maui.Controls" />
+    <Using Include="Microsoft.Maui.Controls.Xaml" />
+    <Using Include="Microsoft.Maui.Devices" />
+    <Using Include="Microsoft.Maui.Graphics" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\..\Core\src\Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <!-- DeviceInfo/DevicePlatform, used to pick the pagination stepper layout. -->
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\..\Essentials\src\Essentials.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\..\Graphics\src\Graphics\Graphics.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\src\Core\Controls.Core.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)..\..\..\src\Xaml\Controls.Xaml.csproj"
+      SkipGetTargetFrameworkProperties="true"
+      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Same module-scoped suppression the other third-party assemblies use, rather than a NoWarn on the head,
+      so the sample's own code stays fully trim-analysed. What it covers here is DataGrid.xaml's
+      {OnPlatform WinUI=...} setter on the default pagination stepper style: OnPlatformExtension is not trim
+      safe, so that one cosmetic setter does not survive a trimmed build. The rest of the grid does.
+    -->
+    <Compile Include="$(MSBuildThisFileDirectory)TrimSuppressions.cs" />
+    <Compile Include="$(MauiDataGridSourceRoot)**\*.cs"
+             Exclude="$(MauiDataGridSourceRoot)obj\**\*.cs;$(MauiDataGridSourceRoot)bin\**\*.cs" />
+    <!--
+      Link metadata matters: without it the generated XAML resource id is derived from the full source path,
+      which does not match what the generated code-behind looks up at runtime.
+    -->
+    <MauiXaml Include="$(MauiDataGridSourceRoot)DataGrid.xaml">
+      <Link>DataGrid.xaml</Link>
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
+  </ItemGroup>
+
+</Project>

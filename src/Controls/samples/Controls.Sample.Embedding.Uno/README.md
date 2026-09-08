@@ -301,16 +301,44 @@ instead, which is the closest available behaviour rather than an exact match.
 
 ## Third-party MAUI controls
 
-Two genuinely external libraries run in the gallery, both **compiled from source** and consumed unmodified:
+Three genuinely external libraries run in the gallery, all **compiled from source** and consumed unmodified:
 
 | Library | License | Pinned at | What runs |
 | --- | --- | --- | --- |
 | CommunityToolkit.Maui | MIT | tag `9.1.1` | `UniformItemsLayout`, `DockLayout`, converters (`InvertedBoolConverter`, `TextCaseConverter`), behaviours (`MaskedBehavior`, `NumericValidationBehavior`, `TextValidationBehavior`, `MaxLengthReachedBehavior`, `AnimationBehavior`, `ProgressBarAnimationBehavior`) |
 | Syncfusion .NET MAUI Toolkit | MIT | `main` | `SfCartesianChart` (column, stacked column, line, spline, area, scatter), `SfCircularChart` (doughnut, pie), `SfFunnelChart`, `SfPyramidChart`, `SfChartLegend`. `SfPolarChart` binds its points but does not paint — see below |
+| Maui.DataGrid | MIT | `main` (`506312fd`) | `DataGrid` with sortable columns, selection and pagination |
 
 **Telerik UI for .NET MAUI is commercial**, not open source, and cannot be used here at all. Of the other
 OSS candidates, Microcharts, LiveCharts2 and FreakyControls all render through SkiaSharp, and UraniumUI
 depends on `InputKit.Maui` and `Plainer.Maui`, which are NuGet-only with no source repository.
+
+### Maui.DataGrid: the most informative of the three
+
+`Maui.DataGrid` is the one worth reading about, because it is not a control that happens to work — it is a
+real, widely used library whose rows are rendered by a MAUI `RefreshView` wrapping a `CollectionView`. Those
+are exactly the two controls that realize and arrange at correct sizes but **never paint** on WebAssembly
+under MAUI's own handlers. The grid is therefore blank in Default mode and populated in Full mode, which
+makes it an independent demonstration of what replacing those handlers buys, on code nobody wrote for this
+experiment.
+
+It is also the least modified of the three. Upstream already targets a bare `net10.0` with no `Platforms`
+folder and a single `Microsoft.Maui.Controls` package reference, so nothing is excluded: the whole library
+compiles, and the only change is that the package reference becomes a project reference. Three details were
+still needed:
+
+- **Pinned to `main`, not to the `4.0.6` tag.** The released tag calls `TemplatedView.Children`, which MAUI 10
+  marks obsolete *as an error*; `main` has already migrated to `IVisualTreeElement.GetVisualChildren()`.
+  Pinning forward keeps the library unmodified rather than patching it.
+- **`Microsoft.Maui.Devices` had to be referenced explicitly**, because `DataGrid.xaml.cs` uses `DeviceInfo`
+  and the plain SDK does not inject the MAUI global usings.
+- **The assembly keeps its upstream name.** `DataGrid.xaml` declares
+  `xmlns:local="clr-namespace:Maui.DataGrid;assembly=Maui.DataGrid"`, and XamlC resolves that by name at
+  compile time, so a `.Uno` suffix breaks the build.
+
+Its columns bind by property name and are resolved reflectively, which is the same trimming hazard the
+Syncfusion charts hit — a trimmed build would draw the headers over an empty body. A `DynamicDependency` on
+`DemoItem` is what keeps the bound properties alive.
 
 ### Why the NuGet package cannot be used
 

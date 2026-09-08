@@ -4,3 +4,6 @@
 [submodule "external/Syncfusion.Maui.Toolkit"]
 	path = external/Syncfusion.Maui.Toolkit
 	url = https://github.com/syncfusion/maui-toolkit.git
+[submodule "external/Maui.DataGrid"]
+	path = external/Maui.DataGrid
+	url = https://github.com/akgulebubekir/Maui.DataGrid.git
