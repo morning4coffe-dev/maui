@@ -306,7 +306,7 @@ Two genuinely external libraries run in the gallery, both **compiled from source
 | Library | License | Pinned at | What runs |
 | --- | --- | --- | --- |
 | CommunityToolkit.Maui | MIT | tag `9.1.1` | `UniformItemsLayout`, `DockLayout`, converters (`InvertedBoolConverter`, `TextCaseConverter`), behaviours (`MaskedBehavior`, `NumericValidationBehavior`, `TextValidationBehavior`, `MaxLengthReachedBehavior`, `AnimationBehavior`, `ProgressBarAnimationBehavior`) |
-| Syncfusion .NET MAUI Toolkit | MIT | `main` | `SfCartesianChart` (column, stacked column, line, spline, area, scatter, polar), `SfCircularChart` (doughnut, pie), `SfFunnelChart`, `SfPyramidChart`, `SfChartLegend` |
+| Syncfusion .NET MAUI Toolkit | MIT | `main` | `SfCartesianChart` (column, stacked column, line, spline, area, scatter), `SfCircularChart` (doughnut, pie), `SfFunnelChart`, `SfPyramidChart`, `SfChartLegend`. `SfPolarChart` binds its points but does not paint — see below |
 
 **Telerik UI for .NET MAUI is commercial**, not open source, and cannot be used here at all. Of the other
 OSS candidates, Microcharts, LiveCharts2 and FreakyControls all render through SkiaSharp, and UraniumUI
@@ -384,6 +384,14 @@ This is why the census now reports `chartPoints=[...]`. The measurement is what 
 | --- | --- | --- | --- |
 | `ColumnSeries` | 5 | **0** | 5 |
 | `DoughnutSeries` | 5 | **0** | 5 |
+
+### The one chart that does not paint
+
+`SfPolarChart` is the exception, and it is a good illustration of what the census cannot tell you. It is
+realized, arranged at 720x240 with fifteen arranged descendants, and `PolarAreaSeries` binds its five
+points — so every in-process signal says it is fine. In a real browser its plot area is simply empty, while
+the `SfPyramidChart` directly above it in the same card paints correctly. Only a screenshot catches this,
+which is exactly the `CollectionView` failure mode again in a third-party control.
 
 ## Remaining gaps
 
