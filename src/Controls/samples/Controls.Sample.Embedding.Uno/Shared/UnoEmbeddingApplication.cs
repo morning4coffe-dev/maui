@@ -1,5 +1,7 @@
 using Microsoft.Maui.Controls.Embedding.Uno;
 using Microsoft.UI.Xaml.Controls;
+using Uno.Foundation.Extensibility;
+using Uno.UI.Lottie;
 
 using PlatformApplication = Microsoft.UI.Xaml.Application;
 using PlatformWindow = Microsoft.UI.Xaml.Window;
@@ -18,6 +20,7 @@ public sealed class UnoEmbeddingApplication : PlatformApplication
 
 	public UnoEmbeddingApplication()
 	{
+		ApiExtensibility.Register(typeof(ILottieVisualSourceProvider), owner => new LottieVisualSourceProvider(owner));
 		Resources.MergedDictionaries.Add(new XamlControlsResources());
 
 		// Registering the factory is cheap; the MauiApp itself is built lazily on the UI thread when the

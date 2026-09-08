@@ -3,6 +3,7 @@
     <UnoMauiUseSource Condition="'$(UnoMauiUseSource)' == '' and Exists('$(MauiSrcDirectory)Core\src\Core.csproj')">true</UnoMauiUseSource>
     <UnoMauiUseSource Condition="'$(UnoMauiUseSource)' == ''">false</UnoMauiUseSource>
     <UnoMauiPackageVersion Condition="'$(UnoMauiPackageVersion)' == ''">10.0.100-dev</UnoMauiPackageVersion>
+    <UnoMauiUnoVersion Condition="'$(UnoMauiUnoVersion)' == ''">6.7.0-dev.704</UnoMauiUnoVersion>
     <MauiUnoTarget>true</MauiUnoTarget>
     <_MauiTargetPlatformIsUno>True</_MauiTargetPlatformIsUno>
     <MauiUnoRenderer Condition="'$(MauiUnoRenderer)' == ''">WinUI</MauiUnoRenderer>
@@ -49,6 +50,9 @@
 
   <ItemGroup Condition="'$(IsUnoHead)' == 'true'">
     <PackageReference Include="Microsoft.Maui.Resizetizer" Version="$(UnoMauiPackageVersion)" PrivateAssets="all" />
+    <PackageReference Include="Uno.WinUI.Lottie" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Include="Uno.WinUI.Graphics2DSK" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Include="SkiaSharp.Skottie" Version="3.119.0" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(UnoMauiUseSource)' == 'true'">

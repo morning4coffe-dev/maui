@@ -19,9 +19,10 @@ public sealed class MainActivity : Microsoft.UI.Xaml.ApplicationActivity
 {
 	protected override void OnCreate(Bundle? savedInstanceState)
 	{
-		global::Uno.UI.FeatureConfiguration.AndroidSettings.IsEdgeToEdgeEnabled = false;
+		var useEdgeToEdge = OperatingSystem.IsAndroidVersionAtLeast(35);
+		global::Uno.UI.FeatureConfiguration.AndroidSettings.IsEdgeToEdgeEnabled = useEdgeToEdge;
 		var window = Window ?? throw new InvalidOperationException("The Uno Android host window was not created.");
-		WindowCompat.SetDecorFitsSystemWindows(window, true);
+		WindowCompat.SetDecorFitsSystemWindows(window, !useEdgeToEdge);
 		base.OnCreate(savedInstanceState);
 
 		ApplySystemBarAppearance();

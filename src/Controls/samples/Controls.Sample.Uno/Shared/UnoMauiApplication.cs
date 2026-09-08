@@ -1,5 +1,7 @@
 using Microsoft.Maui.Hosting;
 using Microsoft.UI.Xaml.Controls;
+using Uno.Foundation.Extensibility;
+using Uno.UI.Lottie;
 
 namespace Microsoft.Maui.Controls.Sample.Uno;
 
@@ -7,6 +9,7 @@ public sealed class UnoMauiApplication : MauiWinUIApplication
 {
 	public UnoMauiApplication()
 	{
+		ApiExtensibility.Register(typeof(ILottieVisualSourceProvider), owner => new LottieVisualSourceProvider(owner));
 		Resources.MergedDictionaries.Add(new XamlControlsResources());
 	}
 

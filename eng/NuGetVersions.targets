@@ -169,6 +169,18 @@
       <Version Condition="'$(UnoMauiCoreRuntimeVersion)' != ''">$(UnoMauiCoreRuntimeVersion)</Version>
     </PackageReference>
     <PackageReference
+        Update="Uno.WinUI.Lottie"
+        Version="$(UnoWinUIPackageVersion)"
+    />
+    <PackageReference
+        Update="Uno.WinUI.Graphics2DSK"
+        Version="$(UnoWinUIPackageVersion)"
+    />
+    <PackageReference
+        Update="SkiaSharp.Skottie"
+        Version="$(UnoSkiaSharpPackageVersion)"
+    />
+    <PackageReference
         Update="Uno.WinUI.Runtime.Skia.Win32"
         Version="$(UnoWinUIPackageVersion)"
     />

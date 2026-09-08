@@ -34,5 +34,9 @@
     <MSBuild Projects="GeneratedResources.Tests.proj" Properties="DeduplicateResources=false" />
     <MSBuild Projects="GeneratedResources.Tests.proj" Properties="DeduplicateResources=true" />
     <MSBuild Projects="RuntimeVersionOverrides.Tests.proj" />
+    <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=GeneratedPackage" />
+    <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=GeneratedSource" />
+    <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=Minimal" />
+    <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=Embedding" />
   </Target>
 </Project>

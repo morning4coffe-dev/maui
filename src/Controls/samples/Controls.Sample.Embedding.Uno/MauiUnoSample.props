@@ -24,6 +24,9 @@
 
   <ItemGroup>
     <PackageReference Include="Uno.WinUI" />
+    <PackageReference Include="Uno.WinUI.Lottie" />
+    <PackageReference Include="Uno.WinUI.Graphics2DSK" />
+    <PackageReference Include="SkiaSharp.Skottie" />
   </ItemGroup>
 
   <ItemGroup>

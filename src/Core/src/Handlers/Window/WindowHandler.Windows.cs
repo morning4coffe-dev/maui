@@ -16,6 +16,7 @@ namespace Microsoft.Maui.Handlers
 		double _constraintWidth;
 		double _constraintHeight;
 		bool _waitingForConstraintXamlRoot;
+		global::Windows.UI.Core.SystemNavigationManager? _systemNavigationManager;
 #endif
 
 		protected override void ConnectHandler(UI.Xaml.Window platformView)
@@ -26,6 +27,12 @@ namespace Microsoft.Maui.Handlers
 				platformView.Content = new WindowRootViewContainer();
 
 #if UNO
+			if (OperatingSystem.IsAndroid())
+			{
+				_systemNavigationManager = global::Windows.UI.Core.SystemNavigationManager.GetForCurrentView();
+				_systemNavigationManager.BackRequested += OnSystemBackRequested;
+			}
+
 			if (platformView.Content is UI.Xaml.FrameworkElement constraintRoot)
 			{
 				_constraintRoot = constraintRoot;
@@ -68,6 +75,12 @@ namespace Microsoft.Maui.Handlers
 		protected override void DisconnectHandler(UI.Xaml.Window platformView)
 		{
 #if UNO
+			if (_systemNavigationManager is not null)
+			{
+				_systemNavigationManager.BackRequested -= OnSystemBackRequested;
+				_systemNavigationManager = null;
+			}
+
 			UnsubscribeFromConstraintXamlRoot();
 			if (_constraintRoot is not null)
 			{
@@ -104,6 +117,12 @@ namespace Microsoft.Maui.Handlers
 		}
 
 #if UNO
+		void OnSystemBackRequested(object? sender, global::Windows.UI.Core.BackRequestedEventArgs args)
+		{
+			if (VirtualView is { } window)
+				args.Handled = UnoWindowLifecycleSupport.DispatchBackRequest(args.Handled, window.BackButtonClicked);
+		}
+
 		void OnConstraintRootLoaded(object sender, UI.Xaml.RoutedEventArgs e) =>
 			SubscribeToConstraintXamlRoot();
 

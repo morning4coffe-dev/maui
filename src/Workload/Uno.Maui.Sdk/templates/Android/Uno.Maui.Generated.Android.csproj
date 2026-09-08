@@ -66,11 +66,11 @@
       Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('WindowSoftInputMode = SoftInput.AdjustResize'))"
       Text="The Uno MAUI Android host activity must retain soft-input resize behavior." />
     <Error
-      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('SetDecorFitsSystemWindows(window, true)'))"
-      Text="The Uno MAUI Android host must keep system bars outside the content coordinate space." />
+      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('SetDecorFitsSystemWindows(window, !useEdgeToEdge)'))"
+      Text="The Uno MAUI Android host must match native decor fitting to its edge-to-edge policy." />
     <Error
-      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('IsEdgeToEdgeEnabled = false'))"
-      Text="The Uno MAUI Android host must disable Uno edge-to-edge before activity creation." />
+      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('OperatingSystem.IsAndroidVersionAtLeast(35)')) or !$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('IsEdgeToEdgeEnabled = useEdgeToEdge'))"
+      Text="The Uno MAUI Android host must use enforced edge-to-edge geometry on Android 15 and newer." />
     <Error
       Condition="$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('WindowOptOutEdgeToEdgeEnforcement'))"
       Text="The Uno MAUI Android host must not rely on the API 35 edge-to-edge opt-out." />

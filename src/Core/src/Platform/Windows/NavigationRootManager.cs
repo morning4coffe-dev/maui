@@ -104,8 +104,7 @@ namespace Microsoft.Maui.Platform
 
 			Disconnect();
 #if UNO
-			_safeAreaContent = handler.VirtualView.Content;
-			UpdateSafeArea(_safeAreaContent);
+			SetSafeAreaContent(handler.VirtualView.Content);
 #endif
 			Connect(handler.VirtualView.Content?.ToPlatform(handler.MauiContext));
 
@@ -173,33 +172,40 @@ namespace Microsoft.Maui.Platform
 		}
 
 #if UNO
+		internal void SetSafeAreaContent(IView? view)
+		{
+			_safeAreaContent = view;
+			UpdateSafeArea(view);
+		}
+
 		internal void UpdateSafeArea(IView? view)
 		{
-			if ((!OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst()) ||
+			var isAndroid = OperatingSystem.IsAndroid();
+			if ((!isAndroid && !OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst()) ||
 				!ReferenceEquals(view, _safeAreaContent))
 			{
 				return;
 			}
 
 			var mask = VisibleBoundsPadding.PaddingMask.None;
-			if (view is ISafeAreaView2 safeArea)
+			var safeArea = view as ISafeAreaView2;
+			for (var edge = 0; edge < 4; edge++)
 			{
-				for (var edge = 0; edge < 4; edge++)
+				var region = UnoWindowLifecycleSupport.ResolveRootSafeAreaRegion(
+					isAndroid, safeArea?.HasExplicitSafeAreaEdges == true,
+					safeArea?.GetSafeAreaRegionsForEdge(edge) ?? SafeAreaRegions.None);
+				if (!SafeAreaEdges.IsContainer(region))
 				{
-					var region = safeArea.GetSafeAreaRegionsForEdge(edge);
-					if (!SafeAreaEdges.IsContainer(region))
-					{
-						continue;
-					}
-
-					mask |= edge switch
-					{
-						0 => VisibleBoundsPadding.PaddingMask.Left,
-						1 => VisibleBoundsPadding.PaddingMask.Top,
-						2 => VisibleBoundsPadding.PaddingMask.Right,
-						_ => VisibleBoundsPadding.PaddingMask.Bottom,
-					};
+					continue;
 				}
+
+				mask |= edge switch
+				{
+					0 => VisibleBoundsPadding.PaddingMask.Left,
+					1 => VisibleBoundsPadding.PaddingMask.Top,
+					2 => VisibleBoundsPadding.PaddingMask.Right,
+					_ => VisibleBoundsPadding.PaddingMask.Bottom,
+				};
 			}
 
 			VisibleBoundsPadding.SetPaddingMask(_rootView, mask);

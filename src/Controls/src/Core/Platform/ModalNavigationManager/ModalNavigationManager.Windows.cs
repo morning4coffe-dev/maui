@@ -176,6 +176,9 @@ namespace Microsoft.Maui.Controls.Platform
 
 						var platform = newPage.ToPlatform(modalContext);
 						_waitingForIncomingPage = platform.OnLoaded(() => completedCallback?.Invoke());
+#if UNO
+						windowManager.SetSafeAreaContent(newPage);
+#endif
 						windowManager.Connect(platform);
 						Container.AddPage(windowManager.RootView);
 					}

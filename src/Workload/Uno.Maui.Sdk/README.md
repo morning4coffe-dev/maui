@@ -20,11 +20,24 @@ in the host, without replacing the host's framework or existing package
 assemblies. This is required for dependencies used during startup, such as
 logging providers, SQLite, and Blazor services.
 
+Generated heads include `Uno.WinUI.Lottie`, `Uno.WinUI.Graphics2DSK` and
+`SkiaSharp.Skottie`, which supply the animation
+provider required by the WinUI `ProgressRing` used for MAUI `ActivityIndicator`.
+The source Minimal and Embedding heads include the same provider. Its version
+tracks the base Uno package version, not an independently overridden core or
+platform runtime. These code-only application roots register the provider
+explicitly; adding the package alone does not generate the `App.xaml`
+initialization that a conventional Uno application receives.
+
 WebAssembly `NativeFileReference` items also cross the generated-host boundary,
 so package-provided archives such as `e_sqlite3.a` reach the native linker.
 The generated browser host enables IndexedDB-backed filesystem persistence
 by default. Set `WasmShellEnableIDBFS=false` only for applications that do not
 need local files to survive a page reload.
+Enabling IDBFS does not itself acknowledge a durable write: the current backend
+synchronizes asynchronously. Applications must not equate a completed
+in-memory file or SQLite operation with IndexedDB persistence immediately
+before reload or process termination.
 Native libraries must also match the .NET WebAssembly toolchain. For example,
 the TodoSQLite sample's transitive SQLitePCLRaw 2.1.2 browser archive loads but
 fails with disk I/O errors on .NET 10; explicitly selecting

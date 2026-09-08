@@ -238,13 +238,17 @@ namespace Microsoft.Maui.DeviceTests
 			await CreateHandlerAndAddToWindow<CollectionViewHandler>(collectionView, async handler =>
 			{
 				var gridView = Assert.IsType<FormsGridView>(handler.PlatformView);
+				var realizedItems = new List<ItemContentControl>();
 
 				await AssertEventually(() =>
-					gridView.GetFirstDescendant<UI.Xaml.Controls.ItemsWrapGrid>() is not null &&
-					gridView.GetChildren<ItemContentControl>().Any());
+				{
+					realizedItems = gridView.GetChildren<ItemContentControl>().ToList();
+					return gridView.GetFirstDescendant<UI.Xaml.Controls.ItemsWrapGrid>() is not null &&
+						realizedItems.Count > 0 &&
+						realizedItems.All(item => item.DesiredSize.Width > 0 && item.DesiredSize.Height > 0);
+				});
 
 				var wrapGrid = gridView.GetFirstDescendant<UI.Xaml.Controls.ItemsWrapGrid>();
-				var realizedItems = gridView.GetChildren<ItemContentControl>().ToList();
 
 				Assert.Equal(2, wrapGrid.MaximumRowsOrColumns);
 				Assert.All(realizedItems, item =>
@@ -354,8 +358,13 @@ namespace Microsoft.Maui.DeviceTests
 
 		static void SelectWithAutomation(FormsGridView gridView, int index, bool addToSelection)
 		{
+#if UNO
 			var container = Assert.IsType<UI.Xaml.Controls.GridViewItem>(gridView.ContainerFromItem(gridView.Items[index]));
 			var peer = new GridViewItemAutomationPeer(container);
+#else
+			var ownerPeer = Assert.IsAssignableFrom<GridViewAutomationPeer>(FrameworkElementAutomationPeer.CreatePeerForElement(gridView));
+			var peer = new GridViewItemDataAutomationPeer(gridView.Items[index], ownerPeer);
+#endif
 			var selectionProvider = Assert.IsAssignableFrom<ISelectionItemProvider>(peer.GetPattern(PatternInterface.SelectionItem));
 
 			if (addToSelection)

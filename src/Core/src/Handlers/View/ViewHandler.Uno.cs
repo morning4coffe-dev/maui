@@ -8,7 +8,7 @@ namespace Microsoft.Maui.Handlers
 	{
 		internal static void MapSafeAreaEdges(IViewHandler handler, IView view)
 		{
-			if (!OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst())
+			if (!OperatingSystem.IsAndroid() && !OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst())
 			{
 				return;
 			}

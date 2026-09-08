@@ -194,6 +194,7 @@ public static class EmbeddingExtensions
 		window.ModalNavigationManager.BeginEmbeddedRootLifetime();
 
 		var rootManager = windowContext.GetNavigationRootManager();
+		rootManager.SetSafeAreaContent(page);
 		rootManager.Connect(page.ToPlatform(windowContext));
 		container.AddPage(rootManager.RootView);
 

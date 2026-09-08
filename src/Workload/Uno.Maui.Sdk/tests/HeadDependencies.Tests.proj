@@ -1,0 +1,29 @@
+<Project DefaultTargets="Validate">
+  <PropertyGroup>
+    <IsUnoHead>true</IsUnoHead>
+    <MauiSrcDirectory>$(MSBuildThisFileDirectory)..\..\..\</MauiSrcDirectory>
+    <UnoMauiUnoVersion>6.7.0-default</UnoMauiUnoVersion>
+    <UnoWinUIPackageVersion>$(UnoMauiUnoVersion)</UnoWinUIPackageVersion>
+    <UnoSkiaSharpPackageVersion>3.119.0</UnoSkiaSharpPackageVersion>
+    <UnoMauiCoreRuntimeVersion>6.7.0-core-override</UnoMauiCoreRuntimeVersion>
+    <UnoMauiPackageReferencesProvided>true</UnoMauiPackageReferencesProvided>
+    <UnoMauiUseSource Condition="'$(Profile)' == 'GeneratedPackage'">false</UnoMauiUseSource>
+    <UnoMauiUseSource Condition="'$(Profile)' != 'GeneratedPackage'">true</UnoMauiUseSource>
+  </PropertyGroup>
+  <Import Project="..\Sdk\Uno.Maui.Source.props" Condition="'$(Profile)' == 'GeneratedSource' or '$(Profile)' == 'GeneratedPackage'" />
+  <Import Project="$(MauiSrcDirectory)Controls\samples\Controls.Sample.Uno\MauiUnoSample.props" Condition="'$(Profile)' == 'Minimal'" />
+  <Import Project="$(MauiSrcDirectory)Controls\samples\Controls.Sample.Embedding.Uno\MauiUnoSample.props" Condition="'$(Profile)' == 'Embedding'" />
+  <Import Project="..\..\..\..\eng\NuGetVersions.targets" />
+  <Target Name="Validate">
+    <ItemGroup>
+      <_Lottie Include="@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Lottie'))" />
+      <_Graphics2D Include="@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Graphics2DSK'))" />
+      <_Skottie Include="@(PackageReference->WithMetadataValue('Identity', 'SkiaSharp.Skottie'))" />
+    </ItemGroup>
+    <Error Condition="'@(_Lottie->Count())' != '1'" Text="$(Profile) must include one ProgressRing animation provider." />
+    <Error Condition="'@(_Lottie->'%(Version)')' != '$(UnoMauiUnoVersion)'" Text="ProgressRing provider must use the base Uno package version, not an unrelated core override." />
+    <Error Condition="'@(_Graphics2D->Count())' != '1' or '@(_Graphics2D->'%(Version)')' != '$(UnoMauiUnoVersion)'" Text="$(Profile) must include the provider's matching Graphics2DSK runtime dependency." />
+    <Error Condition="'@(_Skottie->Count())' != '1' or '@(_Skottie->'%(Version)')' != '$(UnoSkiaSharpPackageVersion)'" Text="$(Profile) must include the provider's Skottie runtime dependency." />
+    <Message Importance="high" Text="$(Profile) ProgressRing dependency passed." />
+  </Target>
+</Project>
