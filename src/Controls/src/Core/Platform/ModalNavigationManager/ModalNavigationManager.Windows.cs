@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Graphics;
@@ -36,24 +37,64 @@ namespace Microsoft.Maui.Controls.Platform
 			}
 		}
 
+#if UNO
+		internal void DisconnectEmbeddedModalPages()
+		{
+			_embeddedRootLifetime.Cancel();
+			_waitForModalToFinishTask = Task.CompletedTask;
+			syncing = false;
+			_waitingForIncomingPage?.Dispose();
+			_waitingForIncomingPage = null;
+			DisconnectPlatformPageWatchingForLoaded();
+
+			var modals = _platformModalPages.Concat(_modalPages.Pages).Distinct().ToArray();
+			for (var i = modals.Length - 1; i >= 0; i--)
+			{
+				var modal = modals[i];
+				modal.Handler?.MauiContext?.GetNavigationRootManager().Disconnect();
+				((IView)modal).DisconnectHandlers();
+				modal.Parent?.RemoveLogicalChild(modal);
+				_window.RemoveModalFromVisualChildren(modal);
+			}
+
+			ClearModalPages(xplat: true, platform: true);
+		}
+#endif
+
 		Task<Page> PopModalPlatformAsync(bool animated)
 		{
+#if UNO
+			var rootLifetime = _embeddedRootLifetime.Token;
+			rootLifetime.ThrowIfCancellationRequested();
+#endif
 			var tcs = new TaskCompletionSource<Page>();
 			var poppedPage = CurrentPlatformModalPage;
 			_platformModalPages.Remove(poppedPage);
 			SetCurrent(CurrentPlatformPage, poppedPage, true, () => tcs.SetResult(poppedPage));
+#if UNO
+			return tcs.Task.WaitAsync(rootLifetime);
+#else
 			return tcs.Task;
+#endif
 		}
 
 		Task PushModalPlatformAsync(Page modal, bool animated)
 		{
+#if UNO
+			var rootLifetime = _embeddedRootLifetime.Token;
+			rootLifetime.ThrowIfCancellationRequested();
+#endif
 			_ = modal ?? throw new ArgumentNullException(nameof(modal));
 
 			var tcs = new TaskCompletionSource<bool>();
 			var currentPage = CurrentPlatformPage;
 			_platformModalPages.Add(modal);
 			SetCurrent(modal, currentPage, false, () => tcs.SetResult(true));
+#if UNO
+			return tcs.Task.WaitAsync(rootLifetime);
+#else
 			return tcs.Task;
+#endif
 		}
 
 		void RemovePage(Page page, bool popping)

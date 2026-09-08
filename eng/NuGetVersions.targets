@@ -165,7 +165,9 @@
     <PackageReference
         Update="Uno.WinUI"
         Version="$(UnoWinUIPackageVersion)"
-    />
+    >
+      <Version Condition="'$(UnoMauiCoreRuntimeVersion)' != ''">$(UnoMauiCoreRuntimeVersion)</Version>
+    </PackageReference>
     <PackageReference
         Update="Uno.WinUI.Runtime.Skia.Win32"
         Version="$(UnoWinUIPackageVersion)"
@@ -173,7 +175,9 @@
     <PackageReference
         Update="Uno.WinUI.Runtime.Skia.Android"
         Version="$(UnoWinUIPackageVersion)"
-    />
+    >
+      <Version Condition="'$(UnoMauiAndroidRuntimeVersion)' != ''">$(UnoMauiAndroidRuntimeVersion)</Version>
+    </PackageReference>
     <PackageReference
         Update="Uno.WinUI.Runtime.Skia.AppleUIKit"
         Version="$(UnoWinUIPackageVersion)"

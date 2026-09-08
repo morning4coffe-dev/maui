@@ -1,0 +1,28 @@
+<Project DefaultTargets="Validate">
+  <PropertyGroup>
+    <UnoWinUIPackageVersion>6.7.0-default</UnoWinUIPackageVersion>
+    <UnoMauiCoreRuntimeVersion>6.7.0-core-fix</UnoMauiCoreRuntimeVersion>
+    <UnoMauiAndroidRuntimeVersion>6.7.0-android-fix</UnoMauiAndroidRuntimeVersion>
+    <UnoMauiWasmRuntimeVersion>6.7.0-browser-fix</UnoMauiWasmRuntimeVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.Android" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.WebAssembly.Browser" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.Win32" />
+  </ItemGroup>
+  <Import Project="..\..\..\..\eng\NuGetVersions.targets" />
+  <Target Name="Validate">
+    <ItemGroup>
+      <_Core Include="@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI'))" />
+      <_Android Include="@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Runtime.Skia.Android'))" />
+      <_Browser Include="@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Runtime.Skia.WebAssembly.Browser'))" />
+      <_Desktop Include="@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Runtime.Skia.Win32'))" />
+    </ItemGroup>
+    <Error Condition="'@(_Core->'%(Version)')' != '$(UnoMauiCoreRuntimeVersion)'" Text="Source core runtime override was lost." />
+    <Error Condition="'@(_Android->'%(Version)')' != '$(UnoMauiAndroidRuntimeVersion)'" Text="Source Android runtime override was lost." />
+    <Error Condition="'@(_Browser->'%(Version)')' != '$(UnoMauiWasmRuntimeVersion)'" Text="Source browser runtime override was lost." />
+    <Error Condition="'@(_Desktop->'%(Version)')' != '$(UnoWinUIPackageVersion)'" Text="An unrelated runtime version changed." />
+    <Message Importance="high" Text="Independent source runtime overrides passed." />
+  </Target>
+</Project>

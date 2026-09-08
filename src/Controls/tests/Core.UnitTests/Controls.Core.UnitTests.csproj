@@ -38,6 +38,8 @@
   <ItemGroup>
     <Compile Include="..\..\..\Core\tests\UnitTests\TestClasses\DispatcherStub.cs" Link="TestClasses\DispatcherStub.cs" />
     <Compile Include="..\..\samples\Controls.Sample.Uno\Shared\SampleTheme.cs" Link="TestClasses\UnoSampleTheme.cs" />
+    <Compile Include="..\..\src\Core\Platform\Windows\CollectionView\ItemTemplateContext.cs" Link="TestClasses\ItemTemplateContext.cs" />
+    <Compile Include="..\..\src\Core\Platform\Windows\CollectionView\ItemTemplateContextList.cs" Link="TestClasses\ItemTemplateContextList.cs" />
   </ItemGroup>
 
 </Project>

@@ -82,6 +82,14 @@ namespace Microsoft.Maui.Controls.Platform
 		}
 
 		bool syncing = false;
+#if UNO
+		readonly ModalRootLifetime _embeddedRootLifetime = new ModalRootLifetime();
+
+		internal void BeginEmbeddedRootLifetime()
+		{
+			_embeddedRootLifetime.Begin();
+		}
+#endif
 
 		bool IsModalReady
 		{
@@ -121,6 +129,11 @@ namespace Microsoft.Maui.Controls.Platform
 			if (!IsModalReady || syncing)
 				return;
 
+#if UNO
+			var rootLifetime = _embeddedRootLifetime.Token;
+			if (rootLifetime.IsCancellationRequested)
+				return;
+#endif
 			bool syncAgain = false;
 
 			try
@@ -144,6 +157,9 @@ namespace Microsoft.Maui.Controls.Platform
 				// This ensures that appearing has fired on the final page that will be visible after 
 				// the sync has finished
 				CurrentPage?.SendAppearing();
+#if UNO
+				rootLifetime.ThrowIfCancellationRequested();
+#endif
 
 				// Pop platform modal pages until we get to the point where the xplat expectation
 				// matches the platform modals
@@ -157,6 +173,9 @@ namespace Microsoft.Maui.Controls.Platform
 					}
 
 					var page = await PopModalPlatformAsync(animated);
+#if UNO
+					rootLifetime.ThrowIfCancellationRequested();
+#endif
 					page.Parent?.RemoveLogicalChild(page);
 					syncAgain = true;
 				}
@@ -172,12 +191,19 @@ namespace Microsoft.Maui.Controls.Platform
 						bool animated = nextRequest.IsAnimated;
 
 						await PushModalPlatformAsync(nextPage, animated);
+#if UNO
+						rootLifetime.ThrowIfCancellationRequested();
+#endif
 						syncAgain = true;
 					}
 				}
 			}
 			finally
 			{
+#if UNO
+				if (!rootLifetime.IsCancellationRequested)
+				{
+#endif
 				// Code has multiple exit points during the sync operation.
 				// So we're using a try/finally to ensure that syncing always 
 				// gets transitioned to false. If more exit points are added at a later point  
@@ -190,6 +216,9 @@ namespace Microsoft.Maui.Controls.Platform
 				{
 					await SyncModalStackWhenPlatformIsReadyAsync().ConfigureAwait(false);
 				}
+#if UNO
+				}
+#endif
 			}
 		}
 
@@ -200,7 +229,14 @@ namespace Microsoft.Maui.Controls.Platform
 			if (_modalPages.Count <= 0)
 				throw new InvalidOperationException("PopModalAsync failed because modal stack is currently empty.");
 
+#if UNO
+			var rootLifetime = _embeddedRootLifetime.Token;
+			rootLifetime.ThrowIfCancellationRequested();
+			await _waitForModalToFinishTask.WaitAsync(rootLifetime);
+			rootLifetime.ThrowIfCancellationRequested();
+#else
 			await _waitForModalToFinishTask;
+#endif
 
 			Page modal = _modalPages[_modalPages.Count - 1].Page;
 
@@ -209,6 +245,9 @@ namespace Microsoft.Maui.Controls.Platform
 				_window.OnPopCanceled();
 				return null;
 			}
+#if UNO
+			rootLifetime.ThrowIfCancellationRequested();
+#endif
 
 			_modalPages.Remove(modal);
 
@@ -233,13 +272,23 @@ namespace Microsoft.Maui.Controls.Platform
 				CurrentPage?.SendAppearing();
 			}
 
+#if UNO
+			rootLifetime.ThrowIfCancellationRequested();
+#endif
 			bool isPlatformReady = IsModalReady;
 			Task popTask =
 				(isPlatformReady && !syncing) ? PopModalPlatformAsync(animated) : Task.CompletedTask;
 
 			await popTask;
+#if UNO
+			rootLifetime.ThrowIfCancellationRequested();
+#endif
 			modal.Parent?.RemoveLogicalChild(modal);
 			_window.OnModalPopped(modal);
+#if UNO
+			if (rootLifetime.IsCancellationRequested)
+				return modal;
+#endif
 
 			if (FireLifeCycleEvents)
 			{
@@ -255,9 +304,19 @@ namespace Microsoft.Maui.Controls.Platform
 
 		public async Task PushModalAsync(Page modal, bool animated)
 		{
+#if UNO
+			var rootLifetime = _embeddedRootLifetime.Token;
+			rootLifetime.ThrowIfCancellationRequested();
+			await _waitForModalToFinishTask.WaitAsync(rootLifetime);
+			rootLifetime.ThrowIfCancellationRequested();
+#else
 			await _waitForModalToFinishTask;
+#endif
 
 			_window.OnModalPushing(modal);
+#if UNO
+			rootLifetime.ThrowIfCancellationRequested();
+#endif
 
 			var previousPage = CurrentPage;
 			_modalPages.Add(new NavigationStepRequest(modal, true, animated));
@@ -284,6 +343,9 @@ namespace Microsoft.Maui.Controls.Platform
 				CurrentPage?.SendAppearing();
 			}
 
+#if UNO
+			rootLifetime.ThrowIfCancellationRequested();
+#endif
 			bool isPlatformReady = IsModalReady;
 			if (isPlatformReady && !syncing)
 			{
@@ -291,10 +353,16 @@ namespace Microsoft.Maui.Controls.Platform
 				{
 					modal.NavigationProxy.Inner = _window.Navigation;
 					await PushModalPlatformAsync(modal, animated);
+#if UNO
+					rootLifetime.ThrowIfCancellationRequested();
+#endif
 				}
 				else
 				{
 					await PushModalPlatformAsync(modal, animated);
+#if UNO
+					rootLifetime.ThrowIfCancellationRequested();
+#endif
 					modal.NavigationProxy.Inner = _window.Navigation;
 				}
 			}
@@ -305,6 +373,9 @@ namespace Microsoft.Maui.Controls.Platform
 				CurrentPage?.SendNavigatedTo(new NavigatedToEventArgs(previousPage, NavigationType.Push));
 			}
 
+#if UNO
+			rootLifetime.ThrowIfCancellationRequested();
+#endif
 			_window.OnModalPushed(modal);
 
 			if (!isPlatformReady)

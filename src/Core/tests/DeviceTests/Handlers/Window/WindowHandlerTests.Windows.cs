@@ -26,13 +26,58 @@ namespace Microsoft.Maui.DeviceTests
 		}
 
 		[Fact]
-		public async Task WindowHandleProbeReturnsZeroBeforeReady()
+		public async Task WindowHandleProbeMatchesPlatformContract()
 		{
 			await InvokeOnMainThreadAsync(() =>
 			{
 				var platformWindow = new UI.Xaml.Window();
 
-				Assert.Equal(IntPtr.Zero, platformWindow.GetWindowHandle());
+				try
+				{
+#if UNO
+					Assert.Equal(IntPtr.Zero, platformWindow.GetWindowHandle());
+#else
+					var nativeHandle = global::WinRT.Interop.WindowNative.GetWindowHandle(platformWindow);
+					if (nativeHandle == IntPtr.Zero)
+						Assert.Throws<NullReferenceException>(() => platformWindow.GetWindowHandle());
+					else
+						Assert.Equal(nativeHandle, platformWindow.GetWindowHandle());
+#endif
+				}
+				finally
+				{
+					platformWindow.Close();
+				}
+			});
+		}
+
+		[Theory]
+		[InlineData(true)]
+		[InlineData(false)]
+		public async Task ClearingModalRootsRestoresContainerOwnedState(bool originalHitTestVisible)
+		{
+			await InvokeOnMainThreadAsync(() =>
+			{
+				var container = new WindowRootViewContainer();
+				var root = new WindowRootView { IsHitTestVisible = originalHitTestVisible };
+				var modal = new WindowRootView
+				{
+					TabFocusNavigation = UI.Xaml.Input.KeyboardNavigationMode.Once
+				};
+				container.AddPage(root);
+				container.AddPage(modal);
+
+				Assert.False(root.IsHitTestVisible);
+				Assert.Equal(UI.Xaml.Input.KeyboardNavigationMode.Cycle, modal.TabFocusNavigation);
+
+				container.ClearPages();
+
+				Assert.Empty(container.CachedChildren);
+				Assert.Equal(originalHitTestVisible, root.IsHitTestVisible);
+				Assert.Equal(UI.Xaml.Input.KeyboardNavigationMode.Once, modal.TabFocusNavigation);
+				container.AddPage(root);
+				Assert.Equal(originalHitTestVisible, root.IsHitTestVisible);
+				container.ClearPages();
 			});
 		}
 

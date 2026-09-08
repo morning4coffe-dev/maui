@@ -8,6 +8,9 @@
     <RootNamespace>Maui.Controls.Sample.Uno</RootNamespace>
     <IsUnoHead>true</IsUnoHead>
     <WasmBuildNative>true</WasmBuildNative>
+    <EnableHotReload>false</EnableHotReload>
+    <WasmEnableHotReload>false</WasmEnableHotReload>
+    <WasmShellEnableIDBFS Condition="'$(WasmShellEnableIDBFS)' == ''">true</WasmShellEnableIDBFS>
   </PropertyGroup>
 
   <Import Project="..\MauiUnoSample.props" />

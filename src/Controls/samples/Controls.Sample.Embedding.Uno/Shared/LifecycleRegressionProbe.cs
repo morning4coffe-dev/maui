@@ -1,0 +1,215 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Embedding.Uno;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
+using Microsoft.UI.Xaml.Automation.Provider;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using MauiButton = Microsoft.Maui.Controls.Button;
+using MauiLabel = Microsoft.Maui.Controls.Label;
+using MauiPage = Microsoft.Maui.Controls.Page;
+using NativeButton = Microsoft.UI.Xaml.Controls.Button;
+
+namespace Maui.Controls.Sample.Uno;
+
+internal static class LifecycleRegressionProbe
+{
+	static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+
+	internal static async Task<Tier2ProbeResult> RunAsync(MauiEmbeddingSession session, MauiHost pageHost, MauiHost viewHost)
+	{
+		var report = new StringBuilder();
+		var originalPage = pageHost.MauiContent;
+		var originalView = viewHost.MauiContent;
+		var originalWidth = viewHost.Width;
+		var originalHeight = viewHost.Height;
+		try
+		{
+			await VerifyModalReplacementAsync(session, pageHost, report);
+			viewHost.Width = 320;
+			viewHost.Height = 240;
+			await VerifyObservableListAsync(viewHost, report);
+			await VerifyGridAsync(viewHost, report, 0);
+			await VerifyGridAsync(viewHost, report, 32);
+			return new Tier2ProbeResult(true, report.ToString());
+		}
+		catch (Exception error)
+		{
+			report.AppendLine($"FAIL lifecycle regression: {error}");
+			return new Tier2ProbeResult(false, report.ToString());
+		}
+		finally
+		{
+			pageHost.MauiContent = originalPage;
+			viewHost.MauiContent = originalView;
+			viewHost.Width = originalWidth;
+			viewHost.Height = originalHeight;
+		}
+	}
+
+	static async Task VerifyObservableListAsync(MauiHost host, StringBuilder report)
+	{
+		var items = new ObservableCollection<string>();
+		var collection = new CollectionView
+		{
+			WidthRequest = 320,
+			HeightRequest = 240,
+			ItemsSource = items,
+			ItemTemplate = new Microsoft.Maui.Controls.DataTemplate(() =>
+			{
+				var label = new MauiLabel { HeightRequest = 40 };
+				label.SetBinding(MauiLabel.TextProperty, static (string item) => item);
+				return label;
+			})
+		};
+		host.MauiContent = collection;
+		Check(await Tier2Probe.WaitForAsync(() => collection.Handler?.PlatformView is ListViewBase native && native.IsLoaded),
+			"observable list attached while empty", report);
+		var list = (ListViewBase)collection.Handler!.PlatformView!;
+		items.Add("added after attachment");
+		Check(await Tier2Probe.WaitForAsync(() => list.Items.Count == 1 && Descendants<TextBlock>(list).Any(text => text.Text == items[0])),
+			"observable insertion renders immediately", report);
+		items.Clear();
+		items.Add("replacement after reset");
+		Check(await Tier2Probe.WaitForAsync(() => list.Items.Count == 1 && Descendants<TextBlock>(list).Any(text => text.Text == items[0])
+			&& !Descendants<TextBlock>(list).Any(text => text.Text == "added after attachment")),
+			"observable reset and repopulation render immediately", report);
+	}
+
+	static async Task VerifyModalReplacementAsync(MauiEmbeddingSession session, MauiHost host, StringBuilder report)
+	{
+		var page = host.MauiContent as MauiPage ?? throw new InvalidOperationException("A page island is required.");
+		var modal = CreateModal();
+		await page.Navigation.PushModalAsync(modal).WaitAsync(Timeout);
+		var oldPlatform = modal.Handler?.PlatformView as FrameworkElement;
+		Check(await Tier2Probe.WaitForAsync(() => oldPlatform?.XamlRoot is not null), "modal attached", report);
+
+		var clicks = 0;
+		var button = new MauiButton { Text = "Replacement regression button" };
+		button.Clicked += (_, _) => clicks++;
+		var replacement = new ContentPage { Content = button };
+		host.MauiContent = replacement;
+		Check(await Tier2Probe.WaitForAsync(() => button.Handler?.PlatformView is NativeButton native && native.IsLoaded && native.ActualHeight > 0),
+			"replacement realized after open modal", report);
+		Check(await Tier2Probe.WaitForAsync(() => modal.Parent is null && oldPlatform?.IsLoaded != true && session.EmbeddedWindow?.Navigation.ModalStack.Count == 0),
+			$"old modal unparented and unloaded (parent={modal.Parent?.GetType().Name ?? "null"}, loaded={oldPlatform?.IsLoaded}, modals={session.EmbeddedWindow?.Navigation.ModalStack.Count})", report);
+		var nativeButton = (NativeButton)button.Handler!.PlatformView!;
+		Check(AncestorsAllowHitTesting(nativeButton), "replacement ancestors permit input", report);
+		var invoke = new ButtonAutomationPeer(nativeButton).GetPattern(PatternInterface.Invoke) as IInvokeProvider
+			?? throw new InvalidOperationException("Replacement button has no invoke provider.");
+		invoke.Invoke();
+		Check(await Tier2Probe.WaitForAsync(() => clicks == 1), "native replacement button reaches MAUI", report);
+
+		var border = host.Parent as Microsoft.UI.Xaml.Controls.Border ?? throw new InvalidOperationException("Probe host has no border.");
+		try
+		{
+			var pendingModal = CreateModal();
+			var pending = replacement.Navigation.PushModalAsync(pendingModal);
+			border.Child = null;
+			await Task.Delay(100);
+			Check(!pending.IsCompleted, "detached incoming modal waits for Loaded", report);
+			host.MauiContent = new ContentPage { Content = new MauiLabel { Text = "replacement after pending modal" } };
+			try
+			{
+				await pending.WaitAsync(Timeout);
+				throw new InvalidOperationException("Discarded modal navigation completed instead of cancelling.");
+			}
+			catch (OperationCanceledException)
+			{
+				report.AppendLine("PASS discarded pending modal task cancelled");
+			}
+			Check(pendingModal.Parent is null, "pending modal logical parent removed", report);
+		}
+		finally
+		{
+			border.Child = host;
+		}
+
+		var current = (MauiPage)host.MauiContent!;
+		Check(await Tier2Probe.WaitForAsync(() => (current.Handler?.PlatformView as FrameworkElement)?.IsLoaded == true),
+			"replacement reattached", report);
+		await current.Navigation.PushModalAsync(CreateModal()).WaitAsync(Timeout);
+		await current.Navigation.PopModalAsync().WaitAsync(Timeout);
+		report.AppendLine("PASS subsequent modal navigation completes");
+	}
+
+	static async Task VerifyGridAsync(MauiHost host, StringBuilder report, int initialCount)
+	{
+		var items = new ObservableCollection<int>(Enumerable.Range(0, initialCount));
+		var collection = new CollectionView
+		{
+			WidthRequest = 320,
+			HeightRequest = 240,
+			ItemsLayout = new GridItemsLayout(ItemsLayoutOrientation.Vertical) { Span = 2 },
+			ItemTemplate = new Microsoft.Maui.Controls.DataTemplate(() => new MauiLabel { HeightRequest = 40, Text = "grid item" }),
+			ItemsSource = items
+		};
+		host.MauiContent = collection;
+		Check(await Tier2Probe.WaitForAsync(() => collection.Handler?.PlatformView is GridView native && native.IsLoaded),
+			$"grid with {initialCount} initial items attached", report);
+		var grid = (GridView)collection.Handler!.PlatformView!;
+		Check(await Tier2Probe.WaitForAsync(() => grid.ActualWidth > 0 && grid.ActualHeight > 0 && grid.ActualHeight <= 240),
+			$"grid viewport is bounded ({grid.ActualWidth}x{grid.ActualHeight})", report);
+		if (initialCount == 0)
+		{
+			Check(grid.ItemsPanelRoot is ItemsWrapGrid, "empty grid starts with ItemsWrapGrid", report);
+		}
+		if (initialCount > 0)
+		{
+			for (var i = items.Count; i < 65; i++)
+				items.Add(i);
+			Check(await Tier2Probe.WaitForAsync(() => Descendants<ItemsWrapGrid>(grid).Any()),
+				"growing grid promotes virtualization", report);
+		}
+		Check(grid.ItemsPanelRoot is ItemsWrapGrid && typeof(ItemsWrapGrid).GetInterfaces().Any(type => type.Name == "IVirtualizingPanel"),
+			"Uno runtime implements ItemsWrapGrid virtualization (a stub cannot safely accept 100000 items)", report);
+		collection.ItemsSource = Enumerable.Range(0, 100_000).ToList();
+		Check(grid.Items.Count == 100_000, "large replacement source assigned", report);
+		Check(await Tier2Probe.WaitForAsync(() => Descendants<ItemsWrapGrid>(grid).Any() && Descendants<GridViewItem>(grid).Any()),
+			"large replacement grid realizes items", report);
+		var realized = Descendants<GridViewItem>(grid).Count();
+		Check(realized is > 0 and <= 100, $"100000-item grid has bounded realization ({realized})", report);
+	}
+
+	static ContentPage CreateModal() => new()
+	{
+		BackgroundColor = Microsoft.Maui.Graphics.Colors.Purple,
+		Content = new MauiLabel { Text = "lifecycle modal" }
+	};
+
+	static bool AncestorsAllowHitTesting(DependencyObject element)
+	{
+		for (DependencyObject? current = element; current is not null; current = VisualTreeHelper.GetParent(current))
+		{
+			if (current is UIElement ui && !ui.IsHitTestVisible)
+				return false;
+		}
+		return true;
+	}
+
+	static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
+	{
+		for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+		{
+			var child = VisualTreeHelper.GetChild(root, i);
+			if (child is T match)
+				yield return match;
+			foreach (var descendant in Descendants<T>(child))
+				yield return descendant;
+		}
+	}
+
+	static void Check(bool passed, string name, StringBuilder report)
+	{
+		if (!passed)
+			throw new InvalidOperationException(name);
+		report.AppendLine($"PASS {name}");
+		Console.WriteLine($"LIFECYCLE: {name}");
+	}
+}

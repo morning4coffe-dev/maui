@@ -200,9 +200,10 @@ internal sealed class MainShell : UserControl
 		{
 			var result = await Tier2Probe.RunAsync(_session, page, XamlRoot, _secondHost);
 			var replace = await ProbeReplaceAsync();
+			var lifecycle = await LifecycleRegressionProbe.RunAsync(_session, _firstHost, _secondHost);
 
-			var report = result.Report + replace.Report;
-			var passed = result.Passed && replace.Passed;
+			var report = result.Report + replace.Report + lifecycle.Report;
+			var passed = result.Passed && replace.Passed && lifecycle.Passed;
 			var verdict = passed ? "TIER 2: PASS" : "TIER 2: FAIL";
 
 			_probeResults.Text = verdict + Environment.NewLine + report;

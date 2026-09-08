@@ -70,9 +70,10 @@ public static class EmbeddingExtensions
 	/// </remarks>
 	public static IMauiContext CreateEmbeddedWindowContext(this MauiApp mauiApp, PlatformWindow platformWindow)
 	{
-		return mauiApp.CreateEmbeddedWindowContext(platformWindow, out _);
+		return CreateEmbeddedWindowContextCore(mauiApp, platformWindow, out _);
 	}
 
+#if UNO
 	/// <summary>
 	/// Creates a window-scoped <see cref="IMauiContext"/> for the provided native platform window, and hands
 	/// back the synthetic window it created.
@@ -87,6 +88,12 @@ public static class EmbeddingExtensions
 	/// <c>Application.Windows</c>, which is not reliable.
 	/// </remarks>
 	public static IMauiContext CreateEmbeddedWindowContext(this MauiApp mauiApp, PlatformWindow platformWindow, out Window window)
+	{
+		return CreateEmbeddedWindowContextCore(mauiApp, platformWindow, out window);
+	}
+#endif
+
+	static IMauiContext CreateEmbeddedWindowContextCore(MauiApp mauiApp, PlatformWindow platformWindow, out Window window)
 	{
 		var embeddedWindow = new EmbeddedWindow();
 
@@ -184,6 +191,7 @@ public static class EmbeddingExtensions
 
 		var container = new WindowRootViewContainer();
 		mauiContext.AddSpecific(container);
+		window.ModalNavigationManager.BeginEmbeddedRootLifetime();
 
 		var rootManager = windowContext.GetNavigationRootManager();
 		rootManager.Connect(page.ToPlatform(windowContext));
@@ -238,14 +246,9 @@ public sealed class EmbeddedWindowRoot : IDisposable
 
 		try
 		{
-			foreach (var modal in _window.Navigation.ModalStack.ToArray())
-			{
-				((IView)modal).DisconnectHandlers();
-			}
-
-			_window.ModalNavigationManager.ClearModalPages(xplat: true, platform: true);
+			_window.ModalNavigationManager.DisconnectEmbeddedModalPages();
+			_container.ClearPages();
 			_rootManager.Disconnect();
-			_container.CachedChildren.Clear();
 		}
 		finally
 		{

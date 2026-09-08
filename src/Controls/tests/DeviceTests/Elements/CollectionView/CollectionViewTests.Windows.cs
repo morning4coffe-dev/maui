@@ -257,6 +257,45 @@ namespace Microsoft.Maui.DeviceTests
 		}
 
 		[Theory]
+		[InlineData(0)]
+		[InlineData(32)]
+		public async Task GridVirtualizesWhenPopulatedOrGrownAfterAttachment(int initialCount)
+		{
+			SetupBuilder();
+			var items = new ObservableCollection<int>(Enumerable.Range(0, initialCount));
+			var collectionView = new CollectionView
+			{
+				HeightRequest = 240,
+				WidthRequest = 320,
+				ItemsLayout = new GridItemsLayout(ItemsLayoutOrientation.Vertical) { Span = 2 },
+				ItemTemplate = new Controls.DataTemplate(() => new Label { HeightRequest = 40 }),
+				ItemsSource = items,
+				SelectionMode = SelectionMode.Single
+			};
+
+			await CreateHandlerAndAddToWindow<CollectionViewHandler>(collectionView, async handler =>
+			{
+				var gridView = Assert.IsType<FormsGridView>(handler.PlatformView);
+				if (initialCount > 0)
+				{
+					collectionView.SelectedItem = items[0];
+					for (var i = items.Count; i < 65; i++)
+						items.Add(i);
+
+					await AssertEventually(() => gridView.GetFirstDescendant<UI.Xaml.Controls.ItemsWrapGrid>() is not null);
+					Assert.Equal(items[0], collectionView.SelectedItem);
+				}
+
+				collectionView.ItemsSource = Enumerable.Range(0, 100_000).ToList();
+				await AssertEventually(() =>
+					gridView.GetFirstDescendant<UI.Xaml.Controls.ItemsWrapGrid>() is not null &&
+					gridView.GetChildren<ItemContentControl>().Any());
+
+				Assert.InRange(gridView.GetChildren<ItemContentControl>().Count(), 1, 100);
+			});
+		}
+
+		[Theory]
 		[InlineData(SelectionMode.Single)]
 		[InlineData(SelectionMode.Multiple)]
 		public async Task PlatformAndAutomationSelectionSynchronizeOnce(SelectionMode selectionMode)
@@ -373,6 +412,39 @@ namespace Microsoft.Maui.DeviceTests
 				var vertScrollMode = (Microsoft.UI.Xaml.Controls.ScrollMode)control.GetValue(UI.Xaml.Controls.ScrollViewer.VerticalScrollModeProperty);
 				Assert.True(horzScrollMode == UI.Xaml.Controls.ScrollMode.Enabled);
 				Assert.True(vertScrollMode == UI.Xaml.Controls.ScrollMode.Disabled);
+			});
+		}
+
+		[Fact]
+		public async Task ObservableItemsRenderAfterInsertionAndReset()
+		{
+			SetupBuilder();
+			var items = new ObservableCollection<string>();
+			var collectionView = new CollectionView
+			{
+				HeightRequest = 240,
+				WidthRequest = 320,
+				ItemsSource = items,
+				ItemTemplate = new Controls.DataTemplate(() =>
+				{
+					var label = new Label { HeightRequest = 40 };
+					label.SetBinding(Label.TextProperty, static (string item) => item);
+					return label;
+				})
+			};
+
+			await CreateHandlerAndAddToWindow<CollectionViewHandler>(collectionView, async handler =>
+			{
+				var list = handler.PlatformView;
+				items.Add("added after attachment");
+				await AssertEventually(() => list.Items.Count == 1 &&
+					list.GetChildren<UI.Xaml.Controls.TextBlock>().Any(text => text.Text == items[0]));
+
+				items.Clear();
+				items.Add("replacement after reset");
+				await AssertEventually(() => list.Items.Count == 1 &&
+					list.GetChildren<UI.Xaml.Controls.TextBlock>().Any(text => text.Text == items[0]) &&
+					!list.GetChildren<UI.Xaml.Controls.TextBlock>().Any(text => text.Text == "added after attachment"));
 			});
 		}
 

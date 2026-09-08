@@ -49,7 +49,7 @@ public static partial class SoftInputExtensions
 			return Task.FromResult(false);
 		}
 
-		return InvokeOnDispatcherAsync(dispatcher, () => platformView.HideSoftInput()).WaitAsync(token);
+		return InvokeOnDispatcherAsync(dispatcher, () => platformView.HideSoftInput(), token);
 #endif
 	}
 
@@ -103,9 +103,10 @@ public static partial class SoftInputExtensions
 		return platformView.IsSoftInputShowing();
 	}
 
-	internal static Task<bool> InvokeOnDispatcherAsync(IDispatcher? dispatcher, Func<bool> action)
+	internal static Task<bool> InvokeOnDispatcherAsync(IDispatcher? dispatcher, Func<bool> action, CancellationToken token = default)
 	{
 		_ = action ?? throw new ArgumentNullException(nameof(action));
+		token.ThrowIfCancellationRequested();
 
 		if (dispatcher is null)
 		{
@@ -117,7 +118,10 @@ public static partial class SoftInputExtensions
 		{
 			try
 			{
-				tcs.TrySetResult(action());
+				if (token.IsCancellationRequested)
+					tcs.TrySetCanceled(token);
+				else
+					tcs.TrySetResult(action());
 			}
 			catch (Exception e)
 			{
@@ -128,13 +132,17 @@ public static partial class SoftInputExtensions
 			return Task.FromResult(false);
 		}
 
+#if NETSTANDARD
 		return tcs.Task;
+#else
+		return tcs.Task.WaitAsync(token);
+#endif
 	}
 
 #if !NETSTANDARD
 	static async Task<bool> ShowSoftInputAsyncCore(IDispatcher dispatcher, PlatformView platformView, IPlatformViewHandler handler, IView view, CancellationToken token)
 	{
-		var isFocused = await InvokeOnDispatcherAsync(dispatcher, () => view.IsFocused).WaitAsync(token).ConfigureAwait(false);
+		var isFocused = await InvokeOnDispatcherAsync(dispatcher, () => view.IsFocused, token).ConfigureAwait(false);
 		if (!isFocused)
 		{
 			await InvokeOnDispatcherAsync(dispatcher, () =>
@@ -143,10 +151,10 @@ public static partial class SoftInputExtensions
 				handler.Invoke(nameof(IView.Focus), new FocusRequest(false));
 #pragma warning restore CS0618
 				return true;
-			}).WaitAsync(token).ConfigureAwait(false);
+			}, token).ConfigureAwait(false);
 		}
 
-		return await InvokeOnDispatcherAsync(dispatcher, () => platformView.ShowSoftInput()).WaitAsync(token).ConfigureAwait(false);
+		return await InvokeOnDispatcherAsync(dispatcher, () => platformView.ShowSoftInput(), token).ConfigureAwait(false);
 	}
 #endif
 

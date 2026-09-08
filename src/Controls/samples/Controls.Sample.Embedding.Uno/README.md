@@ -44,6 +44,7 @@ The reusable runtime lives outside the sample, in `src/Controls/src/Embedding.Un
 | `Shared/MauiIslandPage.cs` | Tier 2 island: a `Page` exercising alerts and modal navigation |
 | `Shared/MyMauiContent.cs` | Tier 1 island: a plain `ContentView` |
 | `Shared/Tier2Probe.cs` | Code-driven verification of the window-scoped features |
+| `Shared/LifecycleRegressionProbe.cs` | Modal replacement/cancellation, restored input, observable-list updates and large-grid regressions |
 | `Shared/MauiProgram.cs`, `Shared/App.cs` | The embedded MAUI app |
 
 The embedded `MauiApp` is supplied by the host, not hard-wired:
@@ -164,6 +165,19 @@ The upshot is that modals stay inside the embedded region instead of covering th
 Window overlays are a separate mechanism and remain unsupported; see below.
 
 ## Still not supported
+
+The opt-in `MauiUnoTier2Probe=true` browser build also runs lifecycle and
+collection regressions after the Tier 2 scenarios. It requires real modal
+unparenting/unloading, native button invocation, pending navigation cancellation,
+successful subsequent navigation, and immediate observable insertion/reset.
+It then requires bounded realization for a 100,000-item grid after initial
+empty or small sources. An overall `TIER2-RESULT FAIL` is not a pass even when
+earlier individual scenarios succeeded.
+
+The tested Uno Skia/WASM core runtime supplies a stub `ItemsWrapGrid`. The probe
+detects this before assigning 100,000 items (which would freeze the browser)
+and fails explicitly. A real virtualizing implementation is still required;
+panel selection alone does not establish large-grid support.
 
 - **`WindowOverlay`, visual diagnostics, MAUI hot reload.** `WindowOverlay.Windows.cs` casts
   `Window.Handler as WindowHandler`, and embedding uses `EmbeddedWindowHandler`, which is an

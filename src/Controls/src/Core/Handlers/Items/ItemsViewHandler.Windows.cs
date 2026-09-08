@@ -314,7 +314,16 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 				incc.CollectionChanged += ItemsChanged;
 			}
 
-			ListViewBase.ItemsSource = GetCollectionView(CollectionViewSource);
+			var collectionView = GetCollectionView(CollectionViewSource);
+#if UNO
+			// Uno's ungrouped CollectionView does not forward source change notifications.
+			// Keep specialized views (for example, CarouselView's loop wrapper) intact.
+			ListViewBase.ItemsSource = !CollectionViewSource.IsSourceGrouped && ReferenceEquals(collectionView, CollectionViewSource.View)
+				? CollectionViewSource.Source
+				: collectionView;
+#else
+			ListViewBase.ItemsSource = collectionView;
+#endif
 
 			UpdateEmptyViewVisibility();
 		}

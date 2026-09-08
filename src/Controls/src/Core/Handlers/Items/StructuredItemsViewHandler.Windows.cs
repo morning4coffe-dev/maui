@@ -203,11 +203,35 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 			}
 		}
 
+#if UNO
+		protected override void UpdateItemsSource()
+		{
+			EnsureGridVirtualization();
+			base.UpdateItemsSource();
+		}
+
+		protected override void UpdateEmptyViewVisibility()
+		{
+			EnsureGridVirtualization();
+			base.UpdateEmptyViewVisibility();
+		}
+
+		void EnsureGridVirtualization()
+		{
+			if (((IViewHandler)this).VirtualView is TItemsView itemsView &&
+				ListViewBase is FormsGridView gridView &&
+				(itemsView.ItemsSource is not ICollection items || items.Count > UnoNonVirtualizingItemLimit))
+			{
+				gridView.EnsureVirtualizingPanel();
+			}
+		}
+#endif
+
 		ListViewBase CreateGridView(GridItemsLayout gridItemsLayout)
 		{
 			var gridView = new FormsGridView(
 #if UNO
-				VirtualView.ItemsSource is not ICollection items || items.Count <= UnoNonVirtualizingItemLimit
+				VirtualView.ItemsSource is ICollection items && items.Count > 0 && items.Count <= UnoNonVirtualizingItemLimit
 #else
 				false
 #endif

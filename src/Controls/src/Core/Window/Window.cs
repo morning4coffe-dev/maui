@@ -458,10 +458,12 @@ namespace Microsoft.Maui.Controls
 			IsActivated = false;
 		}
 
+		internal bool RemoveModalFromVisualChildren(Page modalPage) =>
+			_visualChildren.Remove(modalPage);
+
 		internal void OnModalPopped(Page modalPage)
 		{
-			int index = _visualChildren.IndexOf(modalPage);
-			_visualChildren.Remove(modalPage);
+			RemoveModalFromVisualChildren(modalPage);
 
 			var args = new ModalPoppedEventArgs(modalPage);
 			ModalPopped?.Invoke(this, args);

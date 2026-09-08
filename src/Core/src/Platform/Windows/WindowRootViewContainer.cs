@@ -148,6 +148,30 @@ namespace Microsoft.Maui.Platform
 			}
 		}
 
+		internal void ClearPages()
+		{
+			_topPage = null;
+			DisableModalFocusTrap();
+
+			foreach (var child in CachedChildren)
+			{
+				if (child is FrameworkElement element)
+					element.Loaded -= OnPageLoadedForFocus;
+			}
+
+			foreach (var entry in _originalTabNavigation)
+			{
+				if (entry.Key is Control control)
+					control.TabFocusNavigation = entry.Value;
+			}
+			foreach (var entry in _originalIsHitTestVisible)
+				entry.Key.IsHitTestVisible = entry.Value;
+
+			_originalTabNavigation.Clear();
+			_originalIsHitTestVisible.Clear();
+			CachedChildren.Clear();
+		}
+
 		void EnableModalFocusTrap()
 		{
 			if (!_modalFocusTrapActive)

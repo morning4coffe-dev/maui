@@ -90,7 +90,7 @@ namespace Microsoft.Maui.Handlers
 
 			if (platformView.Content is WindowRootViewContainer container)
 			{
-				container.CachedChildren.Clear();
+				container.ClearPages();
 				platformView.Content = null;
 			}
 

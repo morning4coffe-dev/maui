@@ -117,7 +117,6 @@ public static class Tier2Probe
 			await CheckThemeChangeIsBridgedAsync(session, Check);
 			await CheckBindingContextIsBridgedAsync(viewHost, Check);
 
-			// Last: this one cannot dismiss its own dialog.
 			await CheckOffUiThreadAlertAsync(page, xamlRoot, Check);
 		}
 		catch (Exception ex)
@@ -339,7 +338,7 @@ public static class Tier2Probe
 		_ => AppTheme.Unspecified,
 	};
 
-	static async Task<bool> WaitForAsync(Func<bool> condition)
+	internal static async Task<bool> WaitForAsync(Func<bool> condition)
 	{
 		var deadline = DateTime.UtcNow + OperationTimeout;
 
@@ -374,6 +373,11 @@ public static class Tier2Probe
 		var shown = await WaitForDialogAsync(xamlRoot);
 		check("off UI thread alert shows a dialog without crashing", shown);
 		check("off UI thread alert request was created", task is not null);
+		DismissDialogs(xamlRoot);
+		if (task is not null)
+		{
+			check("off UI thread alert completes after dismissal", await CompletesAsync(task));
+		}
 	}
 
 	static async Task<bool> WaitForDialogAsync(XamlRoot? xamlRoot)
@@ -398,11 +402,15 @@ public static class Tier2Probe
 		return false;
 	}
 
-	static async Task<bool> CompletesAsync(Task task) =>
-		await Task.WhenAny(task, Task.Delay(OperationTimeout)) == task;
-
-	static async Task<bool> CompletesAsync<T>(Task<T> task) =>
-		await Task.WhenAny(task, Task.Delay(OperationTimeout)) == task;
+	static async Task<bool> CompletesAsync(Task task)
+	{
+		if (await Task.WhenAny(task, Task.Delay(OperationTimeout)) != task)
+		{
+			return false;
+		}
+		await task;
+		return true;
+	}
 
 	static int CountOpenDialogs(XamlRoot xamlRoot)
 	{

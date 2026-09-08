@@ -21,7 +21,7 @@ namespace Microsoft.Maui.Controls.Platform
 		Orientation _orientation;
 #if UNO
 		FormsGridPanel _unoGridPanel;
-		readonly bool _useUnoGridPanel;
+		bool _useUnoGridPanel;
 #endif
 
 		public FormsGridView(bool useUnoGridPanel = false)
@@ -112,6 +112,20 @@ namespace Microsoft.Maui.Controls.Platform
 #endif
 			}
 		}
+
+#if UNO
+		internal void EnsureVirtualizingPanel()
+		{
+			if (!_useUnoGridPanel)
+				return;
+
+			_useUnoGridPanel = false;
+			_unoGridPanel = null;
+			Orientation = _orientation;
+			InvalidateMeasure();
+			InvalidateArrange();
+		}
+#endif
 
 		void FindItemsWrapGrid()
 		{

@@ -33,5 +33,6 @@
              Properties="UnoMauiResourceManifest=$(_UnoMauiResourceManifest);UnoMauiAppTargetDir=$(TargetDir);UnoMauiAppProject=$(TargetDir)App.csproj" />
     <MSBuild Projects="GeneratedResources.Tests.proj" Properties="DeduplicateResources=false" />
     <MSBuild Projects="GeneratedResources.Tests.proj" Properties="DeduplicateResources=true" />
+    <MSBuild Projects="RuntimeVersionOverrides.Tests.proj" />
   </Target>
 </Project>
