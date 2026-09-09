@@ -43,6 +43,8 @@ The reusable runtime lives outside the sample, in `src/Controls/src/Embedding.Un
 | `Shared/MainShell.cs` | Uno-owned UI; MAUI islands interleaved with Uno content |
 | `Shared/MauiIslandPage.cs` | Tier 2 island: a `Page` exercising alerts and modal navigation |
 | `Shared/MyMauiContent.cs` | Tier 1 island: a plain `ContentView` |
+| `Shared/AdvancedMauiContent.cs` | Tier 1 island: a gallery of the more demanding MAUI controls |
+| `Shared/ControlCensus.cs` | Per-control report of what actually reached the platform |
 | `Shared/Tier2Probe.cs` | Code-driven verification of the window-scoped features |
 | `Shared/LifecycleRegressionProbe.cs` | Modal push/pop cancellation, failed-handler rollback/retry, restored input, observable-list updates and large-grid regressions |
 | `Shared/ImageDensityRegressionProbe.cs` | Opt-in slow-image density changes, source supersession and disconnect cleanup |
@@ -211,6 +213,264 @@ panel selection alone does not establish large-grid support.
   island gets Tier 2 treatment. A second page-based island now throws rather than silently inheriting the
   first island's navigation proxy and alert manager; host further islands as views, or use another window.
 
+## Advanced control gallery
+
+The third island (`AdvancedMauiContent`) is a gallery of the more demanding MAUI controls, used to map what
+actually survives the trip through Uno's renderer. `ControlCensus` runs on load and reports, per control,
+the realized Uno platform view, its arranged size, how many descendants it realized, and how many of them
+carry text. It writes to `control-census.log` and to the console, and is shown in the app.
+
+Results from a **trimmed Release WebAssembly publish in headless Chromium**:
+
+| Control | Platform view | Result |
+| --- | --- | --- |
+| `Editor`, `SearchBar`, `Picker`, `DatePicker`, `TimePicker`, `Stepper`, `Switch`, `CheckBox`, `RadioButton`, `ProgressBar` | `TextBox`, `AutoSuggestBox`, `ComboBox`, `CalendarDatePicker`, `TimePicker`, `MauiStepper`, `ToggleSwitch`, `CheckBox`, `RadioButton`, `ProgressBar` | Works |
+| `Ellipse`, `Polygon`, `Border` with gradient stroke and asymmetric corners | `W2DGraphicsView`, `ContentPanel` | Works, gradients included |
+| `FlexLayout`, `AbsoluteLayout` | `LayoutPanel` | Works, including wrapping and overlap |
+| `SwipeView` | `SwipeControl` | Content renders |
+| `IndicatorView` | `MauiPageControl` | Works |
+| Gestures (`Tap`, `Pan`) and animation | `ContentPanel`, `MauiButton` | Realized |
+| `CommunityToolkit UniformItemsLayout`, `CommunityToolkit DockLayout` | `LayoutPanel` | Works — third-party library, compiled from source |
+| `CollectionView`, `CarouselView`, `RefreshView` | `FormsListView`, `RefreshContainer` | **Realized and arranged, but nothing is painted** in Default mode. Full mode fixes all three; see Handler modes. |
+| `GraphicsView` | — | **Hangs the layout; omitted by default** |
+
+### The two failures, precisely
+
+**`FormsListView`-backed controls paint nothing on WebAssembly.** This is not a data, template or binding
+problem, and it is not a missing handler. The census shows the item subtrees fully realized *and* arranged
+with correct sizes — `CollectionView` reports 70 descendants of which 52 have a non-zero size,
+`CarouselView` 105 and 70, `RefreshView` 81 and 62 — and the containers themselves are laid out at the
+right dimensions. They simply never draw. `RefreshView` is blank only because it contains a
+`CollectionView`; the two genuinely distinct casualties are `CollectionView` and `CarouselView`, which
+share the `FormsListView` platform view. `IndicatorView`, which is a different platform control, paints its
+dots correctly right next to the blank carousel.
+
+This is why the census reports **realized**, not rendered: no cheap in-process signal distinguishes "laid
+out" from "painted", so painting is only ever confirmed from a screenshot.
+
+**`GraphicsView` puts the layout into a loop that never settles.** No exception is raised and nothing is
+logged; the UI thread simply never completes a pass and the working set climbs without bound — roughly
+2 GB to 6 GB in fifteen seconds before the process has to be killed. Because a hung layout takes the whole
+app down, it cannot be left in a demo gallery, so it is omitted by default. Note that `Ellipse` and
+`Polygon` render through the very same `W2DGraphicsView` platform view without trouble, so the fault is in
+the `GraphicsView` control rather than in Win2D-on-Uno generally.
+
+Both are triageable without a rebuild:
+
+```powershell
+$env:MAUI_UNO_GALLERY_CARDS = "4"   # build only the first four cards, to bisect a hang
+$env:MAUI_UNO_GALLERY_SKIP  = ""    # clear the default omissions, to reproduce the GraphicsView hang
+```
+
+## Handler modes
+
+Embedding runs in one of two handler modes.
+
+| Mode | Handlers | Use |
+| --- | --- | --- |
+| `Default` | MAUI's own, recompiled against Uno.WinUI | Unchanged behaviour; this is what every earlier result in this file describes |
+| `Full` | MAUI's own, **except** the ones that do not survive every Uno target | Opt-in, additive — only the handlers listed below are replaced |
+
+```csharp
+MauiApp.CreateBuilder()
+    .UseMauiEmbeddedApp<App>()
+    // After UseMauiEmbeddedApp: handler registration is last-one-wins, so replacing only works from here.
+    .UseUnoHandlers(UnoHandlerMode.Full)
+    .Build();
+```
+
+Selecting the mode in the sample: `MAUI_UNO_HANDLER_MODE=full` or a `handlers=full` command-line argument on
+Desktop; on WebAssembly the choice is baked in with `-p:MauiUnoFullHandlers=true`, because the browser has
+neither an environment nor a command line the runtime can read. (The query string does **not** reach
+`Environment.GetCommandLineArgs` under Uno WebAssembly, which is worth knowing before relying on it.)
+
+### What Full mode replaces, and what it fixes
+
+| Virtual view | Default handler renders through | Full mode renders through |
+| --- | --- | --- |
+| `CollectionView` | `FormsListView` — a `ListViewBase` with a custom control template and `ItemsStackPanel` virtualization | `ScrollViewer` + `ItemsRepeater` with a `StackLayout` or `UniformGridLayout` |
+| `CarouselView` | `FormsListView`, same cause | `ScrollViewer` + `ItemsRepeater`, items sized to the viewport, position synced both ways |
+
+Measured on trimmed Release WebAssembly, same build, same page:
+
+| Control | Default mode | Full mode |
+| --- | --- | --- |
+| `CollectionView` | blank | **paints** |
+| `CarouselView` | blank | **paints**, with `IndicatorView` in step |
+| `RefreshView` | blank | **paints** |
+
+`RefreshView` is fixed without being touched: it was only ever blank because it *contains* a
+`CollectionView`. That is the useful shape of this result — it identifies `FormsListView` rather than the
+items controls as the actual fault, so replacing it fixes everything built on top of it.
+
+### Why a replacement handler rather than a fix
+
+The default handler's item containers are realized *and arranged at correct sizes* on WebAssembly and then
+never painted, so there is nothing the embedding layer can correct from the outside — the failure is inside
+`ListViewBase`'s templated virtualization path. `ItemsRepeater` is the portable primitive: a layout plus an
+element factory, with no control template and no platform-specific panel.
+
+Two details cost real time and are worth knowing before writing another one:
+
+- `ItemsRepeater.ItemTemplate` is typed `object` but accepts only a `DataTemplate` or something it can treat
+  as its internal element-factory shim. Assigning a bare `IElementFactory` throws
+  `ArgumentException: ItemTemplate` at assignment. Derive from `ElementFactory` instead.
+- `ElementFactory`'s `GetElementCore`/`RecycleElementCore` take the `Microsoft.UI.Xaml.Controls` args types,
+  not the identically named ones in `Microsoft.UI.Xaml`.
+
+### What the replacement does not map
+
+`Full` is an experimental mode name, not a promise of complete MAUI support.
+The combined candidate's updated default runtime paints the showcased
+CollectionView, CarouselView and RefreshView; the earlier blank-control
+comparison is historical evidence, not a reason to replace today's defaults.
+The opt-in production compatibility probe covers failed template cleanup,
+programmatic carousel selection, observable loop growth/reset, and loaded
+CollectionView scrolling by index/item in both orientations.
+
+`UnoCollectionViewHandler` covers `ItemsSource`, `ItemTemplate` (including `DataTemplateSelector`),
+`ItemsLayout` (linear and grid, both orientations), loaded-item `ScrollTo`, and single selection by tap. Grouping, reordering,
+incremental loading, headers and footers, multiple selection and the empty view are **not** implemented —
+those properties have no effect rather than throwing. Items are also not recycled into new data, because a
+recycled MAUI view would need re-binding and handler re-attachment; MAUI's own Windows handler does not
+recycle either.
+
+`UnoCarouselViewHandler` covers `ItemsSource`, `ItemTemplate`, `Position`, `CurrentItem`, `IsSwipeEnabled`,
+`Loop`, `PeekAreaInsets`, `IsBounceEnabled` and `VisibleViews`. Snapping is done by hand — `ItemsRepeater`
+does not implement `IScrollSnapPointsInfo`, so the `ScrollViewer` has no snap points and the nearest item is
+scrolled to once the view stops moving. `Loop` is implemented by repeating the source three times and
+re-centring on the middle block, so wrapping is seamless in both directions without an unbounded source.
+**`IsBounceEnabled` is an approximation**: Uno has no rubber-band overscroll, so it toggles scroll inertia
+instead, which is the closest available behaviour rather than an exact match.
+
+## Third-party MAUI controls
+
+The tables below record particular source-built subsets and adapter builds, not
+production certification of entire third-party products. The combined candidate
+still requires per-control painting, interaction, accessibility and failure-path
+acceptance. A `44/44 realized` census is not a rendering or production verdict.
+
+Three genuinely external libraries run in the gallery, all **compiled from source** and consumed unmodified:
+
+| Library | License | Pinned at | What runs |
+| --- | --- | --- | --- |
+| CommunityToolkit.Maui | MIT | tag `9.1.1` | `UniformItemsLayout`, `DockLayout`, converters (`InvertedBoolConverter`, `TextCaseConverter`), behaviours (`MaskedBehavior`, `NumericValidationBehavior`, `TextValidationBehavior`, `MaxLengthReachedBehavior`, `AnimationBehavior`, `ProgressBarAnimationBehavior`) |
+| Syncfusion .NET MAUI Toolkit | MIT | `main` | `SfCartesianChart` (column, stacked column, line, spline, area, scatter), `SfCircularChart` (doughnut, pie), `SfFunnelChart`, `SfPyramidChart`, `SfChartLegend`. `SfPolarChart` binds its points but does not paint — see below |
+| Maui.DataGrid | MIT | `main` (`506312fd`) | `DataGrid` with sortable columns, selection and pagination |
+
+**Telerik UI for .NET MAUI is commercial**, not open source, and cannot be used here at all. Of the other
+OSS candidates, Microcharts, LiveCharts2 and FreakyControls all render through SkiaSharp, and UraniumUI
+depends on `InputKit.Maui` and `Plainer.Maui`, which are NuGet-only with no source repository.
+
+### Maui.DataGrid: the most informative of the three
+
+`Maui.DataGrid` is the one worth reading about, because it is not a control that happens to work — it is a
+real, widely used library whose rows are rendered by a MAUI `RefreshView` wrapping a `CollectionView`. Those
+are exactly the two controls that realize and arrange at correct sizes but **never paint** on WebAssembly
+under MAUI's own handlers. The grid is therefore blank in Default mode and populated in Full mode, which
+makes it an independent demonstration of what replacing those handlers buys, on code nobody wrote for this
+experiment.
+
+It is also the least modified of the three. Upstream already targets a bare `net10.0` with no `Platforms`
+folder and a single `Microsoft.Maui.Controls` package reference, so nothing is excluded: the whole library
+compiles, and the only change is that the package reference becomes a project reference. Three details were
+still needed:
+
+- **Pinned to `main`, not to the `4.0.6` tag.** The released tag calls `TemplatedView.Children`, which MAUI 10
+  marks obsolete *as an error*; `main` has already migrated to `IVisualTreeElement.GetVisualChildren()`.
+  Pinning forward keeps the library unmodified rather than patching it.
+- **`Microsoft.Maui.Devices` had to be referenced explicitly**, because `DataGrid.xaml.cs` uses `DeviceInfo`
+  and the plain SDK does not inject the MAUI global usings.
+- **The assembly keeps its upstream name.** `DataGrid.xaml` declares
+  `xmlns:local="clr-namespace:Maui.DataGrid;assembly=Maui.DataGrid"`, and XamlC resolves that by name at
+  compile time, so a `.Uno` suffix breaks the build.
+
+Its columns bind by property name and are resolved reflectively, which is the same trimming hazard the
+Syncfusion charts hit — a trimmed build would draw the headers over an empty body. A `DynamicDependency` on
+`DemoItem` is what keeps the bound properties alive.
+
+### Binary compatibility must be established per package
+
+This repository builds `Microsoft.Maui.Controls` against Uno rather than the
+native Windows App SDK. Platform-specific binaries and portable handlers with
+incompatible platform-view signatures can therefore fail to load. Portable
+composite controls may work unchanged; it is not correct to reject every MAUI
+package categorically. These showcase integrations are rebuilt from pinned
+source, with the exclusions and adapters described below. Neither restore nor
+successful compilation establishes compatibility.
+
+Initialise both before building:
+
+```powershell
+git submodule update --init --recursive
+```
+
+### CommunityToolkit: what is compiled, and what is not
+
+`ThirdParty/CommunityToolkit.Maui.Core.Uno.csproj` and `ThirdParty/CommunityToolkit.Maui.Uno.csproj`
+compile a curated subset. Three constraints decided that subset, and each is worth knowing before extending
+it:
+
+- **The toolkit's own source generator cannot be built here.** Current `main` generates its bindable
+  properties from a `[BindableProperty]` attribute, and that generator needs `Microsoft.CodeAnalysis.CSharp`
+  and `PolySharp`, neither of which is in the local package cache while nuget.org is unreachable. On `main`
+  31 files depend on it; on the pinned **9.1.1** only one does (`Expander`), which is why 9.1.1 is pinned
+  and `Expander` is excluded.
+- **Core and the main library need different global usings.** Core resolves `ILayout` to
+  `Microsoft.Maui.ILayout`; the main library resolves `Layout` to `Microsoft.Maui.Controls.Layout`. Merging
+  them into one assembly makes `ILayout` ambiguous, so they stay split exactly as upstream ships them. Core
+  still *references* `Microsoft.Maui.Controls` — MAUI's own source generators emit code that needs it — but
+  deliberately does not import it as a global using.
+- **9.1.1 targets MAUI 8, and this repository is MAUI 10.** Areas that drifted (SpeechToText, Popup and
+  DrawingView handlers, Essentials) do not compile and are excluded.
+
+The `WINDOWS` define is also removed for these two projects. `UnoTargeting.props` defines it so MAUI's
+Windows handlers compile against Uno.WinUI, but the toolkit's Windows sources reach past XAML into
+`System.Speech`, `Windows.UI.Input.Inking`, `Windows.Storage.Pickers` and `Windows.UI.Notifications`, none
+of which exist in a browser. Dropping the define selects the toolkit's own supported neutral build.
+
+### Syncfusion: what it took
+
+The charts were the interesting case, because Syncfusion draws through its own
+`SfDrawableView : View` rather than MAUI's `GraphicsView` — so they sidestep the layout hang described
+above entirely.
+
+- **`WINDOWS` stays defined**, unlike the CommunityToolkit build. Syncfusion's neutral "Standard" handlers
+  are deliberate stubs: `SfDrawableViewHandler.Standard.cs` throws `NotImplementedException` and types its
+  platform view as `object`, which does not even satisfy the `FrameworkElement` constraint here. The Windows
+  handlers are the real implementations and target `Microsoft.UI.Xaml`, which is what Uno provides.
+- **Three files needed replacing**, because they use real Win2D (`Microsoft.Graphics.Canvas`), which does
+  not exist here — on the Uno target `W2DGraphicsView` is a *Skia-backed shim* living in the
+  `Microsoft.Maui.Graphics.Win2D` namespace for source compatibility. `ThirdParty/SyncfusionUnoShims.cs`
+  supplies a drawing panel that hands the `IDrawable` straight to that view, written against the surface
+  the toolkit's own handlers use rather than copied from them.
+- **Core and Charts only.** Taking the whole library pulls in controls that wrap native WinUI views
+  (Carousel) or blur through Win2D composition (Popup), and each drags more of the library with it.
+- **XAML is scoped to what is compiled.** XamlC runs on Release but not Debug, and resolves every type the
+  theme dictionaries reference, so shipping themes for uncompiled controls fails the publish.
+
+### The trimming trap worth knowing
+
+Syncfusion resolves `XBindingPath`/`YBindingPath` by reflection. In a trimmed build that silently binds
+**zero points** — and because the axis still draws its gridlines, the chart looks very nearly right while
+plotting nothing. Annotating the model type with `DynamicallyAccessedMembers` does **not** preserve its
+members; a `DynamicDependency` declared from a method that is kept does.
+
+This is why the census now reports `chartPoints=[...]`. The measurement is what caught it:
+
+| | Desktop (untrimmed) | Trimmed WASM, before | Trimmed WASM, after |
+| --- | --- | --- | --- |
+| `ColumnSeries` | 5 | **0** | 5 |
+| `DoughnutSeries` | 5 | **0** | 5 |
+
+### The one chart that does not paint
+
+`SfPolarChart` is the exception, and it is a good illustration of what the census cannot tell you. It is
+realized, arranged at 720x240 with fifteen arranged descendants, and `PolarAreaSeries` binds its five
+points — so every in-process signal says it is fine. In a real browser its plot area is simply empty, while
+the `SfPyramidChart` directly above it in the same card paints correctly. Only a screenshot catches this,
+which is exactly the `CollectionView` failure mode again in a third-party control.
+
 ## Remaining gaps
 
 P1–P4 of the original gap list are closed, and P5 is closed apart from actual package distribution. The
@@ -231,11 +491,11 @@ details of what changed are in the commit history.
 
 **What genuinely remains:**
 
-- **G10. There is still no consumable package.** This is not a gap in the embedding layer; it is a
-  prerequisite owned by the renderer project. The whole MAUI-for-Uno stack is consumed as *source* project
-  references built for a neutral `net10.0` target — there are no MAUI-for-Uno NuGet packages at all — so
-  packaging this one assembly would produce something with nothing to reference. The library is therefore
-  marked `IsPackable=false` until the underlying stack ships. Using this still means building the fork.
+- **G10. The embedding library is not distributed as a consumer package.**
+  The renderer has SDK/runtime package-mode builds, but the embedding assembly
+  remains `IsPackable=false`, and the required combined Uno fixes have not been
+  published as a supported release. Shipping and validating a complete,
+  reproducible consumer dependency graph remains a release blocker.
 - **The Apple head is authored but unbuilt.** It mirrors the working MAUI-root Apple head, but the `ios`
   and `maccatalyst` workloads are not installed on the machine used here, so it has had no compile pass.
 
@@ -292,7 +552,31 @@ The probe writes `tier2-probe.log` to the temp directory where a filesystem is a
 in the app, and always publishes `TIER2-RESULT PASS`/`FAIL` to the document title and standard output so a
 headless run can collect it. Uno renders to a canvas on WebAssembly, so the per-assertion report is only
 readable from the console or the on-screen text — the document title is what an automated run should key
-off.
+off. Note that the probe deliberately leaves its last dialog open — the off-UI-thread alert cannot dismiss
+itself — so it has to be the **last** thing an interactive pass clicks, or the open dialog swallows
+subsequent clicks.
+
+A check whose precondition a supported host action removed is reported as `SKIP`, not `FAIL`. There is one
+today: pressing **Replace content in island 1** swaps the island's `NavigationPage` for a plain
+`ContentPage`, so there is no stack left to push onto. Skips do not fail the run, and the verdict reports
+them (`RESULT: PASS (1 skipped)`).
+
+### Interactive pass
+
+Driving the host buttons and then the probe exercises the paths the probe itself cannot reach. Verified in a
+trimmed Release WebAssembly publish in headless Chromium, with real DevTools mouse events rather than
+synthetic DOM events — Uno renders to a canvas, so only trusted input reaches managed hit-testing:
+
+| Step | Result |
+| --- | --- |
+| Baseline | `CENSUS-RESULT 43/43 realized, handlers=Full`, all ten chart series bound 5 points |
+| Replace content in island 1 | Island 1 re-renders as "First MAUI island (replaced 1x)", no exception |
+| Detach island 2 | Status flips to "Island 2 attached: no", button becomes "Re-attach island 2" |
+| Re-attach island 2 | Status flips back to "yes", island renders again |
+| Run Tier 2 probe | `PASS` from a pristine start; after the replacement above, `PASS (1 skipped)` |
+
+Do **not** reload the page between steps: the DevTools connection is starved while the WebAssembly runtime
+re-boots, and the driving script hangs rather than failing.
 
 ### What was closed, and how
 
@@ -328,6 +612,10 @@ WebAssembly as well as on Desktop.
 .\Build.ps1 -Sample Embedding -Target iOS -Run          # untested: needs the ios workload
 .\Build.ps1 -Sample Embedding -Target MacCatalyst -Run  # untested: needs the maccatalyst workload
 ```
+
+This sample is deliberately large, because its job is to map what works. For the smallest app that embeds
+MAUI in a plain Uno application — five files, one project, no gallery — see
+[`Controls.Sample.Embedding.Uno.Minimal`](../Controls.Sample.Embedding.Uno.Minimal/README.md).
 
 ## Notes
 

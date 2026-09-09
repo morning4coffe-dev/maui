@@ -1,0 +1,184 @@
+using System;
+using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Platform;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+
+using PlatformView = Microsoft.UI.Xaml.FrameworkElement;
+using GetArgs = Microsoft.UI.Xaml.Controls.ElementFactoryGetArgs;
+using RecycleArgs = Microsoft.UI.Xaml.Controls.ElementFactoryRecycleArgs;
+
+namespace Microsoft.Maui.Controls.Embedding.Uno;
+
+/// <summary>
+/// Realizes a MAUI <see cref="DataTemplate"/> into an Uno element for each item an
+/// <c>ItemsRepeater</c> asks for.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The two template systems do not meet anywhere, so this is where they are joined: the MAUI template
+/// produces a MAUI <see cref="View"/>, and <c>ToPlatform</c> turns that into the Uno element the repeater
+/// wants. Everything below the join is an ordinary Uno visual tree.
+/// </para>
+/// <para>
+/// This derives from <c>ElementFactory</c> rather than implementing <c>IElementFactory</c> directly.
+/// <c>ItemsRepeater.ItemTemplate</c> is typed as <see cref="object"/> and accepts only a
+/// <see cref="DataTemplate"/> or something it can treat as its internal element-factory shim; a bare
+/// <c>IElementFactory</c> is rejected at assignment with an <see cref="ArgumentException"/>.
+/// </para>
+/// <para>
+/// Items are not recycled into new data. A recycled MAUI view would have to be re-bound and have its
+/// handler re-attached, and MAUI's own Windows handler does not recycle either; correctness first, and the
+/// item count in an embedded island is small.
+/// </para>
+/// </remarks>
+sealed class MauiTemplateElementFactory : ElementFactory
+{
+	readonly Dictionary<PlatformView, View> _realized = new();
+	readonly Element _owner;
+	readonly IMauiContext _mauiContext;
+	readonly DataTemplate _template;
+	readonly Action<object?>? _onItemInvoked;
+
+	/// <summary>
+	/// Gets or sets a fixed size for every realized item, or <see langword="null"/> to let items size to
+	/// their content.
+	/// </summary>
+	/// <remarks>
+	/// A carousel needs each item to fill the viewport, which no repeater layout does on its own.
+	/// </remarks>
+	public double? ItemWidth { get; set; }
+
+	public double? ItemHeight { get; set; }
+
+	public MauiTemplateElementFactory(
+		Element owner,
+		IMauiContext mauiContext,
+		DataTemplate template,
+		Action<object?>? onItemInvoked)
+	{
+		_owner = owner;
+		_mauiContext = mauiContext;
+		_template = template;
+		_onItemInvoked = onItemInvoked;
+	}
+
+	protected override UIElement GetElementCore(GetArgs args)
+	{
+		var item = args.Data;
+
+		// A selector picks per item; a plain template is used as-is.
+		var template = _template is DataTemplateSelector selector
+			? selector.SelectTemplate(item, _owner)
+			: _template;
+
+		var view = (View)template.CreateContent();
+		if (view.Parent is not null)
+		{
+			throw new InvalidOperationException("An item template must create an unparented view.");
+		}
+
+		// Parenting before binding is what lets the item resolve dynamic resources and inherited state
+		// through the embedded window rather than only seeing its own bindable properties.
+		try
+		{
+			view.Parent = _owner;
+			view.BindingContext = item;
+			var platformView = (PlatformView)view.ToPlatform(_mauiContext);
+			ApplyItemSize(platformView);
+			_realized.Add(platformView, view);
+
+			if (_onItemInvoked is not null)
+			{
+				platformView.Tapped += OnItemTapped;
+			}
+			return platformView;
+		}
+		catch
+		{
+			try
+			{
+				try
+				{
+					((IView)view).DisconnectHandlers();
+				}
+				finally
+				{
+					view.Parent = null;
+				}
+			}
+			catch (Exception cleanupError)
+			{
+				(_mauiContext.Services.GetService(typeof(ILoggerFactory)) as ILoggerFactory)?
+					.CreateLogger(nameof(MauiTemplateElementFactory))
+					.LogWarning(cleanupError, "Failed to clean up an item template after realization failed.");
+			}
+			throw;
+		}
+	}
+
+	/// <summary>Gets the MAUI view realized for <paramref name="platformView"/>, if it is still alive.</summary>
+	public View? TryGetView(object? platformView) =>
+		platformView is PlatformView element && _realized.TryGetValue(element, out var view) ? view : null;
+
+	/// <summary>Re-applies <see cref="ItemWidth"/> and <see cref="ItemHeight"/> to realized items.</summary>
+	public void UpdateRealizedItemSizes()
+	{
+		foreach (var platformView in _realized.Keys)
+		{
+			ApplyItemSize(platformView);
+		}
+	}
+
+	void ApplyItemSize(PlatformView platformView)
+	{
+		if (ItemWidth is { } width && width > 0)
+		{
+			platformView.Width = width;
+		}
+
+		if (ItemHeight is { } height && height > 0)
+		{
+			platformView.Height = height;
+		}
+	}
+
+	protected override void RecycleElementCore(RecycleArgs args)
+	{
+		if (args.Element is not PlatformView platformView)
+		{
+			return;
+		}
+
+		platformView.Tapped -= OnItemTapped;
+
+		if (_realized.Remove(platformView, out var view))
+		{
+			// Leaving the handler attached keeps the whole item subtree alive for as long as the island.
+			((IView)view).DisconnectHandlers();
+			view.Parent = null;
+		}
+	}
+
+	/// <summary>Releases every realized item, for when the source or template is replaced wholesale.</summary>
+	public void Clear()
+	{
+		foreach (var pair in _realized)
+		{
+			pair.Key.Tapped -= OnItemTapped;
+			((IView)pair.Value).DisconnectHandlers();
+			pair.Value.Parent = null;
+		}
+
+		_realized.Clear();
+	}
+
+	void OnItemTapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs args)
+	{
+		if (sender is PlatformView platformView && _realized.TryGetValue(platformView, out var view))
+		{
+			_onItemInvoked?.Invoke(view.BindingContext);
+		}
+	}
+}

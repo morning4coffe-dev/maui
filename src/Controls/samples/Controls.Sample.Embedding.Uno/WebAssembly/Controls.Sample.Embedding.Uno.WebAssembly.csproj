@@ -24,6 +24,24 @@
     <DefineConstants>$(DefineConstants);TIER2_PROBE</DefineConstants>
   </PropertyGroup>
 
+  <!--
+    Selects the full handler set. The browser cannot set an environment variable and the query string does
+    not reach Environment.GetCommandLineArgs here, so the mode has to be baked in; publish twice to compare.
+  -->
+  <PropertyGroup Condition="'$(MauiUnoFullHandlers)' == 'true'">
+    <DefineConstants>$(DefineConstants);FULL_HANDLERS</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(MauiUnoProductionProbe)' == 'true'">
+    <DefineConstants>$(DefineConstants);PRODUCTION_PROBE</DefineConstants>
+  </PropertyGroup>
+
+  <!--
+    The third-party trim analysis is suppressed inside the assemblies that need it, in
+    ThirdParty/TrimSuppressions.cs, rather than with a NoWarn here. A NoWarn on this head would suppress the
+    same diagnostics for the sample's own code, and IL2026 has already caught two real string-path bindings
+    there.
+  -->
+
   <ItemGroup>
     <PackageReference Include="Uno.Wasm.Bootstrap" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.WebAssembly.Browser" />

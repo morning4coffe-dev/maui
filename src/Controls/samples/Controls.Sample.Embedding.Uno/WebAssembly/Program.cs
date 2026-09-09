@@ -12,6 +12,14 @@ internal static class Program
 		Environment.SetEnvironmentVariable(Tier2Probe.EnableVariable, "1");
 #endif
 
+#if FULL_HANDLERS
+		Environment.SetEnvironmentVariable("MAUI_UNO_HANDLER_MODE", "full");
+#endif
+
+#if PRODUCTION_PROBE
+		Environment.SetEnvironmentVariable("MAUI_UNO_PRODUCTION_PROBE", "1");
+#endif
+
 		var host = UnoPlatformHostBuilder.Create()
 			.App(() => new UnoEmbeddingApplication())
 			.UseWebAssembly()

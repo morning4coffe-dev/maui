@@ -27,7 +27,26 @@
            Text="Generated hosts must build the application with its runtime package dependencies." />
   </Target>
 
-  <Target Name="Test" DependsOnTargets="Initialize;_UnoMauiBuildApplication;_UnoMauiExportApplicationResources">
+  <Target Name="ValidateMinimalEmbeddingDependencies">
+    <PropertyGroup>
+      <_MinimalRoot>$(MSBuildThisFileDirectory)..\..\..\Controls\samples\Controls.Sample.Embedding.Uno.Minimal\</_MinimalRoot>
+      <_MinimalApplication>$([System.IO.File]::ReadAllText('$(_MinimalRoot)MinimalUnoApp.cs'))</_MinimalApplication>
+    </PropertyGroup>
+    <XmlPeek XmlInputPath="$(_MinimalRoot)Controls.Sample.Embedding.Uno.Minimal.WebAssembly.csproj"
+             Query="/Project/ItemGroup/PackageReference/@Include">
+      <Output TaskParameter="Result" ItemName="_MinimalDependencies" />
+    </XmlPeek>
+    <Error Condition="'@(_MinimalDependencies->WithMetadataValue('Identity', 'Uno.WinUI.Lottie')->Count())' != '1'"
+           Text="Minimal embedding must include the ProgressRing provider." />
+    <Error Condition="'@(_MinimalDependencies->WithMetadataValue('Identity', 'Uno.WinUI.Graphics2DSK')->Count())' != '1'"
+           Text="Minimal embedding must include the provider's Graphics2DSK dependency." />
+    <Error Condition="'@(_MinimalDependencies->WithMetadataValue('Identity', 'SkiaSharp.Skottie')->Count())' != '1'"
+           Text="Minimal embedding must include the provider's Skottie dependency." />
+    <Error Condition="$(_MinimalApplication.Contains('ApiExtensibility.Register')) != 'True' or $(_MinimalApplication.Contains('ILottieVisualSourceProvider')) != 'True'"
+           Text="The code-only minimal embedding root must register its animation provider." />
+  </Target>
+
+  <Target Name="Test" DependsOnTargets="Initialize;_UnoMauiBuildApplication;_UnoMauiExportApplicationResources;ValidateMinimalEmbeddingDependencies">
     <Error Condition="'$(_UnoMauiApplicationTargetDir)' != '$(TargetDir)'" Text="Application output path was lost." />
     <MSBuild Projects="RuntimeAssetsHost.proj"
              Properties="UnoMauiResourceManifest=$(_UnoMauiResourceManifest);UnoMauiAppTargetDir=$(TargetDir);UnoMauiAppProject=$(TargetDir)App.csproj" />
