@@ -84,6 +84,7 @@ namespace Microsoft.Maui.Controls.Platform
 		bool syncing = false;
 #if UNO
 		readonly ModalRootLifetime _embeddedRootLifetime = new ModalRootLifetime();
+		readonly HashSet<Page> _outgoingModalPages = new HashSet<Page>();
 
 		internal void BeginEmbeddedRootLifetime()
 		{
@@ -177,6 +178,9 @@ namespace Microsoft.Maui.Controls.Platform
 					rootLifetime.ThrowIfCancellationRequested();
 #endif
 					page.Parent?.RemoveLogicalChild(page);
+#if UNO
+					_outgoingModalPages.Remove(page);
+#endif
 					syncAgain = true;
 				}
 
@@ -249,6 +253,11 @@ namespace Microsoft.Maui.Controls.Platform
 			rootLifetime.ThrowIfCancellationRequested();
 #endif
 
+#if UNO
+			// A pop leaves both stacks before the incoming platform page has loaded.
+			// Keep ownership visible to embedded-root teardown throughout that transition.
+			_outgoingModalPages.Add(modal);
+#endif
 			_modalPages.Remove(modal);
 
 			if (FireLifeCycleEvents)
@@ -286,6 +295,7 @@ namespace Microsoft.Maui.Controls.Platform
 			modal.Parent?.RemoveLogicalChild(modal);
 			_window.OnModalPopped(modal);
 #if UNO
+			_outgoingModalPages.Remove(modal);
 			if (rootLifetime.IsCancellationRequested)
 				return modal;
 #endif

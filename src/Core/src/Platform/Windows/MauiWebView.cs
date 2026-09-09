@@ -30,7 +30,8 @@ namespace Microsoft.Maui.Platform
 		// Arbitrary local host name for virtual folder mapping
 		const string LocalHostName = "appdir";
 		const string LocalScheme = $"https://{LocalHostName}/";
-		bool _preserveLocalMappingForNextNavigation;
+		string? _pendingLocalHtml;
+		int _navigationVersion;
 
 		// Script to insert a <base> tag into an HTML document
 		const string BaseInsertionScript = @"
@@ -64,78 +65,87 @@ namespace Microsoft.Maui.Platform
 
 		public async void LoadHtml(string? html, string? baseUrl)
 		{
-			var mapBaseDirectory = false;
-			if (string.IsNullOrEmpty(baseUrl))
+			try
 			{
-				baseUrl = LocalScheme;
-				mapBaseDirectory = true;
+				var navigationVersion = BeginNavigation();
+				if (string.IsNullOrEmpty(baseUrl))
+					baseUrl = LocalScheme;
+
+				await EnsureCoreWebView2Async();
+				if (navigationVersion != _navigationVersion)
+					return;
+
+				// Native WebView2 reports NavigateToString as about:blank; Uno can report
+				// the data URI instead. Only the HTML issued by this request may map appdir.
+				var script = GetBaseTagInsertionScript(baseUrl);
+				var htmlWithScript = $"{script}\n{html}";
+				_pendingLocalHtml = IsUriWithLocalScheme(baseUrl) ? htmlWithScript : null;
+				if (_pendingLocalHtml is not null)
+					MapLocalHost();
+				NavigateToString(htmlWithScript);
 			}
-
-			await EnsureCoreWebView2Async();
-
-			if (mapBaseDirectory)
+			catch (Exception exc)
 			{
-				CoreWebView2.SetVirtualHostNameToFolderMapping(
-					LocalHostName,
-					ApplicationPath,
-					Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+				Debug.WriteLine(nameof(MauiWebView), $"Failed to load HTML: {exc}");
 			}
-
-			// Insert script to set the base tag
-			var script = GetBaseTagInsertionScript(baseUrl);
-			var htmlWithScript = $"{script}\n{html}";
-
-			_preserveLocalMappingForNextNavigation = mapBaseDirectory;
-			NavigateToString(htmlWithScript);
 		}
 
 		public async void LoadUrl(string? url)
 		{
-			Uri uri = new Uri(url ?? string.Empty, UriKind.RelativeOrAbsolute);
-
-			if (!uri.IsAbsoluteUri ||
-				IsUriWithLocalScheme(uri.AbsoluteUri))
-			{
-				await EnsureCoreWebView2Async();
-
-				CoreWebView2.SetVirtualHostNameToFolderMapping(
-					LocalHostName,
-					ApplicationPath,
-					Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
-
-				if (!uri.IsAbsoluteUri)
-					uri = new Uri(LocalScheme + url, UriKind.RelativeOrAbsolute);
-			}
-
-			if (_handler?.TryGetTarget(out var handler) ?? false)
-				await handler.SyncPlatformCookies(uri.AbsoluteUri);
-
+			// Invalidate local HTML before any cookie/initialization await, not when
+			// NavigationStarting eventually arrives for the superseding URL.
 			try
 			{
-				Source = uri;
+				var navigationVersion = BeginNavigation();
+				Uri uri = new Uri(url ?? string.Empty, UriKind.RelativeOrAbsolute);
+
+				if (!uri.IsAbsoluteUri || IsUriWithLocalScheme(uri.AbsoluteUri))
+				{
+					await EnsureCoreWebView2Async();
+					if (navigationVersion != _navigationVersion)
+						return;
+
+					if (!uri.IsAbsoluteUri)
+						uri = new Uri(LocalScheme + url, UriKind.RelativeOrAbsolute);
+				}
+
+				if (_handler?.TryGetTarget(out var handler) ?? false)
+					await handler.SyncPlatformCookies(uri.AbsoluteUri);
+
+				if (navigationVersion == _navigationVersion)
+				{
+					if (IsUriWithLocalScheme(uri.AbsoluteUri))
+						MapLocalHost();
+					Source = uri;
+				}
 			}
 			catch (Exception exc)
 			{
-				Debug.WriteLine(nameof(MauiWebView), $"Failed to load: {uri} {exc}");
+				Debug.WriteLine(nameof(MauiWebView), $"Failed to load URL: {exc}");
 			}
+		}
+
+		int BeginNavigation()
+		{
+			_pendingLocalHtml = null;
+			CoreWebView2?.ClearVirtualHostNameToFolderMapping(LocalHostName);
+			return ++_navigationVersion;
 		}
 
 		void SetupPlatformEvents()
 		{
 			NavigationStarting += (sender, args) =>
 			{
-				var preserveLocalMapping = _preserveLocalMappingForNextNavigation;
-				_preserveLocalMappingForNextNavigation = false;
+				var pendingLocalHtml = _pendingLocalHtml;
+				_pendingLocalHtml = null;
 
 				// Auto map local virtual app dir host, e.g. if navigating back to local site from a link to an external site
-				if (preserveLocalMapping ||
-					IsUriWithLocalScheme(args?.Uri) ||
-					IsWebView2DataUriWithBaseUrl(args?.Uri))
+				if (IsUriWithLocalScheme(args?.Uri) ||
+					(pendingLocalHtml is not null &&
+						(string.Equals(args?.Uri, "about:blank", StringComparison.OrdinalIgnoreCase) ||
+							IsWebView2DataUri(args?.Uri, pendingLocalHtml))))
 				{
-					CoreWebView2.SetVirtualHostNameToFolderMapping(
-						LocalHostName,
-						ApplicationPath,
-						Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+					MapLocalHost();
 				}
 				// Auto unmap local virtual app dir host if navigating to any other potentially unsafe domain
 				else
@@ -145,15 +155,22 @@ namespace Microsoft.Maui.Platform
 			};
 		}
 
-		static bool IsUriWithLocalScheme(string? uri)
+		void MapLocalHost()
 		{
-			return uri?
-				.StartsWith(
-					LocalScheme.TrimEnd('/'),
-					StringComparison.OrdinalIgnoreCase) == true;
+			// Preserve ordinary HTML subresources without granting cross-origin fetch/XHR.
+			CoreWebView2.SetVirtualHostNameToFolderMapping(
+				LocalHostName,
+				ApplicationPath,
+				Web.WebView2.Core.CoreWebView2HostResourceAccessKind.DenyCors);
 		}
 
-		static bool IsWebView2DataUriWithBaseUrl(string? uri)
+		static bool IsUriWithLocalScheme(string? uri) =>
+			Uri.TryCreate(uri, UriKind.Absolute, out var parsed) &&
+			parsed.Scheme == Uri.UriSchemeHttps &&
+			string.Equals(parsed.Host, LocalHostName, StringComparison.OrdinalIgnoreCase) &&
+			parsed.IsDefaultPort;
+
+		static bool IsWebView2DataUri(string? uri, string expectedHtml)
 		{
 			// WebView2 sends the web page with inserted base tag as data URI
 			const string dataUriBase64 = "data:text/html;charset=utf-8;base64,";
@@ -163,14 +180,15 @@ namespace Microsoft.Maui.Platform
 					StringComparison.OrdinalIgnoreCase) == false)
 				return false;
 
-			string decodedHtml = Encoding.UTF8.GetString(
-				Convert.FromBase64String(
-					uri.Substring(dataUriBase64.Length)));
-
-			var localSchemeScript = GetBaseTagInsertionScript(LocalScheme);
-			return decodedHtml.Contains(
-				localSchemeScript,
-				StringComparison.OrdinalIgnoreCase);
+			try
+			{
+				var decodedHtml = Encoding.UTF8.GetString(Convert.FromBase64String(uri.Substring(dataUriBase64.Length)));
+				return string.Equals(decodedHtml, expectedHtml, StringComparison.Ordinal);
+			}
+			catch (FormatException)
+			{
+				return false;
+			}
 		}
 
 		static string GetBaseTagInsertionScript(string baseUrl)

@@ -52,7 +52,7 @@
     <SupportedOSPlatformVersion>12.0</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion>12.0</TargetPlatformMinVersion>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(_MauiTargetPlatformIsAndroid)' == 'True'">
+  <PropertyGroup Condition="'$(_MauiTargetPlatformIsAndroid)' == 'True' and '$(MauiUnoTarget)' != 'true'">
     <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion>21.0</TargetPlatformMinVersion>
   </PropertyGroup>

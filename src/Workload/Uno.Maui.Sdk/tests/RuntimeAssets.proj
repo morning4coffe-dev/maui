@@ -38,5 +38,8 @@
     <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=GeneratedSource" />
     <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=Minimal" />
     <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=Embedding" />
+    <MSBuild Projects="AndroidHeadPolicy.Tests.proj" Properties="Profile=Generated" />
+    <MSBuild Projects="AndroidHeadPolicy.Tests.proj" Properties="Profile=Minimal" />
+    <MSBuild Projects="AndroidHeadPolicy.Tests.proj" Properties="Profile=Embedding" />
   </Target>
 </Project>

@@ -70,6 +70,11 @@ namespace Microsoft.Maui.DeviceTests
 				{
 					RequiresUIContext = true,
 				});
+				// HomePage selects the category runner when a category index is supplied.
+				appBuilder.UseControlsHeadlessRunner(new HeadlessRunnerOptions
+				{
+					RequiresUIContext = true,
+				});
 			}
 #else
 			appBuilder.UseHeadlessRunner(new HeadlessRunnerOptions

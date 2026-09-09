@@ -8,6 +8,7 @@ using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.Embedding;
 using Microsoft.Maui.Hosting;
 #if UNO
+using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Platform;
 #endif
 
@@ -127,7 +128,43 @@ public static class EmbeddingExtensions
 		// If the window is an embedded window, then we need to add the element as a logical child.
 		var wndProvider = context.Services.GetService<EmbeddedWindowProvider>();
 		if (wndProvider is not null && wndProvider.Window is EmbeddedWindow wnd && element is VisualElement visual)
+#if UNO
+		{
+			var addedChild = !wnd.LogicalChildrenInternal.Contains(visual);
+			try
+			{
+				if (addedChild)
+					wnd.AddLogicalChild(visual);
+				return element.ToPlatform(context);
+			}
+			catch
+			{
+				try
+				{
+					((IView)visual).DisconnectHandlers();
+				}
+				catch (Exception cleanupError)
+				{
+					context.CreateLogger(nameof(EmbeddingExtensions))?.LogWarning(cleanupError, "Failed to disconnect partially embedded handlers.");
+				}
+				finally
+				{
+					try
+					{
+						if (addedChild)
+							wnd.RemoveLogicalChild(visual);
+					}
+					catch (Exception cleanupError)
+					{
+						context.CreateLogger(nameof(EmbeddingExtensions))?.LogWarning(cleanupError, "Failed to remove a partially embedded logical child.");
+					}
+				}
+				throw;
+			}
+		}
+#else
 			wnd.AddLogicalChild(visual);
+#endif
 
 		return element.ToPlatform(context);
 	}
@@ -190,15 +227,29 @@ public static class EmbeddingExtensions
 		}
 
 		var container = new WindowRootViewContainer();
-		mauiContext.AddSpecific(container);
-		window.ModalNavigationManager.BeginEmbeddedRootLifetime();
-
 		var rootManager = windowContext.GetNavigationRootManager();
-		rootManager.SetSafeAreaContent(page);
-		rootManager.Connect(page.ToPlatform(windowContext));
-		container.AddPage(rootManager.RootView);
-
-		return new EmbeddedWindowRoot(mauiContext, container, rootManager, window);
+		var root = new EmbeddedWindowRoot(mauiContext, container, rootManager, window);
+		try
+		{
+			mauiContext.AddSpecific(container);
+			window.ModalNavigationManager.BeginEmbeddedRootLifetime();
+			rootManager.SetSafeAreaContent(page);
+			rootManager.Connect(page.ToPlatform(windowContext));
+			container.AddPage(rootManager.RootView);
+			return root;
+		}
+		catch
+		{
+			try
+			{
+				root.Dispose();
+			}
+			catch (Exception cleanupError)
+			{
+				windowContext.CreateLogger(nameof(EmbeddingExtensions))?.LogWarning(cleanupError, "Failed to dispose a partially embedded root.");
+			}
+			throw;
+		}
 	}
 #endif
 }
@@ -247,9 +298,21 @@ public sealed class EmbeddedWindowRoot : IDisposable
 
 		try
 		{
-			_window.ModalNavigationManager.DisconnectEmbeddedModalPages();
-			_container.ClearPages();
-			_rootManager.Disconnect();
+			try
+			{
+				_window.ModalNavigationManager.DisconnectEmbeddedModalPages();
+			}
+			finally
+			{
+				try
+				{
+					_container.ClearPages();
+				}
+				finally
+				{
+					_rootManager.Disconnect();
+				}
+			}
 		}
 		finally
 		{

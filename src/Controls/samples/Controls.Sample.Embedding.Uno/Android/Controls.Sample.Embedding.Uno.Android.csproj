@@ -17,9 +17,11 @@
     <AndroidEnableProfiledAot Condition="'$(Configuration)' == 'Release'">false</AndroidEnableProfiledAot>
     <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
     <IsUnoHead>true</IsUnoHead>
+    <UnoMauiLinkAndroidHostFiles>true</UnoMauiLinkAndroidHostFiles>
   </PropertyGroup>
 
   <Import Project="..\MauiUnoSample.props" />
+  <Import Project="$(MauiSrcDirectory)Workload\Uno.Maui.Sdk\templates\Android\Uno.Maui.AndroidHost.targets" />
 
   <!-- Opt-in verification build; see the WebAssembly head for why this is a build switch. -->
   <PropertyGroup Condition="'$(MauiUnoTier2Probe)' == 'true'">

@@ -139,6 +139,17 @@ namespace Microsoft.Maui.Handlers
 
 		void IElementHandler.DisconnectHandler()
 		{
+#if UNO
+			// CreatePlatformElement can throw after VirtualView has been assigned.
+			// There is no platform element to disconnect, but embedding rollback still
+			// needs to release the half-created handler so the view can be retried.
+			if (PlatformView is null && VirtualView is not null)
+			{
+				if (VirtualView.Handler == this)
+					VirtualView.Handler = null;
+				VirtualView = null;
+			}
+#endif
 			if (PlatformView != null && VirtualView != null)
 			{
 				// We set the PlatformView to null so no one outside of this handler tries to access

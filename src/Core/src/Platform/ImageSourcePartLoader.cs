@@ -55,10 +55,7 @@ namespace Microsoft.Maui.Platform
 			SourceManager.Reset();
 		}
 
-		public Task UpdateImageSourceAsync() =>
-			UpdateImageSourceAsync(allowResolutionRetry: true);
-
-		async Task UpdateImageSourceAsync(bool allowResolutionRetry)
+		public async Task UpdateImageSourceAsync()
 		{
 			if (Setter.Handler is not IElementHandler handler || handler.PlatformView is not PlatformView platformView)
 			{
@@ -76,18 +73,35 @@ namespace Microsoft.Maui.Platform
 
 #if IOS || WINDOWS
 #if UNO
-				var scale = platformView.GetDisplayDensity();
+				var source = imageSource.Source;
+				while (true)
+				{
+					var scale = platformView.GetDisplayDensity();
+					// Keep retries on the initiating UI context and retain the same cancellation
+					// generation until the source has caught up with the current XamlRoot.
+					var result = await imageSource.UpdateSourceAsync(platformView, _imageSourceServiceProvider, Setter.SetImageSource, scale, token);
+					if (token.IsCancellationRequested || !ReferenceEquals(Setter.Handler, handler) ||
+						!ReferenceEquals(handler.PlatformView, platformView) || !ReferenceEquals(imageSource.Source, source))
+					{
+						result?.Dispose();
+						return;
+					}
+
+					if (result?.IsResolutionDependent != true || scale == platformView.GetDisplayDensity())
+					{
+						SourceManager.CompleteLoad(result, scale);
+						return;
+					}
+
+					result.Dispose();
+					// Even synchronously completing services must yield between observed density
+					// changes, so rapid resize/monitor changes cannot create a busy recursive load.
+					await Task.Yield();
+					if (token.IsCancellationRequested)
+						return;
+				}
 #else
 				var scale = handler.MauiContext?.GetOptionalPlatformWindow()?.GetDisplayDensity() ?? 1.0f;
-#endif
-#if UNO
-				// A density retry creates and assigns another XAML image source.
-				// Keep it on the UI context that initiated the load.
-				var result = await imageSource.UpdateSourceAsync(platformView, _imageSourceServiceProvider, Setter.SetImageSource, scale, token);
-				SourceManager.CompleteLoad(result, scale);
-				if (allowResolutionRetry && SourceManager.RequiresReload(platformView))
-					await UpdateImageSourceAsync(allowResolutionRetry: false);
-#else
 				var result = await imageSource.UpdateSourceAsync(platformView, _imageSourceServiceProvider, Setter.SetImageSource, scale, token)
 					.ConfigureAwait(false);
 				SourceManager.CompleteLoad(result);

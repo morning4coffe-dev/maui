@@ -6,6 +6,9 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Embedding.Uno;
+using Microsoft.Maui;
+using Microsoft.Maui.Handlers;
+using Microsoft.Maui.Platform;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Automation.Provider;
@@ -37,11 +40,13 @@ internal static class LifecycleRegressionProbe
 			await VerifyObservableListAsync(viewHost, report);
 			await VerifyGridAsync(viewHost, report, 0);
 			await VerifyGridAsync(viewHost, report, 32);
+			await VerifyFailedEmbeddingAsync(session, pageHost, viewHost, report);
 			return new Tier2ProbeResult(true, report.ToString());
 		}
 		catch (Exception error)
 		{
 			report.AppendLine($"FAIL lifecycle regression: {error}");
+			Console.WriteLine(report.ToString());
 			return new Tier2ProbeResult(false, report.ToString());
 		}
 		finally
@@ -137,6 +142,107 @@ internal static class LifecycleRegressionProbe
 		await current.Navigation.PushModalAsync(CreateModal()).WaitAsync(Timeout);
 		await current.Navigation.PopModalAsync().WaitAsync(Timeout);
 		report.AppendLine("PASS subsequent modal navigation completes");
+
+		var outgoing = new ContentPage { Content = new MauiLabel { Text = "pending pop modal" } };
+		await current.Navigation.PushModalAsync(outgoing).WaitAsync(Timeout);
+		var outgoingPlatform = outgoing.Handler?.PlatformView as FrameworkElement;
+		Check(await Tier2Probe.WaitForAsync(() => (current.Handler?.PlatformView as FrameworkElement)?.IsLoaded == false),
+			"underlying page unloaded while modal is open", report);
+		try
+		{
+			var pendingPop = current.Navigation.PopModalAsync();
+			border.Child = null;
+			Check(await Tier2Probe.WaitForAsync(() => outgoingPlatform?.IsLoaded == false),
+				"outgoing modal unloaded before pending pop", report);
+			Check(!pendingPop.IsCompleted, "pop waits for the underlying page to load", report);
+			host.MauiContent = new ContentPage { Content = new MauiLabel { Text = "replacement after pending pop" } };
+			try
+			{
+				await pendingPop.WaitAsync(Timeout);
+				throw new InvalidOperationException("Discarded pop completed instead of cancelling.");
+			}
+			catch (OperationCanceledException)
+			{
+				report.AppendLine("PASS discarded pending pop task cancelled");
+			}
+			Check(outgoing.Parent is null && outgoing.Handler is null,
+				"pending pop releases outgoing modal ownership and handler", report);
+			Check(!((IVisualTreeElement)session.EmbeddedWindow!).GetVisualChildren().Contains(outgoing),
+				"pending pop removes outgoing window visual child", report);
+		}
+		finally
+		{
+			border.Child = host;
+		}
+
+		current = (MauiPage)host.MauiContent!;
+		Check(await Tier2Probe.WaitForAsync(() => (current.Handler?.PlatformView as FrameworkElement)?.IsLoaded == true),
+			"replacement after pending pop reattached", report);
+		await current.Navigation.PushModalAsync(CreateModal()).WaitAsync(Timeout);
+		await current.Navigation.PopModalAsync().WaitAsync(Timeout);
+		report.AppendLine("PASS subsequent navigation after pending pop completes");
+	}
+
+	static async Task VerifyFailedEmbeddingAsync(MauiEmbeddingSession session, MauiHost pageHost, MauiHost viewHost, StringBuilder report)
+	{
+		pageHost.MauiContent = null;
+		viewHost.MauiContent = null;
+		foreach (var (asPage, failDuringCreation) in new[] { (false, false), (true, false), (false, true), (true, true) })
+		{
+			var failing = new FailingEmbeddingView { FailDuringCreation = failDuringCreation };
+			Microsoft.Maui.Controls.VisualElement content = asPage ? new ContentPage { Content = failing } : failing;
+			try
+			{
+				session.Embed(content);
+				throw new InvalidOperationException("The failing handler unexpectedly realized.");
+			}
+			catch (InvalidOperationException error) when (ReferenceEquals(error, failing.Failure))
+			{
+				report.AppendLine($"PASS failed {(asPage ? "page" : "view")} preserves the {(failDuringCreation ? "creation" : "connection")} exception");
+			}
+			Check(content.Parent is null && content.Handler is null && failing.Handler is null,
+				$"failed {(asPage ? "page" : "view")} releases logical children and handlers", report);
+			Check(session.EmbeddedWindow!.Page is null && !session.HasWindowPage &&
+				session.WindowContext.Services.GetService(Type.GetType("Microsoft.Maui.Platform.WindowRootViewContainer, Microsoft.Maui", true)!) is null,
+				"failed realization leaves no page or root registration", report);
+
+			failing.ThrowOnConnect = false;
+			var host = asPage ? pageHost : viewHost;
+			host.MauiContent = content;
+			Check(await Tier2Probe.WaitForAsync(() => (failing.Handler?.PlatformView as FrameworkElement)?.IsLoaded == true),
+				$"failed {(asPage ? "page" : "view")} can be retried", report);
+			if (content is MauiPage page)
+			{
+				await page.Navigation.PushModalAsync(CreateModal()).WaitAsync(Timeout);
+				await page.Navigation.PopModalAsync().WaitAsync(Timeout);
+				report.AppendLine("PASS retried page has a working modal root lifetime");
+			}
+			host.MauiContent = null;
+		}
+	}
+
+	internal sealed class FailingEmbeddingView : Microsoft.Maui.Controls.ContentView
+	{
+		internal bool ThrowOnConnect { get; set; } = true;
+		internal bool FailDuringCreation { get; init; }
+		internal InvalidOperationException Failure { get; } = new("Expected embedding handler failure.");
+	}
+
+	internal sealed class FailingEmbeddingViewHandler : ContentViewHandler
+	{
+		protected override ContentPanel CreatePlatformView()
+		{
+			if (VirtualView is FailingEmbeddingView { ThrowOnConnect: true, FailDuringCreation: true } view)
+				throw view.Failure;
+			return base.CreatePlatformView();
+		}
+
+		protected override void ConnectHandler(ContentPanel platformView)
+		{
+			base.ConnectHandler(platformView);
+			if (VirtualView is FailingEmbeddingView { ThrowOnConnect: true } view)
+				throw view.Failure;
+		}
 	}
 
 	static async Task VerifyGridAsync(MauiHost host, StringBuilder report, int initialCount)

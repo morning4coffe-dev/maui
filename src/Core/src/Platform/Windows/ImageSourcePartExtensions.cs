@@ -55,6 +55,9 @@ namespace Microsoft.Maui.Platform
 			}
 			catch (Exception ex)
 			{
+#if UNO
+				if (!cancellationToken.IsCancellationRequested && imageSource == image.Source)
+#endif
 				setImage?.Invoke(null);
 				events?.LoadingFailed(ex);
 			}

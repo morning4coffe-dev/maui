@@ -133,6 +133,13 @@ internal sealed class MainShell : UserControl
 		Grid.SetRow(scroller, 1);
 		root.Children.Add(scroller);
 
+		if (OperatingSystem.IsAndroid())
+		{
+			// Uno owns this chrome, so its visible-bounds padding belongs outside the MAUI islands.
+			global::Uno.UI.Toolkit.VisibleBoundsPadding.SetPaddingMask(
+				root, global::Uno.UI.Toolkit.VisibleBoundsPadding.PaddingMask.All);
+		}
+
 		Content = root;
 
 		// An Uno application root normally supplies its own themed background. TryGetValue rather than the
@@ -200,10 +207,13 @@ internal sealed class MainShell : UserControl
 		{
 			var result = await Tier2Probe.RunAsync(_session, page, XamlRoot, _secondHost);
 			var replace = await ProbeReplaceAsync();
+			var density = ImageDensityRegressionProbe.IsEnabled
+				? await ImageDensityRegressionProbe.RunAsync(_secondHost)
+				: new Tier2ProbeResult(true, string.Empty);
 			var lifecycle = await LifecycleRegressionProbe.RunAsync(_session, _firstHost, _secondHost);
 
-			var report = result.Report + replace.Report + lifecycle.Report;
-			var passed = result.Passed && replace.Passed && lifecycle.Passed;
+			var report = result.Report + replace.Report + density.Report + lifecycle.Report;
+			var passed = result.Passed && replace.Passed && density.Passed && lifecycle.Passed;
 			var verdict = passed ? "TIER 2: PASS" : "TIER 2: FAIL";
 
 			_probeResults.Text = verdict + Environment.NewLine + report;

@@ -56,6 +56,17 @@ project:
 The generated projects live under `obj/uno-maui-hosts`; applications do not
 need to add or maintain Uno host projects.
 
+### Android host policy
+
+The source Android heads link the SDK's authored `MainActivity.cs` and
+`Resources\values{,-v27}\Styles.xml` through `Uno.Maui.AndroidHost.targets`.
+There is no second sample-specific copy of the edge-to-edge or system-bar
+policy: API 35+ uses the enforced native geometry, older Android versions use
+decor fitting, and DayNight/system-bar appearance follows the platform theme.
+Both source heads and the generated host run the same build-time policy
+contract and retain API 24 as their minimum. Do not add local activity/theme
+copies; update the authoritative SDK template when changing the policy.
+
 ### Apple native dependencies
 
 Use an Xcode version supported by the selected .NET Apple SDK. A successful

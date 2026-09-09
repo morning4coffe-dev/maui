@@ -19,9 +19,11 @@
     <AndroidUseDefaultAotProfile Condition="'$(Configuration)' == 'Release' and '$(AndroidEnableProfiledAot)' == 'true'">true</AndroidUseDefaultAotProfile>
     <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
     <IsUnoHead>true</IsUnoHead>
+    <UnoMauiLinkAndroidHostFiles>true</UnoMauiLinkAndroidHostFiles>
   </PropertyGroup>
 
   <Import Project="..\MauiUnoSample.props" />
+  <Import Project="$(MauiSrcDirectory)Workload\Uno.Maui.Sdk\templates\Android\Uno.Maui.AndroidHost.targets" />
 
   <ItemGroup>
     <PackageReference Include="Uno.WinUI.Runtime.Skia.Android" />

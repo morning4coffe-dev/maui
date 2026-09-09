@@ -1,0 +1,41 @@
+<Project DefaultTargets="Validate">
+  <PropertyGroup>
+    <_TemplateRoot>$(MSBuildThisFileDirectory)..\templates\Android\</_TemplateRoot>
+    <_SamplesRoot>$(MSBuildThisFileDirectory)..\..\..\Controls\samples\</_SamplesRoot>
+    <_HeadProject Condition="'$(Profile)' == 'Generated'">$(_TemplateRoot)Uno.Maui.Generated.Android.csproj</_HeadProject>
+    <_HeadRoot Condition="'$(Profile)' == 'Minimal'">$(_SamplesRoot)Controls.Sample.Uno\Android\</_HeadRoot>
+    <_HeadProject Condition="'$(Profile)' == 'Minimal'">$(_HeadRoot)Controls.Sample.Uno.Android.csproj</_HeadProject>
+    <_HeadRoot Condition="'$(Profile)' == 'Embedding'">$(_SamplesRoot)Controls.Sample.Embedding.Uno\Android\</_HeadRoot>
+    <_HeadProject Condition="'$(Profile)' == 'Embedding'">$(_HeadRoot)Controls.Sample.Embedding.Uno.Android.csproj</_HeadProject>
+    <UnoMauiLinkAndroidHostFiles Condition="'$(Profile)' != 'Generated'">true</UnoMauiLinkAndroidHostFiles>
+    <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(_TemplateRoot)Uno.Maui.AndroidHost.targets" Condition="Exists('$(_TemplateRoot)Uno.Maui.AndroidHost.targets')" />
+  <Target Name="Validate">
+    <XmlPeek XmlInputPath="$(_HeadProject)" Query="/Project/Import[contains(@Project, 'Uno.Maui.AndroidHost.targets')]/@Project">
+      <Output TaskParameter="Result" ItemName="_PolicyImports" />
+    </XmlPeek>
+    <Error Condition="'@(_PolicyImports->Count())' != '1'" Text="$(Profile) Android head must import the authoritative generated-host policy contract." />
+    <XmlPeek XmlInputPath="$(_HeadProject)" Query="/Project/PropertyGroup/SupportedOSPlatformVersion/text()">
+      <Output TaskParameter="Result" PropertyName="_HeadSupportedOSPlatformVersion" />
+    </XmlPeek>
+    <Error Condition="'$(_HeadSupportedOSPlatformVersion)' != '$(SupportedOSPlatformVersion)'" Text="$(Profile) must retain API 24 as its minimum supported version." />
+    <XmlPeek XmlInputPath="$(_HeadProject)" Query="/Project/PropertyGroup/UnoMauiLinkAndroidHostFiles/text()" Condition="'$(Profile)' != 'Generated'">
+      <Output TaskParameter="Result" PropertyName="_LinksPolicy" />
+    </XmlPeek>
+    <Error Condition="'$(Profile)' != 'Generated' and '$(_LinksPolicy)' != 'true'" Text="$(Profile) must compile the shared Android activity and resources." />
+    <Error Condition="'$(Profile)' != 'Generated' and (Exists('$(_HeadRoot)MainActivity.cs') or Exists('$(_HeadRoot)Resources\values\Styles.xml') or Exists('$(_HeadRoot)Resources\values-v27\Styles.xml'))"
+           Text="$(Profile) must not shadow the shared Android policy with a drifting local copy." />
+    <Error Condition="'$(Profile)' != 'Generated' and ('@(Compile->Count())' != '1' or '@(AndroidResource->Count())' != '2')"
+           Text="$(Profile) must link the shared activity, base theme and API 27 system-bar theme." />
+    <ReadLinesFromFile File="$(_SamplesRoot)Controls.Sample.Embedding.Uno\Shared\MainShell.cs" Condition="'$(Profile)' == 'Embedding'">
+      <Output TaskParameter="Lines" PropertyName="_EmbeddingShellSource" />
+    </ReadLinesFromFile>
+    <Error Condition="'$(Profile)' == 'Embedding' and !$([System.String]::Copy('$(_EmbeddingShellSource)').Contains('VisibleBoundsPadding.SetPaddingMask'))"
+           Text="The embedding host must keep its Uno-owned chrome within visible bounds on Android." />
+    <Error Condition="'$(Profile)' == 'Embedding' and !$([System.String]::Copy('$(_EmbeddingShellSource)').Contains('VisibleBoundsPadding.PaddingMask.All'))"
+           Text="The embedding host must keep its Uno-owned chrome within visible bounds on Android." />
+    <CallTarget Targets="_ValidateUnoMauiAndroidHost" />
+    <Message Importance="high" Text="$(Profile) Android edge geometry and system-bar policy passed." />
+  </Target>
+</Project>

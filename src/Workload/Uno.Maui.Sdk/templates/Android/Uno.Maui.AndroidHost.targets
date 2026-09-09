@@ -1,0 +1,57 @@
+<Project>
+  <PropertyGroup>
+    <_UnoMauiAndroidActivityFile>$(MSBuildThisFileDirectory)MainActivity.cs</_UnoMauiAndroidActivityFile>
+    <_UnoMauiAndroidBaseThemeFile>$(MSBuildThisFileDirectory)Resources\values\Styles.xml</_UnoMauiAndroidBaseThemeFile>
+    <_UnoMauiAndroidNavigationThemeFile>$(MSBuildThisFileDirectory)Resources\values-v27\Styles.xml</_UnoMauiAndroidNavigationThemeFile>
+  </PropertyGroup>
+
+  <!-- Source heads consume the same authored files that the SDK copies into generated hosts. -->
+  <ItemGroup Condition="'$(UnoMauiLinkAndroidHostFiles)' == 'true'">
+    <Compile Include="$(_UnoMauiAndroidActivityFile)" Link="MainActivity.cs" />
+    <AndroidResource Include="$(_UnoMauiAndroidBaseThemeFile)" Link="Resources\values\Styles.xml" />
+    <AndroidResource Include="$(_UnoMauiAndroidNavigationThemeFile)" Link="Resources\values-v27\Styles.xml" />
+  </ItemGroup>
+
+  <Target Name="_ValidateUnoMauiAndroidHost" BeforeTargets="PrepareForBuild">
+    <XmlPeek
+      XmlInputPath="$(_UnoMauiAndroidBaseThemeFile)"
+      Query="/resources/style[@name='AppTheme.Base']/@parent">
+      <Output TaskParameter="Result" ItemName="_UnoMauiAndroidThemeParent" />
+    </XmlPeek>
+    <Error
+      Condition="'@(_UnoMauiAndroidThemeParent)' != 'Theme.AppCompat.DayNight'"
+      Text="The Uno MAUI Android host theme must support light and dark system-bar appearance." />
+    <XmlPeek
+      XmlInputPath="$(_UnoMauiAndroidNavigationThemeFile)"
+      Query="/resources/style[@name='AppTheme']/item[@name='android:navigationBarColor']/text()">
+      <Output TaskParameter="Result" ItemName="_UnoMauiAndroidNavigationBarColor" />
+    </XmlPeek>
+    <Error
+      Condition="'@(_UnoMauiAndroidNavigationBarColor)' != '?android:attr/colorBackground'"
+      Text="The Uno MAUI Android host must retain theme-aware navigation-bar colors on API 27 and newer." />
+    <ReadLinesFromFile File="$(_UnoMauiAndroidActivityFile)">
+      <Output TaskParameter="Lines" PropertyName="_UnoMauiAndroidActivitySource" />
+    </ReadLinesFromFile>
+    <Error
+      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('ConfigurationChanges = global::Uno.UI.ActivityHelper.AllConfigChanges'))"
+      Text="The Uno MAUI Android host activity must retain Uno's complete configuration-change handling." />
+    <Error
+      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('WindowSoftInputMode = SoftInput.AdjustResize'))"
+      Text="The Uno MAUI Android host activity must retain soft-input resize behavior." />
+    <Error
+      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('SetDecorFitsSystemWindows(window, !useEdgeToEdge)'))"
+      Text="The Uno MAUI Android host must match native decor fitting to its edge-to-edge policy." />
+    <Error
+      Condition="!$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('OperatingSystem.IsAndroidVersionAtLeast(35)')) or !$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('IsEdgeToEdgeEnabled = useEdgeToEdge'))"
+      Text="The Uno MAUI Android host must use enforced edge-to-edge geometry on Android 15 and newer." />
+    <Error
+      Condition="$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('WindowOptOutEdgeToEdgeEnforcement'))"
+      Text="The Uno MAUI Android host must not rely on the API 35 edge-to-edge opt-out." />
+    <Error
+      Condition="$([System.String]::Copy('$(_UnoMauiAndroidActivitySource)').Contains('SetOnApplyWindowInsetsListener'))"
+      Text="The Uno MAUI Android host must let Uno own content insets so native overlays stay aligned." />
+    <Error
+      Condition="'$(SupportedOSPlatformVersion)' != '24.0'"
+      Text="The Uno MAUI Android host must retain API 24 as its minimum supported version." />
+  </Target>
+</Project>

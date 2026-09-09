@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls.Embedding;
 using Microsoft.Maui.Hosting;
@@ -190,30 +191,48 @@ public sealed class MauiEmbeddingSession : IDisposable
 		// first created, so the theme bridge is attached here as well. Attaching is idempotent.
 		AttachThemeBridge();
 
-		PlatformView platformView;
-
-		if (content is MauiPage page)
+		if (content is MauiPage && _windowRoot is not null)
 		{
-			if (_windowRoot is not null)
+			throw new InvalidOperationException(
+				"This window already hosts a page-based MAUI island. A window has a single Page, so a " +
+				"second page would route its dialogs and modal navigation through the first island. " +
+				"Host additional islands as views, or use a separate Uno window.");
+		}
+
+		// Record ownership before parenting or invoking application handlers, either of which can throw.
+		_embeddedContent.Add(content);
+		try
+		{
+			if (content is MauiPage page)
 			{
-				throw new InvalidOperationException(
-					"This window already hosts a page-based MAUI island. A window has a single Page, so a " +
-					"second page would route its dialogs and modal navigation through the first island. " +
-					"Host additional islands as views, or use a separate Uno window.");
+				_embeddedWindow!.Page = page;
+				_windowRoot = page.CreateEmbeddedWindowRoot(context);
+				return _windowRoot.PlatformView;
 			}
 
-			_embeddedWindow!.Page = page;
-			_windowRoot = page.CreateEmbeddedWindowRoot(context);
-			platformView = _windowRoot.PlatformView;
+			return content.ToPlatformEmbedded(context);
 		}
-		else
+		catch
 		{
-			platformView = content.ToPlatformEmbedded(context);
+			try
+			{
+				try
+				{
+					// Window propagation during unparenting must not see half-created handlers.
+					((IView)content).DisconnectHandlers();
+				}
+				finally
+				{
+					Release(content);
+				}
+			}
+			catch (Exception cleanupError)
+			{
+				context.Services.GetService<ILoggerFactory>()?.CreateLogger<MauiEmbeddingSession>()
+					.LogWarning(cleanupError, "Failed to release partially embedded content.");
+			}
+			throw;
 		}
-
-		_embeddedContent.Add(content);
-
-		return platformView;
 	}
 
 	/// <summary>
@@ -385,9 +404,16 @@ public sealed class MauiEmbeddingSession : IDisposable
 			{
 				// Order matters: the root owns the modal stack and the navigation root, and both are
 				// reached through the page. Unwind them before the page is detached.
-				_windowRoot?.Dispose();
+				var root = _windowRoot;
 				_windowRoot = null;
-				window.Page = null;
+				try
+				{
+					root?.Dispose();
+				}
+				finally
+				{
+					window.Page = null;
+				}
 			}
 			else
 			{

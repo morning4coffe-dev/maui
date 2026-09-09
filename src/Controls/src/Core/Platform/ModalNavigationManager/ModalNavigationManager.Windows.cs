@@ -47,7 +47,7 @@ namespace Microsoft.Maui.Controls.Platform
 			_waitingForIncomingPage = null;
 			DisconnectPlatformPageWatchingForLoaded();
 
-			var modals = _platformModalPages.Concat(_modalPages.Pages).Distinct().ToArray();
+			var modals = _platformModalPages.Concat(_modalPages.Pages).Concat(_outgoingModalPages).Distinct().ToArray();
 			for (var i = modals.Length - 1; i >= 0; i--)
 			{
 				var modal = modals[i];
@@ -58,6 +58,7 @@ namespace Microsoft.Maui.Controls.Platform
 			}
 
 			ClearModalPages(xplat: true, platform: true);
+			_outgoingModalPages.Clear();
 		}
 #endif
 
@@ -69,6 +70,9 @@ namespace Microsoft.Maui.Controls.Platform
 #endif
 			var tcs = new TaskCompletionSource<Page>();
 			var poppedPage = CurrentPlatformModalPage;
+#if UNO
+			_outgoingModalPages.Add(poppedPage);
+#endif
 			_platformModalPages.Remove(poppedPage);
 			SetCurrent(CurrentPlatformPage, poppedPage, true, () => tcs.SetResult(poppedPage));
 #if UNO

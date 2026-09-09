@@ -44,7 +44,8 @@ The reusable runtime lives outside the sample, in `src/Controls/src/Embedding.Un
 | `Shared/MauiIslandPage.cs` | Tier 2 island: a `Page` exercising alerts and modal navigation |
 | `Shared/MyMauiContent.cs` | Tier 1 island: a plain `ContentView` |
 | `Shared/Tier2Probe.cs` | Code-driven verification of the window-scoped features |
-| `Shared/LifecycleRegressionProbe.cs` | Modal replacement/cancellation, restored input, observable-list updates and large-grid regressions |
+| `Shared/LifecycleRegressionProbe.cs` | Modal push/pop cancellation, failed-handler rollback/retry, restored input, observable-list updates and large-grid regressions |
+| `Shared/ImageDensityRegressionProbe.cs` | Opt-in slow-image density changes, source supersession and disconnect cleanup |
 | `Shared/MauiProgram.cs`, `Shared/App.cs` | The embedded MAUI app |
 
 The embedded `MauiApp` is supplied by the host, not hard-wired:
@@ -73,6 +74,17 @@ This follows `Controls.Sample.Embedding`'s `Scenario3_Correct`, which is the onl
   `IWindow.Destroying()` is called exactly once, from `Window.Closed`.
 - **Replacing content** unparents the previous element from the embedded window and disconnects its
   handlers; otherwise it stays rooted for the lifetime of the window.
+- **Failed realization** rolls back logical parenting, the window page, navigation-root registration and
+  handlers while preserving the original handler exception. The same content can then be retried.
+
+The Android head links the same activity and DayNight/system-bar resources as
+the generated SDK host via `Uno.Maui.AndroidHost.targets`; it does not maintain
+a separate policy copy. API 35+ uses enforced edge-to-edge geometry, with Uno
+owning insets. The shared contract also validates the API 24 minimum and the
+API 27 navigation-bar resource. Application ownership remains in this sample's
+`MainApplication`, so sharing the activity does not change Uno-root embedding.
+The Uno-owned shell applies visible-bounds padding around its chrome on Android;
+the activity does not replace Uno's inset listener or shrink the native surface.
 
 ## Supported today
 
@@ -168,11 +180,21 @@ Window overlays are a separate mechanism and remain unsupported; see below.
 
 The opt-in `MauiUnoTier2Probe=true` browser build also runs lifecycle and
 collection regressions after the Tier 2 scenarios. It requires real modal
-unparenting/unloading, native button invocation, pending navigation cancellation,
+unparenting/unloading, native button invocation, pending push and pop cancellation,
 successful subsequent navigation, and immediate observable insertion/reset.
 It then requires bounded realization for a 100,000-item grid after initial
-empty or small sources. An overall `TIER2-RESULT FAIL` is not a pass even when
+empty or small sources, followed by failing view/page handlers and successful
+retry with a working modal root. An overall `TIER2-RESULT FAIL` is not a pass even when
 earlier individual scenarios succeeded.
+
+The additional `MAUI_UNO_DENSITY_PROBE=1` environment opt-in requires a browser
+driver. Start at device scale 1, then respond to the `DENSITY-REQUEST 1.5` and
+`DENSITY-REQUEST 2` console markers by changing Chromium device metrics and
+dispatching `resize`. The probe waits for the real `XamlRoot.RasterizationScale`
+before completing each deliberately slow image request; it does not override
+the renderer's density accessor. It requires the final density-2 bitmap, disposal
+of superseded results, and no assignment after disconnect. Ordinary Tier 2 runs
+do not require this external driver.
 
 The tested Uno Skia/WASM core runtime supplies a stub `ItemsWrapGrid`. The probe
 detects this before assigning 100,000 items (which would freeze the browser)
