@@ -21,6 +21,8 @@ namespace Microsoft.Maui.Controls.Platform
 					return new ObservableItemTemplateCollection(observable, itemTemplate, container, itemHeight, itemWidth, itemSpacing, mauiContext);
 				case IList list:
 					return new ItemTemplateContextList(list, itemTemplate, container, itemHeight, itemWidth, itemSpacing, mauiContext);
+				case INotifyCollectionChanged observable:
+					return new ObservableItemTemplateEnumerable(itemsSource, observable, itemTemplate, container, itemHeight, itemWidth, itemSpacing, mauiContext);
 			}
 
 			return new ItemTemplateContextEnumerable(itemsSource, itemTemplate, container, itemHeight, itemWidth, itemSpacing, mauiContext);
@@ -33,5 +35,4 @@ namespace Microsoft.Maui.Controls.Platform
 		}
 	}
 }
-
 

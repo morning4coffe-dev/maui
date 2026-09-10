@@ -1,6 +1,7 @@
 ﻿#nullable disable
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
@@ -32,6 +33,8 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 		int _gotoPosition = -1;
 		NotifyCollectionChangedEventHandler _collectionChanged;
 		readonly WeakNotifyCollectionChangedProxy _proxy = new();
+		readonly List<(double Offset, View View)> _visibleCandidates = new();
+		readonly List<View> _visibleViews = new();
 
 		~CarouselViewHandler() => _proxy.Unsubscribe();
 
@@ -44,6 +47,7 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 		{
 			ItemsView.Scrolled += CarouselScrolled;
 			platformView.SizeChanged += OnListViewSizeChanged;
+			platformView.LayoutUpdated += OnListViewLayoutUpdated;
 
 			UpdateScrollBarVisibilityForLoop();
 
@@ -58,6 +62,7 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 			if (platformView != null)
 			{
 				platformView.SizeChanged -= OnListViewSizeChanged;
+				platformView.LayoutUpdated -= OnListViewLayoutUpdated;
 				_proxy.Unsubscribe();
 			}
 
@@ -68,6 +73,9 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 				_scrollViewer.SizeChanged -= OnScrollViewSizeChanged;
 			}
 
+			ItemsView?.VisibleViews.Clear();
+			_visibleCandidates.Clear();
+			_visibleViews.Clear();
 			base.DisconnectHandler(platformView);
 		}
 
@@ -132,7 +140,7 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 			var collectionViewSource = TemplatedItemSourceFactory.Create(Element.ItemsSource, Element.ItemTemplate, Element,
 				GetItemHeight(), GetItemWidth(), GetItemSpacing(), MauiContext);
 
-			if (collectionViewSource is ObservableItemTemplateCollection observableItemsSource)
+			if (collectionViewSource is INotifyCollectionChanged observableItemsSource)
 			{
 				_collectionChanged ??= OnCollectionItemsSourceChanged;
 				_proxy.Subscribe(observableItemsSource, _collectionChanged);
@@ -436,7 +444,7 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 				return;
 			}
 
-			// Disable animation during collection changes to prevent cascading scroll events
+			SetCarouselViewPosition(currentItemPosition);
 			var animate = ItemsView.AnimateCurrentItemChanges && !_isInternalPositionUpdate;
 			ItemsView.ScrollTo(currentItemPosition, position: ScrollToPosition.Center, animate: animate);
 		}
@@ -582,18 +590,28 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 		{
 			ItemsView.SetIsDragging(e.IsIntermediate);
 			ItemsView.IsScrolling = e.IsIntermediate;
+			UpdateVisibleViews();
 		}
 
 		void OnCollectionItemsSourceChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
 			// Set flag to disable animation during collection changes
 			_isInternalPositionUpdate = true;
-			
+
 			try
 			{
 				var carouselPosition = ItemsView.Position;
 				var currentItemPosition = GetItemPositionInCarousel(ItemsView.CurrentItem);
 				var count = (sender as IList).Count;
+				if (count == 0)
+				{
+					ItemsView.CurrentItem = null;
+					ItemsView.Position = 0;
+					ItemsView.VisibleViews.Clear();
+					_visibleCandidates.Clear();
+					_visibleViews.Clear();
+					return;
+				}
 
 				bool removingCurrentElement = currentItemPosition == -1;
 				bool removingLastElement = e.OldStartingIndex == count;
@@ -627,6 +645,15 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 
 				SetCarouselViewCurrentItem(carouselPosition);
 				SetCarouselViewPosition(carouselPosition);
+
+				if (ItemsView.Loop && _loopableCollectionView is not null)
+				{
+					ListViewBase.ItemsSource = null;
+					ListViewBase.ItemsSource = _loopableCollectionView;
+					UpdateInitialPosition();
+				}
+
+				UpdateVisibleViews();
 			}
 			finally
 			{
@@ -636,6 +663,8 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 		}
 
 		void OnListViewSizeChanged(object sender, SizeChangedEventArgs e) => Resize(e.NewSize);
+
+		void OnListViewLayoutUpdated(object sender, object e) => UpdateVisibleViews();
 
 		void OnScrollViewSizeChanged(object sender, SizeChangedEventArgs e)
 		{
@@ -656,6 +685,7 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 					InitialSetup();
 
 				_isCarouselViewReady = true;
+				UpdateVisibleViews();
 			}
 		}
 
@@ -665,6 +695,7 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 			UpdateSnapPointsType();
 			UpdateSnapPointsAlignment();
 			UpdateInitialPosition();
+			UpdateVisibleViews();
 		}
 
 		void InvalidateItemSize()
@@ -676,6 +707,78 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 			{
 				item.ItemHeight = itemHeight;
 				item.ItemWidth = itemWidth;
+			}
+		}
+
+		void UpdateVisibleViews()
+		{
+			if (((IViewHandler)this).VirtualView is not CarouselView carousel ||
+				_scrollViewer is null ||
+				!_scrollViewer.IsLoaded ||
+				_scrollViewer.ActualWidth <= 0 ||
+				_scrollViewer.ActualHeight <= 0)
+			{
+				return;
+			}
+
+			_visibleCandidates.Clear();
+			var viewport = new global::Windows.Foundation.Rect(
+				0,
+				0,
+				_scrollViewer.ActualWidth,
+				_scrollViewer.ActualHeight);
+			var horizontal = CarouselItemsLayout?.Orientation == ItemsLayoutOrientation.Horizontal;
+
+			foreach (var item in ListViewBase.GetChildren<ItemContentControl>())
+			{
+				if (item.Visibility != UI.Xaml.Visibility.Visible ||
+					item.ActualWidth <= 0 ||
+					item.ActualHeight <= 0 ||
+					item.GetVisualElement() is not View view)
+				{
+					continue;
+				}
+
+				var bounds = item.TransformToVisual(_scrollViewer).TransformBounds(
+					new global::Windows.Foundation.Rect(0, 0, item.ActualWidth, item.ActualHeight));
+				if (bounds.Right > viewport.Left &&
+					bounds.Left < viewport.Right &&
+					bounds.Bottom > viewport.Top &&
+					bounds.Top < viewport.Bottom)
+				{
+					_visibleCandidates.Add((horizontal ? bounds.X : bounds.Y, view));
+				}
+			}
+
+			_visibleCandidates.Sort((left, right) => left.Offset.CompareTo(right.Offset));
+			_visibleViews.Clear();
+			foreach (var candidate in _visibleCandidates)
+			{
+				var exists = false;
+				foreach (var view in _visibleViews)
+				{
+					if (ReferenceEquals(view, candidate.View))
+					{
+						exists = true;
+						break;
+					}
+				}
+				if (!exists)
+				{
+					_visibleViews.Add(candidate.View);
+				}
+			}
+
+			if (carousel.VisibleViews.Count == _visibleViews.Count &&
+				carousel.VisibleViews.SequenceEqual(_visibleViews))
+			{
+				return;
+			}
+
+			carousel.VisibleViews.Clear();
+			foreach (var view in _visibleViews)
+			{
+				carousel.VisibleViews.Add(view);
 			}
 		}
 

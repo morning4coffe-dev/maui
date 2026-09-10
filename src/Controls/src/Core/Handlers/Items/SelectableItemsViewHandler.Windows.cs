@@ -1,6 +1,7 @@
 ﻿#nullable disable
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
 using Microsoft.Maui.Controls.Platform;
@@ -15,6 +16,7 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 	{
 		bool _ignorePlatformSelectionChange;
 		bool _ignoreVirtualSelectionChange;
+		INotifyCollectionChanged _observedItemsSource;
 
 		protected override void ConnectHandler(ListViewBase platformView)
 		{
@@ -58,6 +60,7 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 			{
 				ItemsView.SelectionChanged -= VirtualSelectionChanged;
 			}
+			ObserveItemsSource(null);
 
 			base.DisconnectHandler(platformView);
 		}
@@ -227,9 +230,51 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 			_ignorePlatformSelectionChange = true;
 
 			base.UpdateItemsSource();
+			ObserveItemsSource(ItemsView?.ItemsSource as INotifyCollectionChanged);
+			RemoveSelectionsMissingFromSource();
 			UpdatePlatformSelection();
 
 			_ignorePlatformSelectionChange = false;
+		}
+
+		void ObserveItemsSource(INotifyCollectionChanged source)
+		{
+			if (_observedItemsSource != null)
+			{
+				_observedItemsSource.CollectionChanged -= OnItemsSourceCollectionChanged;
+			}
+			_observedItemsSource = source;
+			if (_observedItemsSource != null)
+			{
+				_observedItemsSource.CollectionChanged += OnItemsSourceCollectionChanged;
+			}
+		}
+
+		void OnItemsSourceCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+		{
+			RemoveSelectionsMissingFromSource();
+			UpdatePlatformSelection();
+		}
+
+		void RemoveSelectionsMissingFromSource()
+		{
+			if (ItemsView?.SelectionMode != SelectionMode.Multiple || ItemsView.SelectedItems.Count == 0)
+			{
+				return;
+			}
+
+			var availableItems = ListViewBase.Items
+				.Cast<object>()
+				.Select(item => item is ItemTemplateContext context ? context.Item : item)
+				.ToList();
+			var selection = ItemsView.SelectedItems
+				.Cast<object>()
+				.Where(availableItems.Contains)
+				.ToList();
+			if (selection.Count != ItemsView.SelectedItems.Count)
+			{
+				ItemsView.UpdateSelectedItems(selection);
+			}
 		}
 
 		partial class SelectionModeConvert : Microsoft.UI.Xaml.Data.IValueConverter

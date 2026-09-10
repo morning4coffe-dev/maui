@@ -18,6 +18,7 @@ using WASDKDataTemplate = Microsoft.UI.Xaml.DataTemplate;
 using WASDKScrollBarVisibility = Microsoft.UI.Xaml.Controls.ScrollBarVisibility;
 using WRect = Windows.Foundation.Rect;
 using WVisibility = Microsoft.UI.Xaml.Visibility;
+using NativeAutomationProperties = Microsoft.UI.Xaml.Automation.AutomationProperties;
 
 namespace Microsoft.Maui.Controls.Handlers.Items
 {
@@ -44,22 +45,37 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 
 		protected override ListViewBase CreatePlatformView()
 		{
-			return SelectListViewBase();
+			var platformView = SelectListViewBase();
+			platformView.IsSynchronizedWithCurrentItem = false;
+			return platformView;
 		}
 
 		protected override void ConnectHandler(ListViewBase platformView)
 		{
 			base.ConnectHandler(platformView);
 			VirtualView.ScrollToRequested += ScrollToRequested;
+			platformView.ContainerContentChanging += OnContainerContentChanging;
 			FindScrollViewer(ListViewBase);
 		}
 
 		protected override void DisconnectHandler(ListViewBase platformView)
 		{
 			VirtualView.ScrollToRequested -= ScrollToRequested;
+			platformView.ContainerContentChanging -= OnContainerContentChanging;
 			CleanUpCollectionViewSource(platformView);
 			_formsEmptyView?.Handler?.DisconnectHandler();
 			base.DisconnectHandler(platformView);
+		}
+
+		void OnContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+		{
+			if (args.InRecycleQueue || args.ItemContainer is null || Element.ItemTemplate is not null)
+			{
+				return;
+			}
+
+			var item = args.Item is ItemTemplateContext context ? context.Item : args.Item;
+			NativeAutomationProperties.SetName(args.ItemContainer, item?.ToString());
 		}
 
 		public static void MapItemsSource(ItemsViewHandler<TItemsView> handler, ItemsView itemsView)

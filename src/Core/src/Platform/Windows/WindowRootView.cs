@@ -7,6 +7,7 @@ using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.Win32;
@@ -43,6 +44,10 @@ namespace Microsoft.Maui.Platform
 			PassthroughTitlebarElements = new List<FrameworkElement>();
 			_viewSettings = new ViewManagement.UISettings();
 		}
+
+		/// <inheritdoc/>
+		protected override AutomationPeer OnCreateAutomationPeer() =>
+			new FrameworkElementAutomationPeer(this);
 
 		internal double AppTitleBarActualHeight => AppTitleBarContentControl?.ActualHeight ?? 0;
 		internal ContentControl? AppTitleBarContentControl { get; private set; }

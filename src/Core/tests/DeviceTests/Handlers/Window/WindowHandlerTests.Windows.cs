@@ -2,8 +2,10 @@
 using System.Threading.Tasks;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.DeviceTests.Stubs;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Windows.Graphics;
 using Xunit;
+using UIAutomationProperties = Microsoft.UI.Xaml.Automation.AutomationProperties;
 using WVisibility = Microsoft.UI.Xaml.Visibility;
 
 namespace Microsoft.Maui.DeviceTests
@@ -52,32 +54,104 @@ namespace Microsoft.Maui.DeviceTests
 		}
 
 		[Theory]
-		[InlineData(true)]
-		[InlineData(false)]
-		public async Task ClearingModalRootsRestoresContainerOwnedState(bool originalHitTestVisible)
+		[InlineData(true, AccessibilityView.Content)]
+		[InlineData(true, AccessibilityView.Control)]
+		[InlineData(false, AccessibilityView.Content)]
+		[InlineData(false, AccessibilityView.Control)]
+		public async Task ClearingModalRootsRestoresContainerOwnedState(
+			bool originalHitTestVisible,
+			AccessibilityView originalAccessibilityView)
 		{
 			await InvokeOnMainThreadAsync(() =>
 			{
 				var container = new WindowRootViewContainer();
 				var root = new WindowRootView { IsHitTestVisible = originalHitTestVisible };
+				UIAutomationProperties.SetAccessibilityView(root, originalAccessibilityView);
 				var modal = new WindowRootView
 				{
 					TabFocusNavigation = UI.Xaml.Input.KeyboardNavigationMode.Once
 				};
 				container.AddPage(root);
+				var peer = FrameworkElementAutomationPeer.CreatePeerForElement(container);
+				Assert.NotNull(peer);
+				Assert.Same(FrameworkElementAutomationPeer.CreatePeerForElement(root), Assert.Single(peer.GetChildren()));
 				container.AddPage(modal);
 
 				Assert.False(root.IsHitTestVisible);
+				Assert.Equal(originalAccessibilityView, UIAutomationProperties.GetAccessibilityView(root));
+				Assert.Same(FrameworkElementAutomationPeer.CreatePeerForElement(modal), Assert.Single(peer.GetChildren()));
 				Assert.Equal(UI.Xaml.Input.KeyboardNavigationMode.Cycle, modal.TabFocusNavigation);
 
 				container.ClearPages();
 
 				Assert.Empty(container.CachedChildren);
+				Assert.Empty(peer.GetChildren());
 				Assert.Equal(originalHitTestVisible, root.IsHitTestVisible);
+				Assert.Equal(originalAccessibilityView, UIAutomationProperties.GetAccessibilityView(root));
 				Assert.Equal(UI.Xaml.Input.KeyboardNavigationMode.Once, modal.TabFocusNavigation);
 				container.AddPage(root);
 				Assert.Equal(originalHitTestVisible, root.IsHitTestVisible);
 				container.ClearPages();
+			});
+		}
+
+		[Fact]
+		public async Task RemovingNestedModalRestoresOnlyTheRevealedPage()
+		{
+			await InvokeOnMainThreadAsync(() =>
+			{
+				var container = new WindowRootViewContainer();
+				var root = new WindowRootView();
+				var firstModal = new WindowRootView();
+				var secondModal = new WindowRootView();
+				UIAutomationProperties.SetAccessibilityView(root, AccessibilityView.Content);
+				UIAutomationProperties.SetAccessibilityView(firstModal, AccessibilityView.Control);
+
+				container.AddPage(root);
+				container.AddPage(firstModal);
+				container.AddPage(secondModal);
+				var peer = FrameworkElementAutomationPeer.CreatePeerForElement(container);
+				Assert.NotNull(peer);
+
+				Assert.Same(FrameworkElementAutomationPeer.CreatePeerForElement(secondModal), Assert.Single(peer.GetChildren()));
+				Assert.Equal(AccessibilityView.Content, UIAutomationProperties.GetAccessibilityView(root));
+				Assert.Equal(AccessibilityView.Control, UIAutomationProperties.GetAccessibilityView(firstModal));
+
+				container.RemovePage(secondModal);
+
+				Assert.Same(FrameworkElementAutomationPeer.CreatePeerForElement(firstModal), Assert.Single(peer.GetChildren()));
+				Assert.Equal(AccessibilityView.Content, UIAutomationProperties.GetAccessibilityView(root));
+				Assert.Equal(AccessibilityView.Control, UIAutomationProperties.GetAccessibilityView(firstModal));
+
+				container.RemovePage(firstModal);
+
+				Assert.Same(FrameworkElementAutomationPeer.CreatePeerForElement(root), Assert.Single(peer.GetChildren()));
+				Assert.Equal(AccessibilityView.Content, UIAutomationProperties.GetAccessibilityView(root));
+				container.ClearPages();
+			});
+		}
+
+		[Fact]
+		public async Task RemovingCoveredRootPreservesTopPageAndRestoresRemovedState()
+		{
+			await InvokeOnMainThreadAsync(() =>
+			{
+				var container = new WindowRootViewContainer();
+				var root = new WindowRootView();
+				var modal = new WindowRootView { IsHitTestVisible = false };
+				container.AddPage(root);
+				container.AddPage(modal);
+				var peer = FrameworkElementAutomationPeer.CreatePeerForElement(container);
+				Assert.NotNull(peer);
+
+				container.RemovePage(root);
+
+				Assert.True(root.IsHitTestVisible);
+				Assert.False(modal.IsHitTestVisible);
+				Assert.Same(FrameworkElementAutomationPeer.CreatePeerForElement(modal), Assert.Single(peer.GetChildren()));
+				container.ClearPages();
+				Assert.False(modal.IsHitTestVisible);
+				Assert.Empty(peer.GetChildren());
 			});
 		}
 

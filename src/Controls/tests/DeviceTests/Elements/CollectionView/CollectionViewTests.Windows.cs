@@ -15,6 +15,7 @@ using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Automation.Provider;
 using Xunit;
 using static Microsoft.Maui.DeviceTests.AssertHelpers;
+using NativeAutomationProperties = Microsoft.UI.Xaml.Automation.AutomationProperties;
 using WSetter = Microsoft.UI.Xaml.Setter;
 
 namespace Microsoft.Maui.DeviceTests
@@ -198,6 +199,9 @@ namespace Microsoft.Maui.DeviceTests
 				var listView = (UI.Xaml.Controls.ListView)collectionView.Handler.PlatformView;
 
 				int childCount = 0;
+				int itemChildCount = 0;
+				int populatedItemChildCount = 0;
+				int realizedItemCount = 0;
 				int prevChildCount = -1;
 
 				await Task.Delay(2000);
@@ -205,14 +209,153 @@ namespace Microsoft.Maui.DeviceTests
 				bool listIsDoneGrowing()
 				{
 					prevChildCount = childCount;
-					childCount = listView.GetChildren<UI.Xaml.Controls.TextBlock>().Count();
+					var children = listView.GetChildren<UI.Xaml.Controls.TextBlock>().ToList();
+					childCount = children.Count;
+					var realizedItems = listView.GetChildren<ItemContentControl>().ToList();
+					realizedItemCount = realizedItems.Count;
+					var itemChildren = realizedItems
+						.SelectMany(item => item.GetChildren<UI.Xaml.Controls.TextBlock>())
+						.ToList();
+					itemChildCount = itemChildren.Count;
+					populatedItemChildCount = itemChildren.Count(child => !string.IsNullOrEmpty(child.Text));
 					return childCount == prevChildCount;
 				}
 
 				await AssertEventually(listIsDoneGrowing, timeout: 10000);
 
-				// If this is broken we'll get way more than 1000 elements
-				Assert.True(childCount < 1000);
+				Assert.True(
+					realizedItemCount < listItemCount,
+					$"Realized all {realizedItemCount} item containers in a {listView.ActualWidth}x{listView.ActualHeight} viewport.");
+				Assert.Equal(realizedItemCount * 5, itemChildCount);
+				Assert.Equal(itemChildCount, populatedItemChildCount);
+			});
+		}
+
+		[Fact]
+		public async Task ItemAutomationNameFollowsTemplateText()
+		{
+			SetupBuilder();
+
+			var items = new ObservableCollection<string> { "John Doe" };
+			var collectionView = new CollectionView
+			{
+				ItemTemplate = new Controls.DataTemplate(() =>
+				{
+					var label = new Label();
+					label.SetBinding(Label.TextProperty, ".");
+					return label;
+				}),
+				ItemsSource = items
+			};
+
+			await CreateHandlerAndAddToWindow<CollectionViewHandler>(collectionView, async handler =>
+			{
+				var listView = (UI.Xaml.Controls.ListView)handler.PlatformView;
+				await AssertEventually(() => listView.ContainerFromIndex(0) is UI.Xaml.Controls.ListViewItem);
+				var item = (UI.Xaml.Controls.ListViewItem)listView.ContainerFromIndex(0);
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "John Doe");
+				Assert.Equal(
+					"John Doe",
+					NativeAutomationProperties.GetName(item.GetChildren<ItemContentControl>().Single()));
+
+				items[0] = "Jane Doe";
+				await AssertEventually(() =>
+					listView.ContainerFromIndex(0) is UI.Xaml.Controls.ListViewItem replacement &&
+					NativeAutomationProperties.GetName(replacement) == "Jane Doe");
+				Assert.Equal(
+					"Jane Doe",
+					NativeAutomationProperties.GetName(
+						((UI.Xaml.Controls.ListViewItem)listView.ContainerFromIndex(0))
+							.GetChildren<ItemContentControl>()
+							.Single()));
+			});
+		}
+
+		[Fact]
+		public async Task DefaultItemAutomationNameMatchesVisibleText()
+		{
+			SetupBuilder();
+
+			var collectionView = new CollectionView
+			{
+				ItemsSource = new[] { new NamedItem("John Doe") }
+			};
+
+			await CreateHandlerAndAddToWindow<CollectionViewHandler>(collectionView, async handler =>
+			{
+				var listView = (UI.Xaml.Controls.ListView)handler.PlatformView;
+				await AssertEventually(() => listView.ContainerFromIndex(0) is UI.Xaml.Controls.ListViewItem);
+				var item = (UI.Xaml.Controls.ListViewItem)listView.ContainerFromIndex(0);
+				await AssertEventually(() =>
+					item.GetChildren<UI.Xaml.Controls.TextBlock>().Any(text => text.Text == "John Doe") &&
+					NativeAutomationProperties.GetName(item) == "John Doe");
+			});
+		}
+
+		sealed class NamedItem(string name)
+		{
+			public override string ToString() => name;
+		}
+
+		[Fact]
+		public async Task ItemAutomationNameTracksVisibilityChildrenAndExclusions()
+		{
+			SetupBuilder();
+			Label secondary = null!;
+			Label excluded = null!;
+			VerticalStackLayout template = null!;
+			var collectionView = new CollectionView
+			{
+				ItemsSource = new[] { "item" },
+				ItemTemplate = new Controls.DataTemplate(() =>
+				{
+					secondary = new Label { Text = "B", IsVisible = false };
+					excluded = new Label { Text = "Private" };
+					AutomationProperties.SetIsInAccessibleTree(excluded, false);
+					template = new VerticalStackLayout
+					{
+						Children = { new Label { Text = "A" }, secondary, excluded }
+					};
+					return template;
+				})
+			};
+
+			await CreateHandlerAndAddToWindow<CollectionViewHandler>(collectionView, async handler =>
+			{
+				var listView = (UI.Xaml.Controls.ListView)handler.PlatformView;
+				await AssertEventually(() => listView.ContainerFromIndex(0) is UI.Xaml.Controls.ListViewItem);
+				var item = (UI.Xaml.Controls.ListViewItem)listView.ContainerFromIndex(0);
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "A");
+
+				secondary.IsVisible = true;
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "A, B");
+				secondary.IsVisible = false;
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "A");
+
+				var added = new Label { Text = "C" };
+				template.Children.Add(added);
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "A, C");
+				added.Text = "D";
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "A, D");
+				SemanticProperties.SetDescription(added, "Spoken D");
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "A, Spoken D");
+
+				AutomationProperties.SetIsInAccessibleTree(added, false);
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "A");
+				AutomationProperties.SetIsInAccessibleTree(added, true);
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "A, Spoken D");
+				template.Children.Remove(added);
+				added.Text = "Detached";
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "A");
+
+				var nested = new VerticalStackLayout { Children = { new Label { Text = "Nested" } } };
+				AutomationProperties.SetExcludedWithChildren(nested, true);
+				template.Children.Add(nested);
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "A");
+				AutomationProperties.SetExcludedWithChildren(nested, false);
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "A, Nested");
+				template.Children.Remove(nested);
+				await AssertEventually(() => NativeAutomationProperties.GetName(item) == "A");
 			});
 		}
 

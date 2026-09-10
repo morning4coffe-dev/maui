@@ -1,5 +1,8 @@
 #nullable disable
 using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Text;
 using Microsoft.Maui.Controls.Internals;
 using Microsoft.Maui.Controls.Platform;
 using Microsoft.Maui.Graphics;
@@ -20,11 +23,15 @@ namespace Microsoft.Maui.Controls.Platform
 		IViewHandler _handler;
 		DataTemplate _currentTemplate;
 		bool _isMeasureInvalidationPending;
+		readonly HashSet<Element> _semanticElements = new();
+		VisualElement _subscribedContent;
 
 		public ItemContentControl()
 		{
 			DefaultStyleKey = typeof(ItemContentControl);
 			IsTabStop = false;
+			Loaded += OnLoaded;
+			Unloaded += OnUnloaded;
 		}
 
 		public static readonly DependencyProperty MauiContextProperty = DependencyProperty.Register(
@@ -145,16 +152,11 @@ namespace Microsoft.Maui.Controls.Platform
 		{
 			base.OnContentChanged(oldContent, newContent);
 
-			if (oldContent != null && _visualElement != null)
-			{
-				_visualElement.MeasureInvalidated -= OnViewMeasureInvalidated;
-				_visualElement.PropertyChanged -= OnViewPropertyChanged;
-			}
+			UnsubscribeSemanticTree();
 
 			if (newContent != null && _visualElement != null)
 			{
-				_visualElement.MeasureInvalidated += OnViewMeasureInvalidated;
-				_visualElement.PropertyChanged += OnViewPropertyChanged;
+				SubscribeSemanticTree(_visualElement);
 				UpdateSemanticProperties(_visualElement);
 			}
 		}
@@ -228,6 +230,7 @@ namespace Microsoft.Maui.Controls.Platform
 			{
 				Content = new ContentLayoutPanel(_handler.VirtualView);
 			}
+			UpdateSemanticProperties(_visualElement);
 
 			if (itemsView is SelectableItemsView selectableItemsView && selectableItemsView.SelectionMode is not SelectionMode.None)
 			{
@@ -302,16 +305,99 @@ namespace Microsoft.Maui.Controls.Platform
 
 		void OnViewPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
 		{
-			if (e.IsOneOf(
+			if ((e.IsOneOf(
 				SemanticProperties.HeadingLevelProperty,
 				SemanticProperties.HintProperty,
 				SemanticProperties.DescriptionProperty,
-				AutomationProperties.IsInAccessibleTreeProperty) &&
-				sender is IView view)
+				AutomationProperties.IsInAccessibleTreeProperty,
+				Label.TextProperty) ||
+				e.IsOneOf(
+					AutomationProperties.ExcludedWithChildrenProperty,
+					VisualElement.IsVisibleProperty)) &&
+				_visualElement is not null)
 			{
-				UpdateSemanticProperties(view);
+				UpdateSemanticProperties(_visualElement);
 			}
 		}
+
+		void SubscribeSemanticTree(VisualElement root)
+		{
+			UnsubscribeSemanticTree();
+			_subscribedContent = root;
+			root.MeasureInvalidated += OnViewMeasureInvalidated;
+			root.DescendantAdded += OnSemanticDescendantAdded;
+			root.DescendantRemoved += OnSemanticDescendantRemoved;
+			Subscribe(root);
+
+			void Subscribe(Element element)
+			{
+				SubscribeSemanticElement(element);
+
+				foreach (var child in ((IElementController)element).LogicalChildren)
+				{
+					Subscribe(child);
+				}
+			}
+		}
+
+		void SubscribeSemanticElement(Element element)
+		{
+			if (!_semanticElements.Add(element))
+				return;
+
+			element.PropertyChanged += OnViewPropertyChanged;
+			if (element is View view && view.GestureRecognizers is INotifyCollectionChanged gestures)
+				gestures.CollectionChanged += OnSemanticGesturesChanged;
+		}
+
+		void UnsubscribeSemanticElement(Element element)
+		{
+			element.PropertyChanged -= OnViewPropertyChanged;
+			if (element is View view && view.GestureRecognizers is INotifyCollectionChanged gestures)
+				gestures.CollectionChanged -= OnSemanticGesturesChanged;
+		}
+
+		void OnSemanticDescendantAdded(object sender, ElementEventArgs e)
+		{
+			SubscribeSemanticElement(e.Element);
+			UpdateSemanticProperties(_visualElement);
+		}
+
+		void OnSemanticDescendantRemoved(object sender, ElementEventArgs e)
+		{
+			if (_semanticElements.Remove(e.Element))
+				UnsubscribeSemanticElement(e.Element);
+			UpdateSemanticProperties(_visualElement);
+		}
+
+		void OnSemanticGesturesChanged(object sender, NotifyCollectionChangedEventArgs e) =>
+			UpdateSemanticProperties(_visualElement);
+
+		void UnsubscribeSemanticTree()
+		{
+			if (_subscribedContent is not null)
+			{
+				_subscribedContent.MeasureInvalidated -= OnViewMeasureInvalidated;
+				_subscribedContent.DescendantAdded -= OnSemanticDescendantAdded;
+				_subscribedContent.DescendantRemoved -= OnSemanticDescendantRemoved;
+				_subscribedContent = null;
+			}
+			foreach (var element in _semanticElements)
+				UnsubscribeSemanticElement(element);
+			_semanticElements.Clear();
+		}
+
+		void OnLoaded(object sender, RoutedEventArgs e)
+		{
+			if (_visualElement is not null)
+			{
+				if (Content is not null && _subscribedContent is null)
+					SubscribeSemanticTree(_visualElement);
+				UpdateSemanticProperties(_visualElement);
+			}
+		}
+
+		void OnUnloaded(object sender, RoutedEventArgs e) => UnsubscribeSemanticTree();
 
 		void UpdateSemanticProperties(IView view)
 		{
@@ -326,6 +412,20 @@ namespace Microsoft.Maui.Controls.Platform
 			this.UpdateSemantics(view);
 
 			var semantics = view.Semantics;
+			var itemName = semantics?.Description;
+			if (string.IsNullOrWhiteSpace(itemName) && view is VisualElement visualElement)
+			{
+				itemName = GetTemplateText(visualElement);
+			}
+			if (string.IsNullOrWhiteSpace(itemName) &&
+				FormsContainer is ItemsView { ItemTemplate: null } &&
+				FormsDataContext is not null)
+			{
+				// The default MAUI item template paints the data object's string representation.
+				// Use the same value for its container name so pixels and accessibility stay aligned.
+				itemName = FormsDataContext.ToString();
+			}
+			NativeAutomationProperties.SetName(this, itemName);
 
 			UI.Xaml.Automation.Peers.AccessibilityView defaultAccessibilityView =
 				UI.Xaml.Automation.Peers.AccessibilityView.Content;
@@ -337,23 +437,65 @@ namespace Microsoft.Maui.Controls.Platform
 
 			this.SetAutomationPropertiesAccessibilityView(_visualElement, defaultAccessibilityView);
 
-#if UNO
-			if (OperatingSystem.IsBrowser())
+			var parent = VisualTreeHelper.GetParent(this);
+			while (parent is not null && parent is not SelectorItem)
 			{
-				var parent = VisualTreeHelper.GetParent(this);
-				while (parent is not null && parent is not SelectorItem)
+				parent = VisualTreeHelper.GetParent(parent);
+			}
+
+			if (parent is SelectorItem itemContainer)
+			{
+				NativeAutomationProperties.SetName(itemContainer, itemName);
+				NativeAutomationProperties.SetHelpText(itemContainer, semantics?.Hint);
+			}
+		}
+
+		static string GetTemplateText(VisualElement root)
+		{
+			StringBuilder text = null;
+			Append(root, true);
+			return text?.ToString();
+
+			void Append(Element element, bool isRoot)
+			{
+				if (element is VisualElement { IsVisible: false } ||
+					AutomationProperties.GetExcludedWithChildren(element) == true)
 				{
-					parent = VisualTreeHelper.GetParent(parent);
+					return;
 				}
 
-				if (parent is SelectorItem itemContainer)
+				if (!isRoot && IsIndependentControl(element))
 				{
-					NativeAutomationProperties.SetName(itemContainer, semantics?.Description);
-					NativeAutomationProperties.SetHelpText(itemContainer, semantics?.Hint);
+					return;
+				}
+
+				if (element is Label { Text: { } labelText } label &&
+					AutomationProperties.GetIsInAccessibleTree(label) != false &&
+					label.GestureRecognizers.Count == 0 &&
+					!string.IsNullOrWhiteSpace(labelText))
+				{
+					if (SemanticProperties.GetDescription(label) is string description &&
+						!string.IsNullOrWhiteSpace(description))
+						labelText = description;
+					text ??= new StringBuilder();
+					if (text.Length > 0)
+					{
+						text.Append(", ");
+					}
+					text.Append(labelText);
+					return;
+				}
+
+				foreach (var child in ((IElementController)element).LogicalChildren)
+				{
+					Append(child, false);
 				}
 			}
-#endif
 		}
+
+		static bool IsIndependentControl(Element element) =>
+			element is Button or ImageButton or InputView or Picker or DatePicker or TimePicker or
+				Slider or Stepper or Switch or CheckBox or RadioButton or SelectableItemsView;
 
 		/// <inheritdoc/>
 		protected override WSize ArrangeOverride(WSize finalSize)

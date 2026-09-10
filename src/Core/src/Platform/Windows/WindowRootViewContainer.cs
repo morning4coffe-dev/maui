@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -16,6 +17,9 @@ namespace Microsoft.Maui.Platform
 		TypedEventHandler<UIElement, GettingFocusEventArgs>? _gettingFocusHandler;
 		readonly Dictionary<FrameworkElement, KeyboardNavigationMode> _originalTabNavigation = new();
 		readonly Dictionary<FrameworkElement, bool> _originalIsHitTestVisible = new();
+
+		protected override AutomationPeer OnCreateAutomationPeer() =>
+			new WindowRootViewContainerAutomationPeer(this);
 
 		[SuppressMessage("ApiDesign", "RS0030:Do not use banned APIs", Justification = "Panel.Children property is banned to enforce use of this CachedChildren property.")]
 		internal UIElementCollection CachedChildren
@@ -92,6 +96,7 @@ namespace Microsoft.Maui.Platform
 				}
 
 				TryMoveFocusToPage(_topPage);
+				InvalidateAutomationChildren();
 			}
 		}
 
@@ -105,6 +110,8 @@ namespace Microsoft.Maui.Platform
 			{
 				control.TabFocusNavigation = originalMode;
 			}
+			if (_originalIsHitTestVisible.Remove(pageView, out var removedPageHitTest))
+				pageView.IsHitTestVisible = removedPageHitTest;
 
 			// Find the new top page by scanning backwards through children.
 			// CachedChildren may contain non-page elements (e.g., W2DGraphicsView for visual diagnostics),
@@ -141,11 +148,11 @@ namespace Microsoft.Maui.Platform
 			if (_topPage is not null)
 			{
 				// Re-enable pointer/touch on the revealed page, restoring its original value
-				_topPage.IsHitTestVisible = _originalIsHitTestVisible.Remove(_topPage, out var originalHitTest)
-					? originalHitTest
-					: true;
+				if (_originalIsHitTestVisible.Remove(_topPage, out var originalHitTest))
+					_topPage.IsHitTestVisible = originalHitTest;
 				TryMoveFocusToPage(_topPage);
 			}
+			InvalidateAutomationChildren();
 		}
 
 		internal void ClearPages()
@@ -170,6 +177,37 @@ namespace Microsoft.Maui.Platform
 			_originalTabNavigation.Clear();
 			_originalIsHitTestVisible.Clear();
 			CachedChildren.Clear();
+			InvalidateAutomationChildren();
+		}
+
+		void InvalidateAutomationChildren()
+		{
+			if (FrameworkElementAutomationPeer.FromElement(this) is { } peer)
+			{
+				peer.InvalidatePeer();
+				peer.RaiseAutomationEvent(AutomationEvents.StructureChanged);
+			}
+		}
+
+		sealed partial class WindowRootViewContainerAutomationPeer : FrameworkElementAutomationPeer
+		{
+			readonly WindowRootViewContainer _container;
+
+			public WindowRootViewContainerAutomationPeer(WindowRootViewContainer container) : base(container) =>
+				_container = container;
+
+			protected override bool IsControlElementCore() => true;
+
+			protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Pane;
+
+			protected override IList<AutomationPeer> GetChildrenCore()
+			{
+				if (_container._topPage is { } page &&
+					CreatePeerForElement(page) is { } peer)
+					return new[] { peer };
+
+				return System.Array.Empty<AutomationPeer>();
+			}
 		}
 
 		void EnableModalFocusTrap()
