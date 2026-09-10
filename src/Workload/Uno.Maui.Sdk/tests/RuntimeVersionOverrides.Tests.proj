@@ -1,15 +1,27 @@
 <Project DefaultTargets="Validate">
   <PropertyGroup>
     <UnoWinUIPackageVersion>6.7.0-default</UnoWinUIPackageVersion>
+    <UnoMauiUnoVersion>$(UnoWinUIPackageVersion)</UnoMauiUnoVersion>
     <UnoMauiCoreRuntimeVersion>6.7.0-core-fix</UnoMauiCoreRuntimeVersion>
     <UnoMauiAndroidRuntimeVersion>6.7.0-android-fix</UnoMauiAndroidRuntimeVersion>
     <UnoMauiWasmRuntimeVersion>6.7.0-browser-fix</UnoMauiWasmRuntimeVersion>
+    <UnoMauiWin32RuntimeVersion Condition="'$(UseDefaultWin32Version)' != 'true'">6.7.0-win32-fix</UnoMauiWin32RuntimeVersion>
+  </PropertyGroup>
+  <Import Project="..\Sdk\Uno.Maui.Sdk.props" Condition="'$(SdkDefaults)' == 'Source'" />
+  <Import Project="..\Sdk\Uno.Maui.Package.props" Condition="'$(SdkDefaults)' == 'Package'" />
+  <PropertyGroup>
+    <_ExpectedWin32Version>$(UnoWinUIPackageVersion)</_ExpectedWin32Version>
+    <_ExpectedWin32Version Condition="'$(UseDefaultWin32Version)' != 'true'">6.7.0-win32-fix</_ExpectedWin32Version>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Uno.WinUI" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.Android" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.WebAssembly.Browser" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.Win32" />
+    <PackageReference Include="Uno.WinUI.Lottie" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.X11" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.MacOS" />
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.Linux.FrameBuffer" />
   </ItemGroup>
   <Import Project="..\..\..\..\eng\NuGetVersions.targets" />
   <Target Name="Validate">
@@ -18,11 +30,14 @@
       <_Android Include="@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Runtime.Skia.Android'))" />
       <_Browser Include="@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Runtime.Skia.WebAssembly.Browser'))" />
       <_Desktop Include="@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Runtime.Skia.Win32'))" />
+      <_Unrelated Include="@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Lottie'));@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Runtime.Skia.X11'));@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Runtime.Skia.MacOS'));@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Runtime.Skia.Linux.FrameBuffer'))" />
     </ItemGroup>
     <Error Condition="'@(_Core->'%(Version)')' != '$(UnoMauiCoreRuntimeVersion)'" Text="Source core runtime override was lost." />
     <Error Condition="'@(_Android->'%(Version)')' != '$(UnoMauiAndroidRuntimeVersion)'" Text="Source Android runtime override was lost." />
     <Error Condition="'@(_Browser->'%(Version)')' != '$(UnoMauiWasmRuntimeVersion)'" Text="Source browser runtime override was lost." />
-    <Error Condition="'@(_Desktop->'%(Version)')' != '$(UnoWinUIPackageVersion)'" Text="An unrelated runtime version changed." />
+    <Error Condition="'@(_Desktop->'%(Version)')' != '$(_ExpectedWin32Version)'" Text="The independent Win32 runtime version or its base default was lost." />
+    <Error Condition="'$(SdkDefaults)' != '' and '$(UnoMauiWin32RuntimeVersion)' != '$(_ExpectedWin32Version)'" Text="$(SdkDefaults) SDK defaults lost the Win32 version." />
+    <Error Condition="'%(_Unrelated.Version)' != '$(UnoWinUIPackageVersion)'" Text="Unrelated provider %(_Unrelated.Identity) changed version." />
     <Message Importance="high" Text="Independent source runtime overrides passed." />
   </Target>
 </Project>

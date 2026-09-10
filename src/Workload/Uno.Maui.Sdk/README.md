@@ -116,12 +116,15 @@ changing the rest of the Uno package graph:
 
 ```xml
 <UnoMauiCoreRuntimeVersion>6.8.0-dev.123</UnoMauiCoreRuntimeVersion>
+<UnoMauiWin32RuntimeVersion>6.8.0-dev.124</UnoMauiWin32RuntimeVersion>
 <UnoMauiAndroidRuntimeVersion>6.8.0-dev.123</UnoMauiAndroidRuntimeVersion>
 <UnoMauiWasmRuntimeVersion>6.8.0-dev.123</UnoMauiWasmRuntimeVersion>
 ```
 
 Each property defaults to `UnoMauiUnoVersion`. The core override is useful when
 a platform runtime fix also requires a matching `Uno.WinUI` runtime assembly.
+The Win32 override selects only `Uno.WinUI.Runtime.Skia.Win32`; Lottie and the
+other Desktop host packages keep their base version.
 
 Set `UnoMauiWasmAot` to `true` for Release applications whose startup graph is
 too large for the WebAssembly interpreter. The generated host imports the

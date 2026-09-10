@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <_ExpectedWin32Version>6.7.0-win32-fix</_ExpectedWin32Version>
+    <_ExpectedWin32Version Condition="'$(UseDefaultWin32Version)' == 'true'">6.7.0-default</_ExpectedWin32Version>
+  </PropertyGroup>
+  <Target Name="Validate">
+    <Error Condition="'$(UnoMauiWin32RuntimeVersion)' != '$(_ExpectedWin32Version)'" Text="The generated host lost its Win32 runtime version." />
+    <Error Condition="'$(UnoMauiUnoVersion)' != '6.7.0-default'" Text="An independent Win32 version changed the base provider version." />
+    <Error Condition="'$(UnoMauiCoreRuntimeVersion)' != '6.7.0-core-fix' or '$(UnoMauiWasmRuntimeVersion)' != '6.7.0-browser-fix'" Text="Existing independent runtime overrides were lost." />
+  </Target>
+  <!-- These entry points only assert properties; they never restore or compile code. -->
+  <Target Name="Restore" DependsOnTargets="Validate" />
+  <Target Name="Build" DependsOnTargets="Validate" />
+  <Target Name="Publish" DependsOnTargets="Validate" />
+</Project>

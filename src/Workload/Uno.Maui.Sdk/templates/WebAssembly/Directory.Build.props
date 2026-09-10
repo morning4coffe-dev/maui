@@ -1,6 +1,9 @@
 <Project>
-  <Import Project="$(MauiSrcDirectory)..\Directory.Build.props" />
+  <!-- See Desktop/Directory.Build.props: source import is conditional so package consumers build. -->
+  <Import Project="$(MauiSrcDirectory)..\Directory.Build.props" Condition="'$(MauiSrcDirectory)' != '' and Exists('$(MauiSrcDirectory)..\Directory.Build.props')" />
   <PropertyGroup>
+    <ArtifactsBinDir Condition="'$(ArtifactsBinDir)' == ''">$(MSBuildThisFileDirectory)..\bin\</ArtifactsBinDir>
+    <ArtifactsObjDir Condition="'$(ArtifactsObjDir)' == ''">$(MSBuildThisFileDirectory)..\obj\</ArtifactsObjDir>
     <BaseOutputPath>$(ArtifactsBinDir)uno\$(UnoMauiGeneratedProjectName)\</BaseOutputPath>
     <BaseIntermediateOutputPath>$(ArtifactsObjDir)uno\$(UnoMauiGeneratedProjectName)\</BaseIntermediateOutputPath>
     <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>

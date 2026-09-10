@@ -3,6 +3,15 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageId>Uno.Maui.Sdk</PackageId>
     <Version>0.1.0-dev</Version>
+    <!--
+      Single source of truth for the version this SDK meta-package requires of the rest of the
+      renderer graph. It defaults to the package version this build produces, so the meta-package
+      always depends on exactly its own sibling versions. A release overrides UnoMauiPackageVersion
+      to flow one explicit version through every dependency instead of a floating literal.
+    -->
+    <UnoMauiPackageVersion Condition="'$(UnoMauiPackageVersion)' == '' and '$(PackageVersion)' != ''">$(PackageVersion)</UnoMauiPackageVersion>
+    <UnoMauiPackageVersion Condition="'$(UnoMauiPackageVersion)' == ''">10.0.100-dev</UnoMauiPackageVersion>
+    <_UnoMauiVersionedPackageProps>$([System.IO.Path]::Combine('$(BaseIntermediateOutputPath)', '$(Configuration)', 'pack', 'Uno.Maui.Package.props'))</_UnoMauiVersionedPackageProps>
     <Description>Automatic Uno Platform hosts for .NET MAUI applications.</Description>
     <PackageType>MSBuildSdk</PackageType>
     <IncludeBuildOutput>false</IncludeBuildOutput>
@@ -15,9 +24,9 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
-    <PackageReference Include="Uno.Maui.Runtime" Version="10.0.100-dev" />
-    <PackageReference Include="Microsoft.Maui.Controls.Build.Tasks" Version="10.0.100-dev" />
-    <PackageReference Include="Microsoft.Maui.Resizetizer" Version="10.0.100-dev" />
+    <PackageReference Include="Uno.Maui.Runtime" Version="[$(UnoMauiPackageVersion)]" />
+    <PackageReference Include="Microsoft.Maui.Controls.Build.Tasks" Version="[$(UnoMauiPackageVersion)]" />
+    <PackageReference Include="Microsoft.Maui.Resizetizer" Version="[$(UnoMauiPackageVersion)]" />
   </ItemGroup>
 
   <ItemGroup>
@@ -26,5 +35,36 @@
     <None Include="Sdk\Uno.Maui.Source.props" Pack="true" PackagePath="buildTransitive\Uno.Maui.Source.props" />
     <None Include="Sdk\Uno.Maui.Sdk.targets" Pack="true" PackagePath="buildTransitive\Uno.Maui.Sdk.targets" />
     <None Include="templates\**\*" Pack="true" PackagePath="templates\%(RecursiveDir)%(Filename)%(Extension)" />
+    <None Remove="Sdk\Uno.Maui.Package.props" />
+    <None Include="$(_UnoMauiVersionedPackageProps)" Pack="true" PackagePath="Sdk\Uno.Maui.Package.props" />
+    <None Include="$(_UnoMauiVersionedPackageProps)" Pack="true" PackagePath="buildTransitive\Uno.Maui.Sdk.props" />
   </ItemGroup>
+
+  <Target Name="_PrepareVersionedUnoMauiPackageProps" BeforeTargets="_GetPackageFiles">
+    <PropertyGroup>
+      <_UnoMauiPackWin32RuntimeVersion>$(UnoMauiWin32RuntimeVersion)</_UnoMauiPackWin32RuntimeVersion>
+      <_UnoMauiPackWin32RuntimeVersion Condition="'$(_UnoMauiPackWin32RuntimeVersion)' == ''">$(UnoMauiUnoVersion)</_UnoMauiPackWin32RuntimeVersion>
+      <_UnoMauiPackWin32RuntimeVersion Condition="'$(_UnoMauiPackWin32RuntimeVersion)' == ''">$(UnoWinUIPackageVersion)</_UnoMauiPackWin32RuntimeVersion>
+    </PropertyGroup>
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(_UnoMauiVersionedPackageProps)'))" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Sdk\Uno.Maui.Package.props" DestinationFiles="$(_UnoMauiVersionedPackageProps)" />
+    <XmlPoke XmlInputPath="$(_UnoMauiVersionedPackageProps)"
+             Query="/Project/PropertyGroup/UnoMauiPackageVersion"
+             Value="$(PackageVersion)" />
+    <XmlPoke Condition="'$(UnoMauiUnoVersion)' != ''"
+             XmlInputPath="$(_UnoMauiVersionedPackageProps)"
+             Query="/Project/PropertyGroup/UnoMauiUnoVersion"
+             Value="$(UnoMauiUnoVersion)" />
+    <XmlPoke Condition="'$(UnoMauiCoreRuntimeVersion)' != ''"
+             XmlInputPath="$(_UnoMauiVersionedPackageProps)"
+             Query="/Project/PropertyGroup/UnoMauiCoreRuntimeVersion"
+             Value="$(UnoMauiCoreRuntimeVersion)" />
+    <XmlPoke Condition="'$(UnoMauiWasmRuntimeVersion)' != ''"
+             XmlInputPath="$(_UnoMauiVersionedPackageProps)"
+             Query="/Project/PropertyGroup/UnoMauiWasmRuntimeVersion"
+             Value="$(UnoMauiWasmRuntimeVersion)" />
+    <XmlPoke XmlInputPath="$(_UnoMauiVersionedPackageProps)"
+             Query="/Project/PropertyGroup/UnoMauiWin32RuntimeVersion"
+             Value="$(_UnoMauiPackWin32RuntimeVersion)" />
+  </Target>
 </Project>

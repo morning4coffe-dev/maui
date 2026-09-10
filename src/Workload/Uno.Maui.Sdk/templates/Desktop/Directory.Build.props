@@ -1,6 +1,14 @@
 <Project>
-  <Import Project="$(MauiSrcDirectory)..\Directory.Build.props" />
+  <!--
+    In source mode MauiSrcDirectory points into the MAUI tree, so this imports the repo's root
+    Directory.Build.props. An external package consumer has no such tree; the import is therefore
+    conditional on an explicit source root and the file existing. The artifacts paths fall back to the generated host's own
+    obj tree so the host builds from packages alone instead of leaking a source-only path.
+  -->
+  <Import Project="$(MauiSrcDirectory)..\Directory.Build.props" Condition="'$(MauiSrcDirectory)' != '' and Exists('$(MauiSrcDirectory)..\Directory.Build.props')" />
   <PropertyGroup>
+    <ArtifactsBinDir Condition="'$(ArtifactsBinDir)' == ''">$(MSBuildThisFileDirectory)..\bin\</ArtifactsBinDir>
+    <ArtifactsObjDir Condition="'$(ArtifactsObjDir)' == ''">$(MSBuildThisFileDirectory)..\obj\</ArtifactsObjDir>
     <BaseOutputPath>$(ArtifactsBinDir)uno\$(UnoMauiGeneratedProjectName)\</BaseOutputPath>
     <BaseIntermediateOutputPath>$(ArtifactsObjDir)uno\$(UnoMauiGeneratedProjectName)\</BaseIntermediateOutputPath>
     <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>

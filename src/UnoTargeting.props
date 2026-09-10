@@ -2,8 +2,9 @@
   <PropertyGroup Condition="'$(MauiUnoTarget)' == 'true'">
     <MauiUnoRenderer Condition="'$(MauiUnoRenderer)' == ''">WinUI</MauiUnoRenderer>
     <MauiUnoHostPlatform Condition="'$(MauiUnoHostPlatform)' == ''">Neutral</MauiUnoHostPlatform>
-    <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);https://api.nuget.org/v3/index.json</RestoreAdditionalProjectSources>
-    <_MauiUnoProjectReferenceProperties>MauiUnoTarget=true;MauiUnoRenderer=$(MauiUnoRenderer);MauiUnoHostPlatform=$(MauiUnoHostPlatform);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false;BuildInParallel=false;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false;RestoreAdditionalProjectSources=https://api.nuget.org/v3/index.json</_MauiUnoProjectReferenceProperties>
+    <UnoMauiPublicPackageFeed Condition="'$(UnoMauiPublicPackageFeed)' == ''">https://api.nuget.org/v3/index.json</UnoMauiPublicPackageFeed>
+    <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);$(UnoMauiPublicPackageFeed)</RestoreAdditionalProjectSources>
+    <_MauiUnoProjectReferenceProperties>MauiUnoTarget=true;MauiUnoRenderer=$(MauiUnoRenderer);MauiUnoHostPlatform=$(MauiUnoHostPlatform);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false;BuildInParallel=false;IncludeAndroidTargetFrameworks=false;IncludeIosTargetFrameworks=false;IncludeMacCatalystTargetFrameworks=false;IncludeMacOSTargetFrameworks=false;IncludeTizenTargetFrameworks=false;IncludeWindowsTargetFrameworks=false;RestoreAdditionalProjectSources=$(UnoMauiPublicPackageFeed);UnoMauiPublicPackageFeed=$(UnoMauiPublicPackageFeed)</_MauiUnoProjectReferenceProperties>
   </PropertyGroup>
   <PropertyGroup Condition="'$(MauiUnoTarget)' == 'true' and '$(MauiUnoRenderer)' == 'WinUI' and '$(TargetFramework)' == '$(_MauiDotNetTfm)'">
     <_MauiTargetPlatformIsUno>True</_MauiTargetPlatformIsUno>

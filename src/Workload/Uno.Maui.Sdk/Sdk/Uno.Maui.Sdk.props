@@ -4,6 +4,7 @@
     <UnoMauiAppFactoryType Condition="'$(UnoMauiAppFactoryType)' == ''">$(RootNamespace).MauiProgram</UnoMauiAppFactoryType>
     <UnoMauiUnoVersion Condition="'$(UnoMauiUnoVersion)' == ''">6.7.0-dev.704</UnoMauiUnoVersion>
     <UnoMauiCoreRuntimeVersion Condition="'$(UnoMauiCoreRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiCoreRuntimeVersion>
+    <UnoMauiWin32RuntimeVersion Condition="'$(UnoMauiWin32RuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiWin32RuntimeVersion>
     <UnoMauiAndroidRuntimeVersion Condition="'$(UnoMauiAndroidRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiAndroidRuntimeVersion>
     <UnoMauiWasmRuntimeVersion Condition="'$(UnoMauiWasmRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiWasmRuntimeVersion>
     <UnoMauiWasmBootstrapVersion Condition="'$(UnoMauiWasmBootstrapVersion)' == ''">10.0.96</UnoMauiWasmBootstrapVersion>

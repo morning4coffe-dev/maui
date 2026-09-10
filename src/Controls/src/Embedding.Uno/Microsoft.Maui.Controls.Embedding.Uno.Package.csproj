@@ -1,0 +1,48 @@
+<!--
+  Consumable distribution of the Uno-root MAUI embedding library.
+
+  The buildable library (Microsoft.Maui.Controls.Embedding.Uno.csproj) intentionally references the
+  MAUI stack as source for the sample. This companion project packages the already-built neutral
+  net10.0 assembly and declares its real runtime dependencies, so an Uno-root application can consume
+  the embedding surface as a package instead of vendoring the whole renderer as source. It mirrors
+  Uno.Maui.Runtime's pack-the-built-output pattern and never rebuilds the assembly.
+
+  It is opt-in: the release orchestrator sets UnoMauiPackEmbedding=true after building the library.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>Microsoft.Maui.Controls.Embedding.Uno</PackageId>
+    <Version>0.1.0-dev</Version>
+    <Description>Uno-root .NET MAUI embedding surface (MauiHost) for the Uno MAUI renderer.</Description>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IsPackable>false</IsPackable>
+    <IsPackable Condition="'$(UnoMauiPackEmbedding)' == 'true'">true</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+
+    <!-- Single-source versions shared with the rest of the renderer graph. -->
+    <UnoMauiPackageVersion Condition="'$(UnoMauiPackageVersion)' == ''">10.0.100-dev</UnoMauiPackageVersion>
+    <UnoMauiUnoVersion Condition="'$(UnoMauiUnoVersion)' == ''">6.7.0-dev.704</UnoMauiUnoVersion>
+    <UnoMauiCoreRuntimeVersion Condition="'$(UnoMauiCoreRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiCoreRuntimeVersion>
+
+    <_UnoMauiEmbeddingAssembly Condition="'$(_UnoMauiEmbeddingAssembly)' == ''">$(ArtifactsBinDir)uno\Microsoft.Maui.Controls.Embedding.Uno\$(Configuration)\net10.0\Microsoft.Maui.Controls.Embedding.Uno.dll</_UnoMauiEmbeddingAssembly>
+  </PropertyGroup>
+
+  <!-- Runtime dependencies of the embedding assembly. Uno.Maui.Runtime carries the MAUI assemblies
+       it links against; Uno.WinUI is the host platform. Versions flow from one property each. -->
+  <ItemGroup>
+    <PackageReference Include="Uno.Maui.Runtime" Version="[$(UnoMauiPackageVersion)]" />
+    <PackageReference Include="Uno.WinUI" Version="[$(UnoMauiCoreRuntimeVersion)]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="nuget\_._" Pack="true" PackagePath="lib\netstandard2.0\_._" />
+    <None Include="$(_UnoMauiEmbeddingAssembly)" Pack="true" PackagePath="lib\net10.0" />
+  </ItemGroup>
+
+  <Target Name="_ValidateUnoMauiEmbeddingPackFiles" BeforeTargets="Pack">
+    <Error Condition="!Exists('$(_UnoMauiEmbeddingAssembly)')"
+           Text="Uno MAUI embedding pack input does not exist: $(_UnoMauiEmbeddingAssembly). Build Microsoft.Maui.Controls.Embedding.Uno.csproj for the same configuration first." />
+  </Target>
+</Project>

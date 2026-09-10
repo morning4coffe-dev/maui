@@ -1,0 +1,28 @@
+<Project DefaultTargets="Test">
+  <PropertyGroup>
+    <UnoMauiSkipSourceImport>true</UnoMauiSkipSourceImport>
+    <UnoMauiTarget>Desktop</UnoMauiTarget>
+    <UnoMauiUnoVersion>6.7.0-default</UnoMauiUnoVersion>
+    <UnoMauiCoreRuntimeVersion>6.7.0-core-fix</UnoMauiCoreRuntimeVersion>
+    <UnoMauiWasmRuntimeVersion>6.7.0-browser-fix</UnoMauiWasmRuntimeVersion>
+    <UnoMauiWin32RuntimeVersion Condition="'$(UseDefaultWin32Version)' != 'true'">6.7.0-win32-fix</UnoMauiWin32RuntimeVersion>
+  </PropertyGroup>
+  <Import Project="..\Sdk\Uno.Maui.Sdk.targets" />
+  <PropertyGroup>
+    <_UnoMauiHostProject>$(MSBuildThisFileDirectory)RuntimeVersionPropagationHost.proj</_UnoMauiHostProject>
+  </PropertyGroup>
+  <!-- Contract-only stubs: no application generation, build, restore, or publication. -->
+  <Target Name="_UnoMauiPrepareHost" />
+  <Target Name="_UnoMauiBuildApplication" />
+  <Target Name="_UnoMauiPrepareStaticWebAssets" />
+  <Target Name="_UnoMauiPreparePublishStaticWebAssets" />
+  <Target Name="Test" DependsOnTargets="RestoreUnoMaui;BuildUnoMaui;PublishUnoMaui">
+    <XmlPeek XmlInputPath="$(MSBuildThisFileDirectory)..\templates\Desktop\Uno.Maui.Generated.Desktop.csproj"
+             Query="/Project/ItemGroup/PackageReference[@Include='Uno.WinUI.Runtime.Skia.Win32']/@Version">
+      <Output TaskParameter="Result" PropertyName="_Win32TemplateVersion" />
+    </XmlPeek>
+    <Error Condition="'$(_Win32TemplateVersion)' != '%24(UnoMauiWin32RuntimeVersion)'"
+           Text="Generated Desktop must select the independent Win32 runtime property." />
+    <Message Importance="high" Text="Generated restore/build/publish runtime version propagation passed." />
+  </Target>
+</Project>

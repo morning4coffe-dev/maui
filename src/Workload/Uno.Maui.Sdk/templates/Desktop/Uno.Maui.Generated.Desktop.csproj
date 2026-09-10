@@ -33,7 +33,7 @@
   <ItemGroup>
     <PackageReference Condition="'$(UnoMauiUseFramebufferHost)' == 'true'" Include="Uno.WinUI.Runtime.Skia.Linux.FrameBuffer" Version="$(UnoMauiUnoVersion)" />
     <PackageReference Condition="'$(UnoMauiUseMacOSHost)' == 'true'" Include="Uno.WinUI.Runtime.Skia.MacOS" Version="$(UnoMauiUnoVersion)" />
-    <PackageReference Condition="'$(UnoMauiUseWin32Host)' == 'true'" Include="Uno.WinUI.Runtime.Skia.Win32" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Condition="'$(UnoMauiUseWin32Host)' == 'true'" Include="Uno.WinUI.Runtime.Skia.Win32" Version="$(UnoMauiWin32RuntimeVersion)" />
     <PackageReference Condition="'$(UnoMauiUseX11Host)' == 'true'" Include="Uno.WinUI.Runtime.Skia.X11" Version="$(UnoMauiUnoVersion)" />
     <PublishReadyToRunExclude Include="DirectNAot.dll" />
     <PublishReadyToRunExclude Include="DirectNAot.Extensions.dll" />

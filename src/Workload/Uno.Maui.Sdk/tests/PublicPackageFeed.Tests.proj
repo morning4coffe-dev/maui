@@ -1,0 +1,18 @@
+<Project DefaultTargets="Test">
+  <PropertyGroup>
+    <MauiUnoTarget>true</MauiUnoTarget>
+    <TargetFramework>net10.0</TargetFramework>
+    <ExpectedFeed Condition="'$(ExpectedFeed)' == ''">https://api.nuget.org/v3/index.json</ExpectedFeed>
+    <RestoreAdditionalProjectSources>https://existing.example.invalid/nuget/index.json</RestoreAdditionalProjectSources>
+  </PropertyGroup>
+  <Import Project="..\..\..\UnoTargeting.props" />
+  <Target Name="Test">
+    <Error Condition="'$(UnoMauiPublicPackageFeed)' != '$(ExpectedFeed)'"
+           Text="The public dependency feed default or override was lost." />
+    <Error Condition="'$(RestoreAdditionalProjectSources)' != 'https://existing.example.invalid/nuget/index.json;$(ExpectedFeed)'"
+           Text="Source restore must append the selected feed while preserving existing sources." />
+    <Error Condition="$([System.String]::Copy('$(_MauiUnoProjectReferenceProperties)').Contains('RestoreAdditionalProjectSources=$(ExpectedFeed);UnoMauiPublicPackageFeed=$(ExpectedFeed)')) != 'True'"
+           Text="Project references must receive the same selected public feed." />
+    <Message Importance="high" Text="Source public package feed default/override passed." />
+  </Target>
+</Project>

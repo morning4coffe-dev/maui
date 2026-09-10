@@ -183,7 +183,9 @@
     <PackageReference
         Update="Uno.WinUI.Runtime.Skia.Win32"
         Version="$(UnoWinUIPackageVersion)"
-    />
+    >
+      <Version Condition="'$(UnoMauiWin32RuntimeVersion)' != ''">$(UnoMauiWin32RuntimeVersion)</Version>
+    </PackageReference>
     <PackageReference
         Update="Uno.WinUI.Runtime.Skia.Android"
         Version="$(UnoWinUIPackageVersion)"
