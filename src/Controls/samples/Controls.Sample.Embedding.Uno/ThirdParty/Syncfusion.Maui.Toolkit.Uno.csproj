@@ -122,11 +122,11 @@
     <Compile Remove="$(SyncfusionToolkitSourceRoot)**\Platform\Tizen\**\*.cs" />
 
     <!--
-      The two Win2D users. CanvasExtensions has a neutral counterpart that is used instead; the panel that
-      hosts the drawing surface does not, and is replaced by SyncfusionUnoShims.cs.
+      Replace Win2D-specific operations with ICanvas text/path primitives. The upstream neutral
+      CanvasExtensions methods are stubs and must not be selected for a rendering fixture.
     -->
     <Compile Remove="$(SyncfusionToolkitSourceRoot)Core\Extensions\CanvasExtensions.Windows.cs" />
-    <Compile Include="$(SyncfusionToolkitSourceRoot)Core\Extensions\CanvasExtensions.Standard.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)CanvasExtensions.Uno.cs" />
     <Compile Remove="$(SyncfusionToolkitSourceRoot)Core\BaseView\PlatformView\LayoutPanelExt.Windows.cs" />
     <!-- A third Win2D user: the popup's shadow brush composes through Microsoft.Graphics.Canvas.UI. -->
     <Compile Remove="$(SyncfusionToolkitSourceRoot)Popup\Helpers\ShadowHelper\**\*.Windows.cs" />

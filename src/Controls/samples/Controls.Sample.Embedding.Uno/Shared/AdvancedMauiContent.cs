@@ -93,11 +93,20 @@ public sealed class DemoItem
 /// <summary>A drawing that exercises <c>Microsoft.Maui.Graphics</c> rather than the handler pipeline.</summary>
 sealed class DemoDrawable : IDrawable
 {
+	bool _hasDrawn;
+
+	public Color Background { get; set; } = Color.FromArgb("#512BD4");
+
 	public void Draw(ICanvas canvas, RectF dirtyRect)
 	{
+		if (!_hasDrawn && Environment.GetEnvironmentVariable("MAUI_UNO_RENDER_PROBE") == "1")
+		{
+			Console.WriteLine($"GRAPHICS-FIRST-BOUNDS {(dirtyRect.Width > 0 && dirtyRect.Height > 0 ? "PASS" : "FAIL")} {dirtyRect}");
+		}
+		_hasDrawn = true;
 		canvas.SaveState();
 
-		canvas.FillColor = Color.FromArgb("#512BD4");
+		canvas.FillColor = Background;
 		canvas.FillRoundedRectangle(dirtyRect, 10);
 
 		canvas.StrokeColor = Colors.White;
@@ -227,15 +236,9 @@ public sealed class AdvancedMauiContent : ContentView
 	public const string GraphicsViewCard = "GraphicsView";
 
 	/// <summary>
-	/// Cards omitted by default because they do not currently survive this stack.
+	/// Cards omitted by default.
 	/// </summary>
-	/// <remarks>
-	/// <c>GraphicsView</c> puts the layout into a loop that never settles: no exception is raised, the UI
-	/// thread simply never finishes a pass, and the working set climbs without bound until the process is
-	/// killed. Because a hung layout takes the whole app with it, it cannot be left in a demo gallery.
-	/// Re-enable it with <c>MAUI_UNO_GALLERY_SKIP=</c> (empty) to reproduce.
-	/// </remarks>
-	public static IReadOnlyCollection<string> DefaultSkippedCards { get; } = new[] { GraphicsViewCard };
+	public static IReadOnlyCollection<string> DefaultSkippedCards { get; } = Array.Empty<string>();
 
 	/// <summary>Gets the keys of the cards that were not built.</summary>
 	public List<string> SkippedCardKeys { get; } = new();
@@ -432,12 +435,30 @@ public sealed class AdvancedMauiContent : ContentView
 		return swipeView;
 	}
 
-	View BuildGraphicsView() =>
-		Track("GraphicsView", new GraphicsView
+	View BuildGraphicsView()
+	{
+		var drawable = new DemoDrawable();
+		var graphics = Track("GraphicsView", new GraphicsView
 		{
 			HeightRequest = 120,
-			Drawable = new DemoDrawable(),
+			Drawable = Environment.GetEnvironmentVariable("MAUI_UNO_CANVAS_PROBE") == "1"
+				? new CanvasCapabilityDrawable()
+				: drawable,
 		});
+		var changeColor = new Button { Text = "Change drawing color" };
+		changeColor.Clicked += (_, _) =>
+		{
+			drawable.Background = Colors.Teal;
+			graphics.Invalidate();
+		};
+		var clear = new Button { Text = "Clear drawing" };
+		clear.Clicked += (_, _) => graphics.ClearValue(GraphicsView.DrawableProperty);
+		return new VerticalStackLayout
+		{
+			Spacing = 6,
+			Children = { graphics, changeColor, clear },
+		};
+	}
 
 	View BuildShapes()
 	{
@@ -626,10 +647,8 @@ public sealed class AdvancedMauiContent : ContentView
 	/// </summary>
 	/// <remarks>
 	/// <para>
-	/// Its rows are rendered by a MAUI <c>RefreshView</c> wrapping a <c>CollectionView</c>, which are exactly
-	/// the two controls that realize and arrange but never paint on WebAssembly under MAUI's own handlers.
-	/// The grid is therefore blank in Default mode and populated in Full mode, which makes it a real-library
-	/// demonstration of what replacing those handlers buys rather than a synthetic one.
+	/// Its rows are rendered by a MAUI <c>RefreshView</c> wrapping a <c>CollectionView</c>, exercising the
+	/// same composition with a real library in both handler modes.
 	/// </para>
 	/// <para>
 	/// The columns bind by property name, which the grid resolves reflectively — the same trimming hazard the
@@ -862,8 +881,7 @@ public sealed class AdvancedMauiContent : ContentView
 	/// <remarks>
 	/// <para>
 	/// These draw through Syncfusion's own <c>SfDrawableView</c>, whose Windows handler renders into a
-	/// <c>W2DGraphicsView</c> — which on the Uno target is a Skia-backed view. That is why the charts work
-	/// where MAUI's own <c>GraphicsView</c> hangs: they never touch it.
+	/// <c>W2DGraphicsView</c> — the same Skia-backed drawing surface used by MAUI's graphics handler.
 	/// </para>
 	/// <para>
 	/// The <see cref="DynamicDependencyAttribute"/> is load-bearing. Syncfusion resolves
@@ -1061,6 +1079,8 @@ public sealed class AdvancedMauiContent : ContentView
 		{
 			HeightRequest = 240,
 			Title = new Label { Text = "Polar area", FontSize = 12 },
+			PrimaryAxis = new CategoryAxis(),
+			SecondaryAxis = new NumericalAxis(),
 		});
 
 		polar.Series.Add(TrackSeries(new PolarAreaSeries

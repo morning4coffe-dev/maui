@@ -114,6 +114,14 @@ internal sealed class MainShell : UserControl
 			},
 		};
 
+		if (Environment.GetEnvironmentVariable("MAUI_UNO_GALLERY_ONLY") == "1")
+		{
+			while (_hostPanel.Children.Count > 1)
+			{
+				_hostPanel.Children.RemoveAt(0);
+			}
+		}
+
 		var header = new StackPanel
 		{
 			Spacing = 8,
@@ -238,6 +246,18 @@ internal sealed class MainShell : UserControl
 
 	void OnLoaded(object sender, RoutedEventArgs args)
 	{
+		if (Environment.GetEnvironmentVariable("MAUI_UNO_MODAL_SCOPE_PROBE") == "1")
+		{
+			_ = RunModalScopeProbeAsync();
+			return;
+		}
+
+		if (Environment.GetEnvironmentVariable("MAUI_UNO_ITEM_NAMES_PROBE") == "1")
+		{
+			_ = RunItemNamesProbeAsync();
+			return;
+		}
+
 		if (Environment.GetEnvironmentVariable("MAUI_UNO_PRODUCTION_PROBE") == "1")
 		{
 			_ = RunProductionProbeAsync();
@@ -251,6 +271,36 @@ internal sealed class MainShell : UserControl
 		if (Tier2Probe.IsEnabled)
 		{
 			RunTier2Probe();
+		}
+	}
+
+	async Task RunModalScopeProbeAsync()
+	{
+		try
+		{
+			await AccessibilityRegressionProbe.RunModalScopeAsync(_session, _firstHost);
+			_session.PlatformWindow.Title = "MODAL-SCOPE-PROBE PASS";
+		}
+		catch (Exception error)
+		{
+			Console.WriteLine(error);
+			_session.PlatformWindow.Title = "MODAL-SCOPE-PROBE FAIL";
+		}
+	}
+
+	async Task RunItemNamesProbeAsync()
+	{
+		try
+		{
+			var result = await AccessibilityRegressionProbe.RunItemNamesAsync(_secondHost);
+			_probeResults.Text = result.Report;
+			Console.WriteLine(result.Report);
+			_session.PlatformWindow.Title = result.Passed ? "ITEM-NAMES-PROBE PASS" : "ITEM-NAMES-PROBE FAIL";
+		}
+		catch (Exception error)
+		{
+			Console.WriteLine(error);
+			_session.PlatformWindow.Title = "ITEM-NAMES-PROBE FAIL";
 		}
 	}
 

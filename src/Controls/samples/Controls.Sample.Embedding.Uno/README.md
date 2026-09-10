@@ -220,7 +220,8 @@ actually survives the trip through Uno's renderer. `ControlCensus` runs on load 
 the realized Uno platform view, its arranged size, how many descendants it realized, and how many of them
 carry text. It writes to `control-census.log` and to the console, and is shown in the app.
 
-Results from a **trimmed Release WebAssembly publish in headless Chromium**:
+Earlier trimmed Release results, updated with current Release WebAssembly build rendering checks.
+The current graphics checks are not fresh trimmed/AOT acceptance:
 
 | Control | Platform view | Result |
 | --- | --- | --- |
@@ -231,36 +232,41 @@ Results from a **trimmed Release WebAssembly publish in headless Chromium**:
 | `IndicatorView` | `MauiPageControl` | Works |
 | Gestures (`Tap`, `Pan`) and animation | `ContentPanel`, `MauiButton` | Realized |
 | `CommunityToolkit UniformItemsLayout`, `CommunityToolkit DockLayout` | `LayoutPanel` | Works — third-party library, compiled from source |
-| `CollectionView`, `CarouselView`, `RefreshView` | `FormsListView`, `RefreshContainer` | **Realized and arranged, but nothing is painted** in Default mode. Full mode fixes all three; see Handler modes. |
-| `GraphicsView` | — | **Hangs the layout; omitted by default** |
+| `CollectionView`, `CarouselView`, `RefreshView` | `FormsListView`, `RefreshContainer` | Paint in the current Default runtime; Full is not required for these sample pixels. |
+| `GraphicsView` | `PlatformTouchGraphicsView` / `W2DGraphicsView` | Enabled by default; first draw, color invalidation and drawable removal verified with pixels in Default and Full. |
 
-### The two failures, precisely
+### Graphics regression checks
 
-**`FormsListView`-backed controls paint nothing on WebAssembly.** This is not a data, template or binding
-problem, and it is not a missing handler. The census shows the item subtrees fully realized *and* arranged
-with correct sizes — `CollectionView` reports 70 descendants of which 52 have a non-zero size,
-`CarouselView` 105 and 70, `RefreshView` 81 and 62 — and the containers themselves are laid out at the
-right dimensions. They simply never draw. `RefreshView` is blank only because it contains a
-`CollectionView`; the two genuinely distinct casualties are `CollectionView` and `CarouselView`, which
-share the `FormsListView` platform view. `IndicatorView`, which is a different platform control, paints its
-dots correctly right next to the blank carousel.
+The previous graphics hang had two shared causes, not a vendor-specific layout failure:
+`SKXamlCanvas` could paint from its `SizeChanged` callback before the derived graphics view updated its
+cached bounds, and text wrapping did not advance when no glyph fit the resulting zero-width line.
+The view now reads its arranged dimensions at draw time. Text layout rejects an empty effective width
+and consumes a complete text element when a glyph is wider than a positive-width line. Removing the
+drawable also clears the surface instead of retaining the previous image.
 
-This is why the census reports **realized**, not rendered: no cheap in-process signal distinguishes "laid
-out" from "painted", so painting is only ever confirmed from a screenshot.
+The graphics card supplies **Change drawing color** and **Clear drawing** buttons. Require the initial
+purple drawing and white ellipses, a teal drawing after normal invalidation, and no retained drawing
+after clearing. `MAUI_UNO_RENDER_PROBE=1` additionally reports `GRAPHICS-FIRST-BOUNDS PASS` or `FAIL`;
+that bounds assertion complements, but never replaces, pixel checks.
 
-**`GraphicsView` puts the layout into a loop that never settles.** No exception is raised and nothing is
-logged; the UI thread simply never completes a pass and the working set climbs without bound — roughly
-2 GB to 6 GB in fifteen seconds before the process has to be killed. Because a hung layout takes the whole
-app down, it cannot be left in a demo gallery, so it is omitted by default. Note that `Ellipse` and
-`Polygon` render through the very same `W2DGraphicsView` platform view without trouble, so the fault is in
-the `GraphicsView` control rather than in Win2D-on-Uno generally.
+The separate `MAUI_UNO_CANVAS_PROBE=1` fixture exercises point text, rectangle-aligned text and a
+polyline through the third-party source adapter. Require black and blue text and a green polyline.
+An `EXECUTED` operation is not a painting verdict; unsupported operations report `FAIL`, and missing
+pixels fail the visual gate. The adapter uses ordinary `ICanvas` text/path operations and the registered
+MAUI font manager, not Win2D sessions, vendor control checks or a production runtime dependency.
 
-Both are triageable without a rebuild:
+The sample can isolate cards without changing their normal layout or painting:
 
 ```powershell
-$env:MAUI_UNO_GALLERY_CARDS = "4"   # build only the first four cards, to bisect a hang
-$env:MAUI_UNO_GALLERY_SKIP  = ""    # clear the default omissions, to reproduce the GraphicsView hang
+$env:MAUI_UNO_GALLERY_CARDS = "5"
+$env:MAUI_UNO_GALLERY_SKIP = "CollectionView,CarouselView,RefreshView,SwipeView"
+$env:MAUI_UNO_GALLERY_ONLY = "1"   # omit the two unrelated demonstration islands
+$env:MAUI_UNO_RENDER_PROBE = "1"
 ```
+
+For WebAssembly these variables must be supplied through the bootstrap environment before managed
+startup. The default remains the full interleaved-island demonstration. The census reports
+**realized**, not rendered; dimensions and descendant counts alone do not establish painting.
 
 ## Handler modes
 
@@ -268,13 +274,12 @@ Embedding runs in one of two handler modes.
 
 | Mode | Handlers | Use |
 | --- | --- | --- |
-| `Default` | MAUI's own, recompiled against Uno.WinUI | Unchanged behaviour; this is what every earlier result in this file describes |
-| `Full` | MAUI's own, **except** the ones that do not survive every Uno target | Opt-in, additive — only the handlers listed below are replaced |
+| `Default` | MAUI's own, recompiled against Uno.WinUI | Shared handler configuration |
+| `Full` | The same default MAUI handler set | Legacy alias for applications that selected the former experimental mode |
 
 ```csharp
 MauiApp.CreateBuilder()
     .UseMauiEmbeddedApp<App>()
-    // After UseMauiEmbeddedApp: handler registration is last-one-wins, so replacing only works from here.
     .UseUnoHandlers(UnoHandlerMode.Full)
     .Build();
 ```
@@ -284,64 +289,37 @@ Desktop; on WebAssembly the choice is baked in with `-p:MauiUnoFullHandlers=true
 neither an environment nor a command line the runtime can read. (The query string does **not** reach
 `Environment.GetCommandLineArgs` under Uno WebAssembly, which is worth knowing before relying on it.)
 
-### What Full mode replaces, and what it fixes
+`Full` no longer replaces CollectionView or CarouselView. Both modes use the repaired default path
+instead of maintaining a second partial implementation. The old handler class names remain obsolete
+aliases deriving from MAUI's handlers. This preserves names, not the former platform-view API or binary
+contract: code depending on the old `ScrollViewer`/`ItemsRepeater` implementation must migrate and rebuild.
 
-| Virtual view | Default handler renders through | Full mode renders through |
-| --- | --- | --- |
-| `CollectionView` | `FormsListView` — a `ListViewBase` with a custom control template and `ItemsStackPanel` virtualization | `ScrollViewer` + `ItemsRepeater` with a `StackLayout` or `UniformGridLayout` |
-| `CarouselView` | `FormsListView`, same cause | `ScrollViewer` + `ItemsRepeater`, items sized to the viewport, position synced both ways |
+The production compatibility probe covers handler resolution, grouping, multiple selection,
+headers/footers, empty-state transitions, incremental loading, dynamic sources, carousel state,
+scrolling, failure rollback and teardown. Neither mode name implies complete platform or third-party
+product support.
 
-Measured on trimmed Release WebAssembly, same build, same page:
+The managed `ItemsWrapGrid` implementation still rejects grouped grids, sticky group headers and
+drag-and-drop reordering rather than silently changing their layout. These are explicit primitive
+boundaries; linear grouped collections remain supported.
 
-| Control | Default mode | Full mode |
-| --- | --- | --- |
-| `CollectionView` | blank | **paints** |
-| `CarouselView` | blank | **paints**, with `IndicatorView` in step |
-| `RefreshView` | blank | **paints** |
+## Accessibility transition probes
 
-`RefreshView` is fixed without being touched: it was only ever blank because it *contains* a
-`CollectionView`. That is the useful shape of this result — it identifies `FormsListView` rather than the
-items controls as the actual fault, so replacing it fixes everything built on top of it.
+`MAUI_UNO_ITEM_NAMES_PROBE=1` runs a bounded item-template fixture and publishes
+`ITEM-NAMES-PROBE PASS` or `FAIL` in the window title. It checks the realized item container's
+automation name through visibility, insertion, removal, text/description changes, accessibility
+exclusions and template replacement. Native coverage is in
+`ItemAutomationNameTracksVisibilityChildrenAndExclusions`.
 
-### Why a replacement handler rather than a fix
-
-The default handler's item containers are realized *and arranged at correct sizes* on WebAssembly and then
-never painted, so there is nothing the embedding layer can correct from the outside — the failure is inside
-`ListViewBase`'s templated virtualization path. `ItemsRepeater` is the portable primitive: a layout plus an
-element factory, with no control template and no platform-specific panel.
-
-Two details cost real time and are worth knowing before writing another one:
-
-- `ItemsRepeater.ItemTemplate` is typed `object` but accepts only a `DataTemplate` or something it can treat
-  as its internal element-factory shim. Assigning a bare `IElementFactory` throws
-  `ArgumentException: ItemTemplate` at assignment. Derive from `ElementFactory` instead.
-- `ElementFactory`'s `GetElementCore`/`RecycleElementCore` take the `Microsoft.UI.Xaml.Controls` args types,
-  not the identically named ones in `Microsoft.UI.Xaml`.
-
-### What the replacement does not map
-
-`Full` is an experimental mode name, not a promise of complete MAUI support.
-The combined candidate's updated default runtime paints the showcased
-CollectionView, CarouselView and RefreshView; the earlier blank-control
-comparison is historical evidence, not a reason to replace today's defaults.
-The opt-in production compatibility probe covers failed template cleanup,
-programmatic carousel selection, observable loop growth/reset, and loaded
-CollectionView scrolling by index/item in both orientations.
-
-`UnoCollectionViewHandler` covers `ItemsSource`, `ItemTemplate` (including `DataTemplateSelector`),
-`ItemsLayout` (linear and grid, both orientations), loaded-item `ScrollTo`, and single selection by tap. Grouping, reordering,
-incremental loading, headers and footers, multiple selection and the empty view are **not** implemented —
-those properties have no effect rather than throwing. Items are also not recycled into new data, because a
-recycled MAUI view would need re-binding and handler re-attachment; MAUI's own Windows handler does not
-recycle either.
-
-`UnoCarouselViewHandler` covers `ItemsSource`, `ItemTemplate`, `Position`, `CurrentItem`, `IsSwipeEnabled`,
-`Loop`, `PeekAreaInsets`, `IsBounceEnabled` and `VisibleViews`. Snapping is done by hand — `ItemsRepeater`
-does not implement `IScrollSnapPointsInfo`, so the `ScrollViewer` has no snap points and the nearest item is
-scrolled to once the view stops moving. `Loop` is implemented by repeating the source three times and
-re-centring on the middle block, so wrapping is seamless in both directions without an unbounded source.
-**`IsBounceEnabled` is an approximation**: Uno has no rubber-band overscroll, so it toggles scroll inertia
-instead, which is the closest available behaviour rather than an exact match.
+`MAUI_UNO_MODAL_SCOPE_PROBE=1` exposes a named background page, nested modals and explicit
+open/close/finish buttons. Check the actual semantic tree, not only `AccessibilityView` values:
+covered background and first-modal actions must be absent, then restored after pop. Repeat with
+accessibility enabled before opening and after opening (`MAUI_UNO_MODAL_SCOPE_AUTO=1`).
+Set `MAUI_UNO_MODAL_SCOPE_BACKGROUND=transparent` or `opaque` to exercise retained page roots:
+the default-background navigation path detaches the covered root and cannot prove accessibility
+isolation for a still-painted background. The probe reports each page's loaded state.
+Semantic DOM invocation exercises assistive-technology activation, not physical pointer input.
+These opt-in fixtures restore their host content; they are not production platform workarounds.
 
 ## Third-party MAUI controls
 
@@ -355,7 +333,7 @@ Three genuinely external libraries run in the gallery, all **compiled from sourc
 | Library | License | Pinned at | What runs |
 | --- | --- | --- | --- |
 | CommunityToolkit.Maui | MIT | tag `9.1.1` | `UniformItemsLayout`, `DockLayout`, converters (`InvertedBoolConverter`, `TextCaseConverter`), behaviours (`MaskedBehavior`, `NumericValidationBehavior`, `TextValidationBehavior`, `MaxLengthReachedBehavior`, `AnimationBehavior`, `ProgressBarAnimationBehavior`) |
-| Syncfusion .NET MAUI Toolkit | MIT | `main` | `SfCartesianChart` (column, stacked column, line, spline, area, scatter), `SfCircularChart` (doughnut, pie), `SfFunnelChart`, `SfPyramidChart`, `SfChartLegend`. `SfPolarChart` binds its points but does not paint — see below |
+| Syncfusion .NET MAUI Toolkit | MIT | `main` | `SfCartesianChart` (column, stacked column, line, spline, area, scatter), `SfCircularChart` (doughnut, pie), `SfFunnelChart`, `SfPyramidChart`, `SfChartLegend`; polar area, axis labels, ticks and gridlines with explicitly configured axes — see qualifications below |
 | Maui.DataGrid | MIT | `main` (`506312fd`) | `DataGrid` with sortable columns, selection and pagination |
 
 **Telerik UI for .NET MAUI is commercial**, not open source, and cannot be used here at all. Of the other
@@ -365,11 +343,9 @@ depends on `InputKit.Maui` and `Plainer.Maui`, which are NuGet-only with no sour
 ### Maui.DataGrid: the most informative of the three
 
 `Maui.DataGrid` is the one worth reading about, because it is not a control that happens to work — it is a
-real, widely used library whose rows are rendered by a MAUI `RefreshView` wrapping a `CollectionView`. Those
-are exactly the two controls that realize and arrange at correct sizes but **never paint** on WebAssembly
-under MAUI's own handlers. The grid is therefore blank in Default mode and populated in Full mode, which
-makes it an independent demonstration of what replacing those handlers buys, on code nobody wrote for this
-experiment.
+real library whose rows are rendered by a MAUI `RefreshView` wrapping a `CollectionView`. This exercises
+composition beyond a synthetic item template. Historical blank Default-mode results do not describe
+the current runtime; the grid's sorting, selection and pagination still require independent acceptance.
 
 It is also the least modified of the three. Upstream already targets a bare `net10.0` with no `Platforms`
 folder and a single `Microsoft.Maui.Controls` package reference, so nothing is excluded: the whole library
@@ -431,9 +407,8 @@ of which exist in a browser. Dropping the define selects the toolkit's own suppo
 
 ### Syncfusion: what it took
 
-The charts were the interesting case, because Syncfusion draws through its own
-`SfDrawableView : View` rather than MAUI's `GraphicsView` — so they sidestep the layout hang described
-above entirely.
+Syncfusion draws through its own `SfDrawableView : View` rather than MAUI's `GraphicsView`.
+Both handlers ultimately use the shared Skia-backed graphics surface.
 
 - **`WINDOWS` stays defined**, unlike the CommunityToolkit build. Syncfusion's neutral "Standard" handlers
   are deliberate stubs: `SfDrawableViewHandler.Standard.cs` throws `NotImplementedException` and types its
@@ -463,13 +438,24 @@ This is why the census now reports `chartPoints=[...]`. The measurement is what 
 | `ColumnSeries` | 5 | **0** | 5 |
 | `DoughnutSeries` | 5 | **0** | 5 |
 
-### The one chart that does not paint
+### Polar chart configuration and qualification
 
-`SfPolarChart` is the exception, and it is a good illustration of what the census cannot tell you. It is
-realized, arranged at 720x240 with fifteen arranged descendants, and `PolarAreaSeries` binds its five
-points — so every in-process signal says it is fine. In a real browser its plot area is simply empty, while
-the `SfPyramidChart` directly above it in the same card paints correctly. Only a screenshot catches this,
-which is exactly the `CollectionView` failure mode again in a third-party control.
+The sample originally omitted `PrimaryAxis` and `SecondaryAxis`. The toolkit leaves these null by
+default and does not generate polar segment data without the associated axes, even when its point
+count is five. The fixture now supplies `CategoryAxis` and `NumericalAxis` through their normal public
+properties; no handler, composition, clipping or vendor-specific runtime branch was added.
+
+There was a second, independent fixture error: its project selected upstream neutral canvas extension
+stubs. Both `DrawText` overloads threw, and `DrawLines` silently did nothing. The fixture now maps these
+operations to general `ICanvas.DrawString`, `GetStringSize` and `DrawPath` primitives, preserving drawing
+state and honoring font size, slant, weight, alignment, scaling and line styling. Incomplete polyline
+coordinate pairs throw rather than silently dropping a coordinate.
+
+The Release WASM gate requires area fill, all five category labels, radial tick labels and gridline
+pixels. The earlier fill-only image fails this gate. Separate neutral drawing cases fail against the
+selected stubs and pass against the portable adapter. This covers the default-themed source fixture,
+not full third-party product, accessibility or interaction parity. The excluded theme dictionaries
+remain **unsupported/unaccepted**; no themed-mode acceptance is inferred from coded defaults.
 
 ## Remaining gaps
 
