@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using SkiaSharp;
 
 namespace Microsoft.Maui.Graphics.Skia
@@ -105,6 +106,9 @@ namespace Microsoft.Maui.Graphics.Skia
 			y += _textAttributes.Margin;
 			width -= (_textAttributes.Margin * 2);
 			height -= (_textAttributes.Margin * 2);
+
+			if (!(width > 0))
+				return;
 
 			var top = y;
 			var bottom = y + height;
@@ -253,7 +257,13 @@ namespace Microsoft.Maui.Graphics.Skia
 				var count = _font.BreakText(_value.AsSpan(index), width, out var textWidth);
 
 				var found = false;
-				if (WordWrap && index + count < length)
+				if (count == 0)
+				{
+					// Keep this text element intact even when its first character is whitespace.
+					count = StringInfo.GetNextTextElement(_value, index).Length;
+					textWidth = _font.MeasureText(_value.AsSpan(index, count));
+				}
+				else if (WordWrap && index + count < length)
 				{
 					for (var i = index + count - 1; i >= index && !found; i--)
 					{
