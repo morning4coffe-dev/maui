@@ -1,0 +1,30 @@
+<Project DefaultTargets="Test">
+  <PropertyGroup>
+    <MauiUnoTarget>true</MauiUnoTarget>
+    <TargetFramework>net10.0</TargetFramework>
+    <_MauiDotNetTfm>net10.0</_MauiDotNetTfm>
+    <ExpectedFeed Condition="'$(ExpectedFeed)' == ''">https://api.nuget.org/v3/index.json</ExpectedFeed>
+    <RestoreAdditionalProjectSources>https://existing.example.invalid/nuget/index.json</RestoreAdditionalProjectSources>
+  </PropertyGroup>
+  <Import Project="..\..\..\UnoTargeting.props" />
+  <Target Name="Test">
+    <Error Condition="'$(UnoMauiPublicPackageFeed)' != '$(ExpectedFeed)'"
+           Text="The public dependency feed default or override was lost." />
+    <Error Condition="'$(RestoreAdditionalProjectSources)' != 'https://existing.example.invalid/nuget/index.json;$(ExpectedFeed)'"
+           Text="Source restore must append the selected feed while preserving existing sources." />
+    <Error Condition="$([System.String]::Copy('$(_MauiUnoProjectReferenceProperties)').Contains('RestoreAdditionalProjectSources=$(ExpectedFeed);UnoMauiPublicPackageFeed=$(ExpectedFeed)')) != 'True'"
+           Text="Project references must receive the same selected public feed." />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="ValidateForwardedProperties"
+             Properties="TargetFramework=$(TargetFramework);$(_MauiUnoProjectReferenceProperties)" />
+    <Message Importance="high" Text="Source public package feed and child property forwarding passed." />
+  </Target>
+  <Target Name="ValidateForwardedProperties">
+    <Error Condition="'$(MauiUnoTarget)' != 'true' or '$(_MauiTargetPlatformIsUno)' != 'True' or '$(TargetFramework)' != 'net10.0'"
+           Text="Forwarded properties must preserve the Uno inner-build identity, not an escaped property-list value." />
+    <Error Condition="'$(UnoMauiPublicPackageFeed)' != '$(ExpectedFeed)' or '$(RestoreAdditionalProjectSources)' != '$(ExpectedFeed)'"
+           Text="The child build must receive the selected public feed as a separate property." />
+    <Error Condition="'$(SelfContained)' != 'false' or '$(BuildInParallel)' != 'false'"
+           Text="The child build must preserve the canonical library properties." />
+  </Target>
+</Project>
