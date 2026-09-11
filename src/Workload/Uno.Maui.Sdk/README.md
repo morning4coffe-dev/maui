@@ -152,6 +152,19 @@ dotnet msbuild MyApp.csproj -t:BuildUnoMaui -p:UnoMauiTarget=Android -p:UnoMauiR
 dotnet msbuild MyApp.csproj -t:PublishUnoMaui -p:UnoMauiTarget=WebAssembly
 ```
 
+Source builds can select an approved public dependency mirror with
+`UnoMauiPublicPackageFeed`. Set `RestoreSources`, `RestoreAdditionalProjectSources`
+and `UnoMauiPublicPackageFeed` to the same HTTPS feed for both restore and build;
+retain NuGet auditing and the existing warning policy. The default remains
+`https://api.nuget.org/v3/index.json`.
+
+Do not replace `_MauiUnoProjectReferenceProperties` on the command line to change
+feeds. It is an internal property list. Escaping its semicolons as `%3B` makes
+MSBuild forward the list as one property value: a child can receive
+`MauiUnoTarget=true;MauiUnoRenderer=...` instead of `MauiUnoTarget=true` and silently
+lose Uno-only package references during restore. Use the single feed property
+and let the source targets construct the framework/RID property list.
+
 Run the generated-host runtime asset contract checks without restoring packages:
 
 ```powershell
