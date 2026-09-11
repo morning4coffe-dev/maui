@@ -155,6 +155,10 @@ Run the generated-host runtime asset contract checks without restoring packages:
 dotnet msbuild src\Workload\Uno.Maui.Sdk\tests\RuntimeAssets.proj
 ```
 
+These evaluation-only contracts clear inherited task-generation paths and import
+the tracked Resizetizer targets without requiring a compiled task DLL. They
+verify dependency and post-SDK import wiring, not resource execution.
+
 ## Package mode
 
 Source-mode generated heads use the Resizetizer targets and assemblies built by
@@ -163,7 +167,7 @@ in-tree samples. Build those tasks before building the head, and propagate the
 same task location when using isolated outputs. Source Gallery restore does not
 require prepacked MAUI packages or the Automatic sample's local Shipping feed.
 
-After building the tasks, validate both dependency modes:
+The dependency modes can also be evaluated directly without building the tasks:
 
 ```powershell
 dotnet msbuild src\Workload\Uno.Maui.Sdk\tests\HeadDependencies.Tests.proj -p:Profile=GeneratedSource
