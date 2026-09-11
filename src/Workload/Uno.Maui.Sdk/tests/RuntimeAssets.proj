@@ -60,6 +60,11 @@
     <MSBuild Projects="RuntimeVersionOverrides.Tests.proj" Properties="SdkDefaults=Package;UseDefaultWin32Version=true" />
     <MSBuild Projects="RuntimeVersionPropagation.Tests.proj" />
     <MSBuild Projects="RuntimeVersionPropagation.Tests.proj" Properties="UseDefaultWin32Version=true" />
+    <MSBuild Projects="SourceProjectReferences.Tests.proj" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />
+    <MSBuild Projects="SourceProjectReferences.Tests.proj" Properties="ProbeRuntimeIdentifier=browser-wasm" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />
+    <MSBuild Projects="SourceProjectReferences.Tests.proj" Properties="ProbeRuntimeIdentifier=win-x64" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />
+    <MSBuild Projects="SourceProjectReferences.Tests.proj" Properties="ProbeUno=false" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />
+    <MSBuild Projects="SourceProjectReferences.Tests.proj" Properties="ProbeFramework=netstandard2.0" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />
     <MSBuild Projects="PublicPackageFeed.Tests.proj" RemoveProperties="UnoMauiPublicPackageFeed;ExpectedFeed" />
     <MSBuild Projects="PublicPackageFeed.Tests.proj"
              Properties="UnoMauiPublicPackageFeed=https://mirror.example.invalid/index.json;ExpectedFeed=https://mirror.example.invalid/index.json" />

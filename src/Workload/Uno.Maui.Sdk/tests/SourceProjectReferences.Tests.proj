@@ -1,0 +1,56 @@
+<Project DefaultTargets="Test">
+  <PropertyGroup>
+    <ProbeUno Condition="'$(ProbeUno)' == ''">true</ProbeUno>
+    <ProbeFramework Condition="'$(ProbeFramework)' == ''">net10.0</ProbeFramework>
+    <MauiUnoTarget>$(ProbeUno)</MauiUnoTarget>
+    <TargetFramework>$(ProbeFramework)</TargetFramework>
+    <RuntimeIdentifier>$(ProbeRuntimeIdentifier)</RuntimeIdentifier>
+    <_MauiDotNetTfm>net10.0</_MauiDotNetTfm>
+    <MauiSrcDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '..'))</MauiSrcDirectory>
+    <_EssentialsProject>$(MSBuildThisFileDirectory)..\..\..\Essentials\src\Essentials.csproj</_EssentialsProject>
+    <_GraphicsReference>/Project/ItemGroup/ProjectReference[@Include='..\..\Graphics\src\Graphics\Graphics.csproj']</_GraphicsReference>
+    <_ExpectedForwarded>0</_ExpectedForwarded>
+    <_ExpectedForwarded Condition="'$(ProbeUno)' == 'true' and '$(ProbeFramework)' == 'net10.0'">6</_ExpectedForwarded>
+  </PropertyGroup>
+  <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+  <ItemGroup>
+    <_TransitiveProjectReferences Include="$(MauiSrcDirectory)Core\src\Core.csproj;$(MauiSrcDirectory)Essentials\src\Essentials.csproj;$(MauiSrcDirectory)Graphics\src\Graphics\Graphics.csproj;$(MauiSrcDirectory)Graphics\src\Graphics.Skia\Graphics.Skia.csproj;$(MauiSrcDirectory)Controls\src\Core\Controls.Core.csproj;$(MauiSrcDirectory)Controls\src\Xaml\Controls.Xaml.csproj">
+      <ContractRuntimeReference>true</ContractRuntimeReference>
+    </_TransitiveProjectReferences>
+    <_TransitiveProjectReferences Include="$(MauiSrcDirectory)Controls\src\BindingSourceGen\Controls.BindingSourceGen.csproj;$(MSBuildThisFileDirectory)other\Graphics.csproj">
+      <ContractRuntimeReference>false</ContractRuntimeReference>
+    </_TransitiveProjectReferences>
+  </ItemGroup>
+  <!-- Mirror the SDK's metadata-free transitive injection without building projects. -->
+  <Target Name="IncludeTransitiveProjectReferences">
+    <ItemGroup>
+      <ProjectReference Include="@(_TransitiveProjectReferences)" />
+    </ItemGroup>
+  </Target>
+  <Target Name="Test" DependsOnTargets="IncludeTransitiveProjectReferences">
+    <XmlPeek XmlInputPath="$(_EssentialsProject)"
+             Query="$(_GraphicsReference)/SkipGetTargetFrameworkProperties[@Condition=&quot;'%24(MauiUnoTarget)' == 'true'&quot; and text()='true']/../@Include">
+      <Output TaskParameter="Result" ItemName="_UnoGraphicsSkipInference" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(_EssentialsProject)"
+             Query="$(_GraphicsReference)/SetTargetFramework[@Condition=&quot;'%24(MauiUnoTarget)' == 'true'&quot; and text()=&quot;TargetFramework=%24(TargetFramework);%24(_MauiUnoProjectReferenceProperties)&quot;]/../@Include">
+      <Output TaskParameter="Result" ItemName="_UnoGraphicsProperties" />
+    </XmlPeek>
+    <Error Condition="'@(_UnoGraphicsSkipInference->Count())' != '1'"
+           Text="Essentials must skip Graphics framework re-inference only for Uno builds." />
+    <Error Condition="'@(_UnoGraphicsProperties->Count())' != '1'"
+           Text="Essentials must forward the canonical Uno property set to Graphics, preserving native MAUI negotiation." />
+    <ItemGroup>
+      <_Forwarded Include="@(ProjectReference->WithMetadataValue('SkipGetTargetFrameworkProperties', 'true'))" />
+      <_Canonical Include="@(_Forwarded->WithMetadataValue('SetTargetFramework', 'TargetFramework=$(TargetFramework);$(_MauiUnoProjectReferenceProperties)'))" />
+      <_Unexpected Include="@(_Forwarded->WithMetadataValue('ContractRuntimeReference', 'false'))" />
+    </ItemGroup>
+    <Error Condition="'@(_Forwarded->Count())' != '$(_ExpectedForwarded)' or '@(_Canonical->Count())' != '$(_ExpectedForwarded)'"
+           Text="Injected runtime references must preserve one canonical Uno property set only in the Uno inner build." />
+    <Error Condition="'@(_Unexpected)' != ''"
+           Text="Source generators and unrelated projects must retain normal framework negotiation." />
+    <Error Condition="'$(_ExpectedForwarded)' != '0' and $([System.String]::Copy('$(_MauiUnoProjectReferenceProperties)').Contains('RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=false;BuildInParallel=false;')) != 'True'"
+           Text="The canonical property set must retain the selected RID and library build semantics." />
+    <Message Importance="high" Text="Essentials Graphics reference preserves canonical Uno build identity and native MAUI negotiation." />
+  </Target>
+</Project>

@@ -18,6 +18,31 @@
   <Target Name="_ValidateMauiUnoRenderer" BeforeTargets="PrepareForBuild" Condition="'$(MauiUnoTarget)' == 'true'">
     <Error Condition="'$(MauiUnoRenderer)' != 'WinUI'" Text="MauiUnoRenderer must be 'WinUI' for the current renderer implementation." />
   </Target>
+  <Target Name="_MauiUnoNormalizeTransitiveRuntimeReferences"
+          AfterTargets="IncludeTransitiveProjectReferences"
+          Condition="'$(MauiUnoTarget)' == 'true' and '$(TargetFramework)' == '$(_MauiDotNetTfm)'">
+    <PropertyGroup>
+      <_MauiUnoCoreProject>$([MSBuild]::NormalizePath('$(MauiSrcDirectory)', 'Core', 'src', 'Core.csproj'))</_MauiUnoCoreProject>
+      <_MauiUnoEssentialsProject>$([MSBuild]::NormalizePath('$(MauiSrcDirectory)', 'Essentials', 'src', 'Essentials.csproj'))</_MauiUnoEssentialsProject>
+      <_MauiUnoGraphicsProject>$([MSBuild]::NormalizePath('$(MauiSrcDirectory)', 'Graphics', 'src', 'Graphics', 'Graphics.csproj'))</_MauiUnoGraphicsProject>
+      <_MauiUnoSkiaGraphicsProject>$([MSBuild]::NormalizePath('$(MauiSrcDirectory)', 'Graphics', 'src', 'Graphics.Skia', 'Graphics.Skia.csproj'))</_MauiUnoSkiaGraphicsProject>
+      <_MauiUnoControlsProject>$([MSBuild]::NormalizePath('$(MauiSrcDirectory)', 'Controls', 'src', 'Core', 'Controls.Core.csproj'))</_MauiUnoControlsProject>
+      <_MauiUnoXamlProject>$([MSBuild]::NormalizePath('$(MauiSrcDirectory)', 'Controls', 'src', 'Xaml', 'Controls.Xaml.csproj'))</_MauiUnoXamlProject>
+    </PropertyGroup>
+    <ItemGroup>
+      <!-- SDK-injected edges must share the explicit edges' identity, not race for the same outputs. -->
+      <ProjectReference Update="@(_TransitiveProjectReferences)"
+                        Condition="'%(ProjectReference.FullPath)' == '$(_MauiUnoCoreProject)' or
+                                   '%(ProjectReference.FullPath)' == '$(_MauiUnoEssentialsProject)' or
+                                   '%(ProjectReference.FullPath)' == '$(_MauiUnoGraphicsProject)' or
+                                   '%(ProjectReference.FullPath)' == '$(_MauiUnoSkiaGraphicsProject)' or
+                                   '%(ProjectReference.FullPath)' == '$(_MauiUnoControlsProject)' or
+                                   '%(ProjectReference.FullPath)' == '$(_MauiUnoXamlProject)'">
+        <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+        <SetTargetFramework>TargetFramework=$(TargetFramework);$(_MauiUnoProjectReferenceProperties)</SetTargetFramework>
+      </ProjectReference>
+    </ItemGroup>
+  </Target>
   <ItemGroup Condition="'$(MauiUnoTarget)' == 'true' and '$(ApplicationVersion)' != ''">
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>Microsoft.Maui.ApplicationModel.AppInfo.BuildString</_Parameter1>
