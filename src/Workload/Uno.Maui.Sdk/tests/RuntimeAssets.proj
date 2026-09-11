@@ -63,10 +63,10 @@
     <MSBuild Projects="PublicPackageFeed.Tests.proj" RemoveProperties="UnoMauiPublicPackageFeed;ExpectedFeed" />
     <MSBuild Projects="PublicPackageFeed.Tests.proj"
              Properties="UnoMauiPublicPackageFeed=https://mirror.example.invalid/index.json;ExpectedFeed=https://mirror.example.invalid/index.json" />
-    <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=GeneratedPackage" />
-    <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=GeneratedSource" />
-    <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=Minimal" />
-    <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=Embedding" />
+    <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=GeneratedPackage" RemoveProperties="_MauiBuildTasksLocation" />
+    <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=GeneratedSource" RemoveProperties="_MauiBuildTasksLocation" />
+    <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=Minimal" RemoveProperties="_MauiBuildTasksLocation" />
+    <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=Embedding" RemoveProperties="_MauiBuildTasksLocation" />
     <MSBuild Projects="AndroidHeadPolicy.Tests.proj" Properties="Profile=Generated" />
     <MSBuild Projects="AndroidHeadPolicy.Tests.proj" Properties="Profile=Minimal" />
     <MSBuild Projects="AndroidHeadPolicy.Tests.proj" Properties="Profile=Embedding" />

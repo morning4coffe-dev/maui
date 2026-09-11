@@ -9,7 +9,9 @@
     <UnoMauiPackageReferencesProvided>true</UnoMauiPackageReferencesProvided>
     <UnoMauiUseSource Condition="'$(Profile)' == 'GeneratedPackage'">false</UnoMauiUseSource>
     <UnoMauiUseSource Condition="'$(Profile)' != 'GeneratedPackage'">true</UnoMauiUseSource>
-    <_MauiBuildTasksLocation Condition="'$(_MauiBuildTasksLocation)' == ''">$(MauiSrcDirectory)..\.buildtasks\</_MauiBuildTasksLocation>
+    <!-- Evaluate the tracked targets without requiring a compiled build-task generation. -->
+    <_MauiBuildTasksLocation Condition="'$(_MauiBuildTasksLocation)' == ''">$([MSBuild]::NormalizeDirectory('$(MauiSrcDirectory)', 'SingleProject', 'Resizetizer', 'src', 'nuget', 'buildTransitive'))</_MauiBuildTasksLocation>
+    <_ExpectedResizetizerAfter>$([MSBuild]::NormalizePath('$(_MauiBuildTasksLocation)', 'Microsoft.Maui.Resizetizer.After.targets'))</_ExpectedResizetizerAfter>
   </PropertyGroup>
   <Import Project="..\Sdk\Uno.Maui.Source.props" Condition="'$(Profile)' == 'GeneratedSource' or '$(Profile)' == 'GeneratedPackage'" />
   <Import Project="..\Sdk\Uno.Maui.GeneratedHost.targets" Condition="'$(Profile)' == 'GeneratedSource' or '$(Profile)' == 'GeneratedPackage'" />
@@ -22,6 +24,7 @@
       <_Graphics2D Include="@(PackageReference->WithMetadataValue('Identity', 'Uno.WinUI.Graphics2DSK'))" />
       <_Skottie Include="@(PackageReference->WithMetadataValue('Identity', 'SkiaSharp.Skottie'))" />
       <_Resizetizer Include="@(PackageReference->WithMetadataValue('Identity', 'Microsoft.Maui.Resizetizer'))" />
+      <_ResizetizerAfter Include="$(AfterMicrosoftNETSdkTargets)" />
     </ItemGroup>
     <Error Condition="'@(_Lottie->Count())' != '1'" Text="$(Profile) must include one ProgressRing animation provider." />
     <Error Condition="'@(_Lottie->'%(Version)')' != '$(UnoMauiUnoVersion)'" Text="ProgressRing provider must use the base Uno package version, not an unrelated core override." />
@@ -32,8 +35,10 @@
            Text="Generated source heads must not restore a prepacked MAUI Resizetizer." />
     <Error Condition="'$(Profile)' == 'GeneratedSource' and '$(UsingMicrosoftMauiResizetizerSdk)' != 'true'"
            Text="Generated source heads must import the source-built Resizetizer targets." />
-    <Error Condition="'$(Profile)' == 'GeneratedSource' and (!Exists('$(_MauiBuildTasksLocation)Microsoft.Maui.Resizetizer.dll') or !Exists('$(_MauiBuildTasksLocation)Microsoft.Maui.Resizetizer.After.targets'))"
-           Text="The evaluated source Resizetizer tasks must be built before this contract runs." />
+    <Error Condition="'$(Profile)' == 'GeneratedSource' and ('@(_ResizetizerAfter->WithMetadataValue('FullPath', '$(_ExpectedResizetizerAfter)')->Count())' != '1' or !Exists('$(_ExpectedResizetizerAfter)'))"
+           Text="Generated source heads must schedule the tracked Resizetizer post-SDK targets exactly once." />
+    <Error Condition="'$(Profile)' == 'GeneratedSource' and Exists('$(_MauiBuildTasksLocation)Microsoft.Maui.Resizetizer.dll')"
+           Text="The evaluation-only source contract must not depend on a compiled Resizetizer generation." />
     <Error Condition="'$(Profile)' == 'GeneratedPackage' and ('@(_Resizetizer->Count())' != '1' or '@(_Resizetizer->'%(Version)')' != '$(UnoMauiPackageVersion)' or '@(_Resizetizer->'%(PrivateAssets)')' != 'all')"
            Text="Generated packaged heads must retain one private Resizetizer dependency at the renderer package version." />
     <Error Condition="'$(Profile)' == 'GeneratedPackage' and '$(UsingMicrosoftMauiResizetizerSdk)' == 'true'"
