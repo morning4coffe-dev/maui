@@ -159,6 +159,12 @@ These evaluation-only contracts clear inherited task-generation paths and import
 the tracked Resizetizer targets without requiring a compiled task DLL. They
 verify dependency and post-SDK import wiring, not resource execution.
 
+References to the neutral runtime projects retain the same Uno framework/RID
+properties on both explicit and SDK-injected transitive edges. Otherwise,
+MSBuild can create different project configurations that write the same output
+files concurrently. Native MAUI, source-generator and unrelated project
+references retain their normal framework negotiation.
+
 ## Package mode
 
 Source-mode generated heads use the Resizetizer targets and assemblies built by

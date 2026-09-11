@@ -34,6 +34,11 @@
     <MSBuild Projects="GeneratedResources.Tests.proj" Properties="DeduplicateResources=false" />
     <MSBuild Projects="GeneratedResources.Tests.proj" Properties="DeduplicateResources=true" />
     <MSBuild Projects="RuntimeVersionOverrides.Tests.proj" />
+    <MSBuild Projects="SourceProjectReferences.Tests.proj" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />
+    <MSBuild Projects="SourceProjectReferences.Tests.proj" Properties="ProbeRuntimeIdentifier=browser-wasm" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />
+    <MSBuild Projects="SourceProjectReferences.Tests.proj" Properties="ProbeRuntimeIdentifier=win-x64" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />
+    <MSBuild Projects="SourceProjectReferences.Tests.proj" Properties="ProbeUno=false" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />
+    <MSBuild Projects="SourceProjectReferences.Tests.proj" Properties="ProbeFramework=netstandard2.0" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />
     <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=GeneratedPackage" RemoveProperties="_MauiBuildTasksLocation" />
     <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=GeneratedSource" RemoveProperties="_MauiBuildTasksLocation" />
     <MSBuild Projects="HeadDependencies.Tests.proj" Properties="Profile=Minimal" RemoveProperties="_MauiBuildTasksLocation" />

@@ -31,7 +31,10 @@
   </PropertyGroup>
   <Import Project="$(MauiSrcDirectory)MultiTargeting.targets" />
   <ItemGroup>
-    <ProjectReference Include="..\..\Graphics\src\Graphics\Graphics.csproj" />
+    <ProjectReference Include="..\..\Graphics\src\Graphics\Graphics.csproj">
+      <SkipGetTargetFrameworkProperties Condition="'$(MauiUnoTarget)' == 'true'">true</SkipGetTargetFrameworkProperties>
+      <SetTargetFramework Condition="'$(MauiUnoTarget)' == 'true'">TargetFramework=$(TargetFramework);$(_MauiUnoProjectReferenceProperties)</SetTargetFramework>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="**\*.shared.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
