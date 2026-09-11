@@ -3,6 +3,9 @@ using System;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Hosting;
+#if UNO
+using Microsoft.Extensions.Logging;
+#endif
 
 #if ANDROID
 using PlatformWindow = Android.App.Activity;
@@ -78,7 +81,15 @@ internal static class EmbeddingExtensions
 		var embeddedApp = mauiApp.Services.GetRequiredService<EmbeddedPlatformApplication>();
 
 		// Create a window context for the platform window that was provided.
+#if UNO
+		IServiceScope? windowScope = null;
+		IMauiContext? windowContext = null;
+		try
+		{
+			windowContext = embeddedApp.Context.MakeWindowScope(platformWindow, out windowScope);
+#else
 		var windowContext = embeddedApp.Context.MakeWindowScope(platformWindow, out var windowScope);
+#endif
 
 		// Add the platform window to the service provider.
 		var wndProvider = windowContext.Services.GetRequiredService<EmbeddedWindowProvider>();
@@ -88,6 +99,33 @@ internal static class EmbeddingExtensions
 		window.ToHandler(windowContext);
 
 		return windowContext;
+#if UNO
+		}
+		catch
+		{
+			var logger = embeddedApp.Context.CreateLogger(nameof(EmbeddingExtensions));
+			try
+			{
+				window.Handler?.DisconnectHandler();
+			}
+			catch (Exception cleanupError)
+			{
+				logger?.LogWarning(cleanupError, "Failed to disconnect a partially embedded window handler.");
+			}
+			try
+			{
+				if (windowContext is MauiContext context)
+					context.DisposeWindowScope();
+				else
+					windowScope?.Dispose();
+			}
+			catch (Exception cleanupError)
+			{
+				logger?.LogWarning(cleanupError, "Failed to dispose a partially initialized embedded window scope.");
+			}
+			throw;
+		}
+#endif
 	}
 
 	/// <summary>

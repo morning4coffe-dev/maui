@@ -49,6 +49,7 @@ public sealed partial class MauiHost : ContentControl
 	MauiVisualElement? _realizedContent;
 	bool _isLoaded;
 	bool _isBindingContextBridged;
+	bool _isRestoringMauiContent;
 
 	public MauiHost()
 	{
@@ -76,6 +77,7 @@ public sealed partial class MauiHost : ContentControl
 				return;
 			}
 
+			value?.VerifyCanEmbed(MauiContent, _realizedContent);
 			_session = value;
 			UpdateContent();
 		}
@@ -88,8 +90,36 @@ public sealed partial class MauiHost : ContentControl
 		set => SetValue(MauiContentProperty, value);
 	}
 
-	static void OnMauiContentChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args) =>
-		((MauiHost)sender).UpdateContent();
+	static void OnMauiContentChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+	{
+		var host = (MauiHost)sender;
+		if (host._isRestoringMauiContent)
+			return;
+
+		try
+		{
+			if (args.NewValue is MauiVisualElement content)
+				host._session?.VerifyCanEmbed(content, host._realizedContent);
+		}
+		catch (Exception validationError)
+		{
+			try
+			{
+				host._isRestoringMauiContent = true;
+				host.SetValue(MauiContentProperty, args.OldValue);
+			}
+			catch (Exception rollbackError)
+			{
+				throw new AggregateException("Failed to restore rejected MAUI content.", validationError, rollbackError);
+			}
+			finally
+			{
+				host._isRestoringMauiContent = false;
+			}
+			throw;
+		}
+		host.UpdateContent();
+	}
 
 	void OnLoaded(object sender, RoutedEventArgs args)
 	{
@@ -154,6 +184,11 @@ public sealed partial class MauiHost : ContentControl
 		if (ReferenceEquals(_realizedSession, _session) && ReferenceEquals(_realizedContent, MauiContent))
 		{
 			return;
+		}
+
+		if (_session is { } incomingSession && MauiContent is { } incomingContent)
+		{
+			incomingSession.VerifyCanEmbed(incomingContent, _realizedContent);
 		}
 
 		if (_realizedContent is { } previous)

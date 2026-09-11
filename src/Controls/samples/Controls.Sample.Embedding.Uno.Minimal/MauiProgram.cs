@@ -17,5 +17,8 @@ public static class MauiProgram
 	public static MauiApp CreateMauiApp() =>
 		MauiApp.CreateBuilder()
 			.UseMauiEmbeddedApp<EmbeddedMauiApp>()
+#if MAUI_UNO_EMBEDDING_OWNERSHIP_PROBE
+			.ConfigureOwnershipProbe()
+#endif
 			.Build();
 }

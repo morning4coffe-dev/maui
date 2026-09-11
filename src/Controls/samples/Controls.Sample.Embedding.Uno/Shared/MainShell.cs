@@ -246,10 +246,35 @@ internal sealed class MainShell : UserControl
 
 	void OnLoaded(object sender, RoutedEventArgs args)
 	{
+		if (Environment.GetEnvironmentVariable("MAUI_UNO_EMBEDDING_OWNERSHIP_PROBE") == "1")
+		{
+			Loaded -= OnLoaded;
+			_ = RunEmbeddingOwnershipProbeAsync();
+			return;
+		}
+
 		if (Environment.GetEnvironmentVariable("MAUI_UNO_MODAL_SCOPE_PROBE") == "1")
 		{
 			_ = RunModalScopeProbeAsync();
 			return;
+		}
+
+		async Task RunEmbeddingOwnershipProbeAsync()
+		{
+			try
+			{
+				var result = await EmbeddingOwnershipRegressionProbe.RunAsync(_session, _firstHost, _secondHost);
+				Console.WriteLine(result.Report);
+				Console.WriteLine(result.Passed ? "EMBEDDING-OWNERSHIP RESULT PASS" : "EMBEDDING-OWNERSHIP RESULT FAIL");
+			}
+			catch (Exception error)
+			{
+				Console.WriteLine($"EMBEDDING-OWNERSHIP RESULT FAIL: {error}");
+			}
+			finally
+			{
+				_session.PlatformWindow.Close();
+			}
 		}
 
 		if (Environment.GetEnvironmentVariable("MAUI_UNO_ITEM_NAMES_PROBE") == "1")

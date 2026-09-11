@@ -47,6 +47,7 @@ The reusable runtime lives outside the sample, in `src/Controls/src/Embedding.Un
 | `Shared/ControlCensus.cs` | Per-control report of what actually reached the platform |
 | `Shared/Tier2Probe.cs` | Code-driven verification of the window-scoped features |
 | `Shared/LifecycleRegressionProbe.cs` | Modal push/pop cancellation, failed-handler rollback/retry, restored input, observable-list updates and large-grid regressions |
+| `Shared/EmbeddingOwnershipRegressionProbe.cs` | Public-overload scope rollback and rejected host assignments through unload/reload |
 | `Shared/ImageDensityRegressionProbe.cs` | Opt-in slow-image density changes, source supersession and disconnect cleanup |
 | `Shared/MauiProgram.cs`, `Shared/App.cs` | The embedded MAUI app |
 
@@ -70,14 +71,38 @@ This follows `Controls.Sample.Embedding`'s `Scenario3_Correct`, which is the onl
 - **One `IMauiContext` per native `Window`,** created once via `CreateEmbeddedWindowContext` and
   shared by every host in that window. The convenience
   `ToPlatformEmbedded(element, mauiApp, window)` overload is deliberately **not** used: it mints a
-  new context *and* a new `EmbeddedWindow` in `Application.Windows` on every call.
+  new context *and* a new `EmbeddedWindow` in `Application.Windows` on each successful call. On Uno,
+  duplicates are rejected before context creation, and failed calls dispose only their newly created
+  synthetic window and scope, including failed scoped-service initialization.
 - **`MauiHost.Unloaded` never disposes the scope.** Unloading is transient — it also happens during
   navigation, reparenting, virtualization, and template changes — and the scope is shared.
   `IWindow.Destroying()` is called exactly once, from `Window.Closed`.
 - **Replacing content** unparents the previous element from the embedded window and disconnects its
   handlers; otherwise it stays rooted for the lifetime of the window.
+- **Rejected host configuration** leaves both the effective properties and the existing island intact.
+  `Session` is validated before assignment; rejected `MauiContent` dependency-property changes restore
+  their previous value. Ordinary unload/reload does not retry the rejected configuration.
+- **One owner per element.** `Embed` and `ToPlatformEmbedded` reject an already parented, handled, or
+  reserved element before attachment. A second host or session cannot share its platform view.
+  Transient unload retains ownership; explicitly release the original owner before transferring content.
 - **Failed realization** rolls back logical parenting, the window page, navigation-root registration and
   handlers while preserving the original handler exception. The same content can then be retried.
+
+`LifecycleRegressionProbe` covers duplicate direct embedding, two hosts, cross-session rejection,
+transient unload and explicit transfer, including duplicate attempts after failed-handler retry.
+The focused `EmbeddedContentRegistrationTests` unit fixture covers reservation and release without
+requiring a native window; it is not a substitute for running the platform lifecycle probe.
+
+For the bounded Desktop ownership regressions, set
+`MAUI_UNO_EMBEDDING_OWNERSHIP_PROBE=1` and run the Desktop head. It executes nine cases against the
+actual public embedding overloads and dependency properties, reports `EMBEDDING-OWNERSHIP RESULT`,
+then closes its test window. It checks application window counts, scoped-service disposal, retained
+handlers/configuration, unload/reload, and valid recovery transfers without clearing content first.
+The normal lifecycle probe also includes these checks and retains all existing grid gates.
+
+The minimal browser sample can execute the six single-window cases with
+`MauiUnoEmbeddingOwnershipProbe=true`. Stock Uno's browser host rejects secondary native windows;
+its explicitly labeled single-window result does not cover cross-session transfers. Run those on Desktop.
 
 The Android head links the same activity and DayNight/system-bar resources as
 the generated SDK host via `Uno.Maui.AndroidHost.targets`; it does not maintain

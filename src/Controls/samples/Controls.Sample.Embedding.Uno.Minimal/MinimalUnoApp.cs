@@ -146,8 +146,35 @@ public sealed class MinimalUnoApp : PlatformApplication
 		root.Loaded += (_, _) => Console.WriteLine(
 			$"MINIMAL-EMBEDDING ready: root={root.ActualWidth}x{root.ActualHeight}, mauiHost={host.ActualWidth}x{host.ActualHeight}");
 
+#if MAUI_UNO_EMBEDDING_OWNERSHIP_PROBE
+		var secondHost = new MauiHost { Session = _session };
+		panel.Children.Add(new Border { Child = secondHost });
+		root.Loaded += OnProbeLoaded;
+		void OnProbeLoaded(object sender, RoutedEventArgs args)
+		{
+			root.Loaded -= OnProbeLoaded;
+			_ = RunOwnershipProbeAsync(host, secondHost);
+		}
+#endif
 		return root;
 	}
+
+#if MAUI_UNO_EMBEDDING_OWNERSHIP_PROBE
+	async Task RunOwnershipProbeAsync(MauiHost first, MauiHost second)
+	{
+		try
+		{
+			var result = await EmbeddingOwnershipRegressionProbe.RunSingleWindowAsync(_session!, first, second);
+			Console.WriteLine(result.Report);
+			_window!.Title = result.Passed ? "EMBEDDING-OWNERSHIP SINGLE-WINDOW PASS" : "EMBEDDING-OWNERSHIP SINGLE-WINDOW FAIL";
+		}
+		catch (Exception error)
+		{
+			Trace("ownership probe", error);
+			_window!.Title = "EMBEDDING-OWNERSHIP SINGLE-WINDOW FAIL";
+		}
+	}
+#endif
 
 	static void Trace(string origin, Exception? exception) =>
 		Console.WriteLine($"MINIMAL-EMBEDDING {origin}: {exception}");

@@ -37,7 +37,7 @@ public sealed class MauiEmbeddingSession : IDisposable
 	static MauiApp? sharedApp;
 
 	readonly PlatformWindow _platformWindow;
-	readonly List<MauiVisualElement> _embeddedContent = new();
+	readonly Dictionary<MauiVisualElement, EmbeddedContentRegistration> _embeddedContent = new(ReferenceEqualityComparer.Instance);
 	MauiWindow? _embeddedWindow;
 	IMauiContext? _windowContext;
 	EmbeddedWindowRoot? _windowRoot;
@@ -179,30 +179,24 @@ public sealed class MauiEmbeddingSession : IDisposable
 	/// A second page is supplied. A window has exactly one <c>Page</c>, and a second page would silently
 	/// inherit the first page's navigation proxy and alert manager, so its dialogs and modals would render
 	/// in the first island's region.
+	/// The content already belongs to a host, parent, or handler. Release that owner before embedding it.
 	/// </exception>
 	public PlatformView Embed(MauiVisualElement content)
 	{
 		ArgumentNullException.ThrowIfNull(content);
-		ObjectDisposedException.ThrowIf(_isDisposed, this);
-
-		var context = WindowContext;
-
-		// The window content exists by the time a host loads, which is not guaranteed when the context is
-		// first created, so the theme bridge is attached here as well. Attaching is idempotent.
-		AttachThemeBridge();
-
-		if (content is MauiPage && _windowRoot is not null)
-		{
-			throw new InvalidOperationException(
-				"This window already hosts a page-based MAUI island. A window has a single Page, so a " +
-				"second page would route its dialogs and modal navigation through the first island. " +
-				"Host additional islands as views, or use a separate Uno window.");
-		}
+		VerifyCanEmbed(content, replacingContent: null);
 
 		// Record ownership before parenting or invoking application handlers, either of which can throw.
-		_embeddedContent.Add(content);
+		var registration = EmbeddedContentRegistration.Acquire(content);
+		_embeddedContent.Add(content, registration);
+		IMauiContext? context = null;
 		try
 		{
+			context = WindowContext;
+
+			// A host may load after context creation. Theme attachment is idempotent.
+			AttachThemeBridge();
+			registration.VerifyOwnership(content);
 			if (content is MauiPage page)
 			{
 				_embeddedWindow!.Page = page;
@@ -210,7 +204,7 @@ public sealed class MauiEmbeddingSession : IDisposable
 				return _windowRoot.PlatformView;
 			}
 
-			return content.ToPlatformEmbedded(context);
+			return content.ToPlatformEmbedded(context, registration);
 		}
 		catch
 		{
@@ -228,11 +222,27 @@ public sealed class MauiEmbeddingSession : IDisposable
 			}
 			catch (Exception cleanupError)
 			{
-				context.Services.GetService<ILoggerFactory>()?.CreateLogger<MauiEmbeddingSession>()
+				context?.Services.GetService<ILoggerFactory>()?.CreateLogger<MauiEmbeddingSession>()
 					.LogWarning(cleanupError, "Failed to release partially embedded content.");
 			}
 			throw;
 		}
+	}
+
+	internal void VerifyCanEmbed(MauiVisualElement? content, MauiVisualElement? replacingContent)
+	{
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+		if (content is MauiPage && _embeddedContent.Keys.Any(element => element is MauiPage && !ReferenceEquals(element, replacingContent)))
+		{
+			throw new InvalidOperationException(
+				"This window already hosts a page-based MAUI island. A window has a single Page, so a " +
+				"second page would route its dialogs and modal navigation through the first island. " +
+				"Host additional islands as views, or use a separate Uno window.");
+		}
+
+		// A host may transfer its own content to another session after releasing it.
+		if (content is not null && !ReferenceEquals(content, replacingContent))
+			EmbeddedContentRegistration.VerifyAvailable(content);
 	}
 
 	/// <summary>
@@ -393,7 +403,7 @@ public sealed class MauiEmbeddingSession : IDisposable
 	{
 		ArgumentNullException.ThrowIfNull(content);
 
-		if (!_embeddedContent.Remove(content))
+		if (!_embeddedContent.Remove(content, out var registration))
 		{
 			return;
 		}
@@ -424,7 +434,14 @@ public sealed class MauiEmbeddingSession : IDisposable
 		}
 		finally
 		{
-			((IView)content).DisconnectHandlers();
+			try
+			{
+				((IView)content).DisconnectHandlers();
+			}
+			finally
+			{
+				registration.Dispose();
+			}
 		}
 	}
 
@@ -450,7 +467,7 @@ public sealed class MauiEmbeddingSession : IDisposable
 				UpdateSharedTheme(application);
 			}
 
-			foreach (var content in _embeddedContent.ToArray())
+			foreach (var content in _embeddedContent.Keys.ToArray())
 			{
 				try
 				{

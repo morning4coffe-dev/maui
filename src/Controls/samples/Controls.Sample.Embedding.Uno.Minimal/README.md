@@ -61,6 +61,12 @@ Then serve the published `wwwroot` with any static server that returns `applicat
 open it. `dotnet run` serves build output rather than publish output, so publish is what to serve when
 checking the trimmed configuration.
 
+For a bounded runtime regression run, add `-p:MauiUnoEmbeddingOwnershipProbe=true`.
+This links the gallery's ownership probe and runs six single-window cases against the actual public
+embedding overload and `MauiContent` dependency property. The document title reports
+`EMBEDDING-OWNERSHIP SINGLE-WINDOW PASS` or `FAIL`. This is not the full lifecycle suite:
+cross-session tests require the Desktop runner because stock Uno's browser host rejects secondary windows.
+
 **Delete the `publish` directory before republishing.** Uno's `GenerateUnoWasmAssets` runs before the SDK
 recomputes static-web-asset fingerprints, so an incremental publish can leave `uno-config.js` pointing at a
 previous `dotnet.<hash>.js`. The app then boots the *old* assemblies, which presents as source changes

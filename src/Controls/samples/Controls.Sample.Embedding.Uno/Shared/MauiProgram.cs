@@ -45,6 +45,7 @@ public static class MauiProgram
 	public static MauiApp CreateMauiApp() =>
 		MauiApp.CreateBuilder()
 			.UseMauiEmbeddedApp<App>()
+			.ConfigureOwnershipProbe()
 			.ConfigureMauiHandlers(handlers => handlers.AddHandler<LifecycleRegressionProbe.FailingEmbeddingView,
 				LifecycleRegressionProbe.FailingEmbeddingViewHandler>())
 			.ConfigureImageSources(sources => sources.AddService<ImageDensityRegressionProbe.DensitySource,

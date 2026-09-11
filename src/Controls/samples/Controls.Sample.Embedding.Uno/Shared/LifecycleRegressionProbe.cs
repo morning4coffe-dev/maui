@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Embedding;
 using Microsoft.Maui.Controls.Embedding.Uno;
 using Microsoft.Maui;
 using Microsoft.Maui.Handlers;
@@ -34,6 +35,9 @@ internal static class LifecycleRegressionProbe
 		var originalHeight = viewHost.Height;
 		try
 		{
+			var ownership = await EmbeddingOwnershipRegressionProbe.RunAsync(session, pageHost, viewHost);
+			report.Append(ownership.Report);
+			Check(ownership.Passed, "public overload and transactional host ownership", report);
 			await VerifyModalReplacementAsync(session, pageHost, report);
 			viewHost.Width = 320;
 			viewHost.Height = 240;
@@ -41,6 +45,7 @@ internal static class LifecycleRegressionProbe
 			await VerifyGridAsync(viewHost, report, 0);
 			await VerifyGridAsync(viewHost, report, 32);
 			await VerifyFailedEmbeddingAsync(session, pageHost, viewHost, report);
+			await VerifyExclusiveOwnershipAsync(session, pageHost, viewHost, report);
 			return new Tier2ProbeResult(true, report.ToString());
 		}
 		catch (Exception error)
@@ -217,8 +222,91 @@ internal static class LifecycleRegressionProbe
 				await page.Navigation.PopModalAsync().WaitAsync(Timeout);
 				report.AppendLine("PASS retried page has a working modal root lifetime");
 			}
+			ExpectDuplicateRejected(() => session.Embed(content), "retried content still has exactly one owner", report);
+			Check(content.Handler is not null && content.Parent is not null,
+				"rejected duplicate does not roll back the successful retry", report);
 			host.MauiContent = null;
 		}
+	}
+
+	static async Task VerifyExclusiveOwnershipAsync(MauiEmbeddingSession session, MauiHost firstHost, MauiHost secondHost, StringBuilder report)
+	{
+		firstHost.MauiContent = null;
+		secondHost.MauiContent = null;
+		var content = new ContentView { Content = new MauiLabel { Text = "exclusive ownership" } };
+		firstHost.MauiContent = content;
+		Check(await Tier2Probe.WaitForAsync(() => (content.Handler?.PlatformView as FrameworkElement)?.IsLoaded == true),
+			"ownership regression view loaded", report);
+		var handler = content.Handler;
+		var platform = firstHost.Content;
+		var parent = content.Parent;
+		var otherContent = new ContentView { Content = new MauiLabel { Text = "retained second host" } };
+		secondHost.MauiContent = otherContent;
+		var otherHandler = otherContent.Handler;
+		var otherPlatform = secondHost.Content;
+
+		ExpectDuplicateRejected(() => session.Embed(content), "duplicate Embed is rejected", report);
+		ExpectDuplicateRejected(() => content.ToPlatformEmbedded(session.WindowContext), "direct embedding cannot steal a session view", report);
+		ExpectDuplicateRejected(() => secondHost.MauiContent = content, "two hosts cannot realize the same view", report);
+		Check(ReferenceEquals(otherContent.Handler, otherHandler) && ReferenceEquals(secondHost.Content, otherPlatform),
+			"duplicate rejection preserves the second host's previous content", report);
+		secondHost.MauiContent = null;
+		Check(ReferenceEquals(content.Handler, handler) && ReferenceEquals(content.Parent, parent) &&
+			ReferenceEquals(firstHost.Content, platform), "rejected second host leaves the owner untouched", report);
+
+		var otherWindow = new Microsoft.UI.Xaml.Window();
+		var otherSession = MauiEmbeddingSession.GetOrCreate(otherWindow);
+		try
+		{
+			ExpectDuplicateRejected(() => otherSession.Embed(content), "cross-session duplicate is rejected", report);
+			otherSession.Release(content);
+			Check(otherSession.EmbeddedWindow is null && ReferenceEquals(content.Handler, handler),
+				"rejected session creates no window scope and cannot release the owner", report);
+		}
+		finally
+		{
+			otherSession.Dispose();
+			otherWindow.Close();
+		}
+
+		var border = firstHost.Parent as Microsoft.UI.Xaml.Controls.Border
+			?? throw new InvalidOperationException("Probe host has no border.");
+		try
+		{
+			border.Child = null;
+			Check(await Tier2Probe.WaitForAsync(() => (platform as FrameworkElement)?.IsLoaded == false),
+				"owner transiently unloaded", report);
+			ExpectDuplicateRejected(() => secondHost.MauiContent = content, "transient unload retains exclusive ownership", report);
+			secondHost.MauiContent = null;
+		}
+		finally
+		{
+			border.Child = firstHost;
+		}
+		Check(await Tier2Probe.WaitForAsync(() => (platform as FrameworkElement)?.IsLoaded == true),
+			"original owner reattached", report);
+		Check(ReferenceEquals(content.Handler, handler), "reattachment retains the handler", report);
+
+		firstHost.MauiContent = null;
+		Check(content.Parent is null && content.Handler is null, "explicit release clears ownership and handler", report);
+		secondHost.MauiContent = content;
+		Check(await Tier2Probe.WaitForAsync(() => (content.Handler?.PlatformView as FrameworkElement)?.IsLoaded == true),
+			"released content transfers to another host", report);
+		secondHost.MauiContent = null;
+	}
+
+	static void ExpectDuplicateRejected(Action attach, string name, StringBuilder report)
+	{
+		try
+		{
+			attach();
+		}
+		catch (InvalidOperationException)
+		{
+			report.AppendLine($"PASS {name}");
+			return;
+		}
+		throw new InvalidOperationException(name);
 	}
 
 	internal sealed class FailingEmbeddingView : Microsoft.Maui.Controls.ContentView

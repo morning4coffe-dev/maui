@@ -15,7 +15,12 @@
     <RootNamespace>Maui.Controls.Sample.Uno.Minimal</RootNamespace>
     <IsUnoHead>true</IsUnoHead>
     <WasmBuildNative>true</WasmBuildNative>
+    <DefineConstants Condition="'$(MauiUnoEmbeddingOwnershipProbe)' == 'true'">$(DefineConstants);MAUI_UNO_EMBEDDING_OWNERSHIP_PROBE</DefineConstants>
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(MauiUnoEmbeddingOwnershipProbe)' == 'true'">
+    <Compile Include="..\Controls.Sample.Embedding.Uno\Shared\EmbeddingOwnershipRegressionProbe.cs" Link="EmbeddingOwnershipRegressionProbe.cs" />
+  </ItemGroup>
 
   <PropertyGroup>
     <MauiUnoTarget>true</MauiUnoTarget>

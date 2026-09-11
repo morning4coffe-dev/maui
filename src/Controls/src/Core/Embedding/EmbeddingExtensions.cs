@@ -99,7 +99,14 @@ public static class EmbeddingExtensions
 		var embeddedWindow = new EmbeddedWindow();
 
 		// Create the Core embedded window scope.
+#if UNO
+		IMauiContext? windowContext = null;
+		try
+		{
+			windowContext = mauiApp.CreateEmbeddedWindowContext(platformWindow, embeddedWindow);
+#else
 		var windowContext = mauiApp.CreateEmbeddedWindowContext(platformWindow, embeddedWindow);
+#endif
 
 		// If the app is an embedded app then we need to add the window to the app.
 		var embeddedApp = mauiApp.Services.GetRequiredService<EmbeddedPlatformApplication>();
@@ -110,7 +117,59 @@ public static class EmbeddingExtensions
 
 		window = embeddedWindow;
 		return windowContext;
+#if UNO
+		}
+		catch
+		{
+			if (windowContext is not null)
+				ReleaseFailedEmbeddedWindow(mauiApp, embeddedWindow, windowContext);
+			throw;
+		}
+#endif
 	}
+
+#if UNO
+	static void ReleaseFailedEmbeddedWindow(MauiApp mauiApp, Window window, IMauiContext windowContext)
+	{
+		var logger = mauiApp.Services.GetService<ILoggerFactory>()?.CreateLogger(nameof(EmbeddingExtensions));
+		try
+		{
+			if (!window.IsDestroyed)
+				((IWindow)window).Destroying();
+		}
+		catch (Exception cleanupError)
+		{
+			logger?.LogWarning(cleanupError, "Failed to notify destruction of a partially embedded window.");
+		}
+		// A lifecycle callback may have thrown before Destroying reached its cleanup.
+		try
+		{
+			if (mauiApp.Services.GetService<IApplication>() is Application app &&
+				(app.Windows.Contains(window) || ReferenceEquals(window.Parent, app)))
+				app.RemoveWindow(window);
+		}
+		catch (Exception cleanupError)
+		{
+			logger?.LogWarning(cleanupError, "Failed to remove a partially embedded application window.");
+		}
+		try
+		{
+			window.Handler?.DisconnectHandler();
+		}
+		catch (Exception cleanupError)
+		{
+			logger?.LogWarning(cleanupError, "Failed to disconnect a partially embedded window.");
+		}
+		try
+		{
+			(windowContext as MauiContext)?.DisposeWindowScope();
+		}
+		catch (Exception cleanupError)
+		{
+			logger?.LogWarning(cleanupError, "Failed to dispose a partially embedded window scope.");
+		}
+	}
+#endif
 
 	/// <summary>
 	/// Similar to <see cref="ElementExtensions.ToPlatform(IElement, IMauiContext)"/>, but also adds the element as
@@ -122,6 +181,7 @@ public static class EmbeddingExtensions
 	/// <remarks>
 	/// Only if the window is an embedded window and the element is a <see cref="VisualElement"/> will the element
 	/// be added as a logical child of that window.
+	/// On Uno, the element must be unparented, without a handler, and not owned by another embedding operation.
 	/// </remarks>
 	public static PlatformView ToPlatformEmbedded(this IElement element, IMauiContext context)
 	{
@@ -130,37 +190,8 @@ public static class EmbeddingExtensions
 		if (wndProvider is not null && wndProvider.Window is EmbeddedWindow wnd && element is VisualElement visual)
 #if UNO
 		{
-			var addedChild = !wnd.LogicalChildrenInternal.Contains(visual);
-			try
-			{
-				if (addedChild)
-					wnd.AddLogicalChild(visual);
-				return element.ToPlatform(context);
-			}
-			catch
-			{
-				try
-				{
-					((IView)visual).DisconnectHandlers();
-				}
-				catch (Exception cleanupError)
-				{
-					context.CreateLogger(nameof(EmbeddingExtensions))?.LogWarning(cleanupError, "Failed to disconnect partially embedded handlers.");
-				}
-				finally
-				{
-					try
-					{
-						if (addedChild)
-							wnd.RemoveLogicalChild(visual);
-					}
-					catch (Exception cleanupError)
-					{
-						context.CreateLogger(nameof(EmbeddingExtensions))?.LogWarning(cleanupError, "Failed to remove a partially embedded logical child.");
-					}
-				}
-				throw;
-			}
+			using var registration = EmbeddedContentRegistration.Acquire(visual);
+			return visual.ToPlatformEmbedded(context, registration);
 		}
 #else
 			wnd.AddLogicalChild(visual);
@@ -168,6 +199,43 @@ public static class EmbeddingExtensions
 
 		return element.ToPlatform(context);
 	}
+
+#if UNO
+	internal static PlatformView ToPlatformEmbedded(this VisualElement visual, IMauiContext context, EmbeddedContentRegistration registration)
+	{
+		registration.VerifyOwnership(visual);
+		var wnd = context.Services.GetService<EmbeddedWindowProvider>()?.Window as EmbeddedWindow
+			?? throw new InvalidOperationException("An embedded window context is required.");
+		try
+		{
+			wnd.AddLogicalChild(visual);
+			return visual.ToPlatform(context);
+		}
+		catch
+		{
+			try
+			{
+				((IView)visual).DisconnectHandlers();
+			}
+			catch (Exception cleanupError)
+			{
+				context.CreateLogger(nameof(EmbeddingExtensions))?.LogWarning(cleanupError, "Failed to disconnect partially embedded handlers.");
+			}
+			finally
+			{
+				try
+				{
+					wnd.RemoveLogicalChild(visual);
+				}
+				catch (Exception cleanupError)
+				{
+					context.CreateLogger(nameof(EmbeddingExtensions))?.LogWarning(cleanupError, "Failed to remove a partially embedded logical child.");
+				}
+			}
+			throw;
+		}
+	}
+#endif
 
 	/// <summary>
 	/// Similar to <see cref="ElementExtensions.ToPlatform(IElement, IMauiContext)"/>, but also adds the element as
@@ -180,11 +248,34 @@ public static class EmbeddingExtensions
 	/// <remarks>
 	/// Only if the window is an embedded window and the element is a <see cref="VisualElement"/> will the element
 	/// be added as a logical child of that window.
+	/// On Uno, content is reserved before the new context is created. Failed realization releases only that
+	/// new synthetic window and its scope; the caller's native window and any existing owner are retained.
 	/// </remarks>
 	public static PlatformView ToPlatformEmbedded(this IElement element, MauiApp mauiApp, PlatformWindow platformWindow)
 	{
+#if UNO
+		ArgumentNullException.ThrowIfNull(element);
+		var visual = element as VisualElement;
+		using var registration = visual is not null ? EmbeddedContentRegistration.Acquire(visual) : null;
+		Window? window = null;
+		IMauiContext? windowContext = null;
+		try
+		{
+			windowContext = mauiApp.CreateEmbeddedWindowContext(platformWindow, out window);
+			return visual is not null
+				? visual.ToPlatformEmbedded(windowContext, registration!)
+				: element.ToPlatformEmbedded(windowContext);
+		}
+		catch
+		{
+			if (window is not null && windowContext is not null)
+				ReleaseFailedEmbeddedWindow(mauiApp, window, windowContext);
+			throw;
+		}
+#else
 		var windowContext = mauiApp.CreateEmbeddedWindowContext(platformWindow);
 		return element.ToPlatformEmbedded(windowContext);
+#endif
 	}
 
 #if UNO
