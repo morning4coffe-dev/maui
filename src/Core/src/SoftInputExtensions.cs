@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Dispatching;
+using Microsoft.Maui.Handlers;
 using Microsoft.Maui.Platform;
 using System.Threading.Tasks;
 using System.Threading;
@@ -39,7 +40,7 @@ public static partial class SoftInputExtensions
 		return Task.FromResult(false);
 #else
 		token.ThrowIfCancellationRequested();
-		if (!targetView.TryGetPlatformView(out var platformView, out var handler, out _))
+		if (!targetView.TryGetPlatformView(out var platformView, out var handler, out var view, out var generation))
 		{
 			return Task.FromResult(false);
 		}
@@ -49,7 +50,8 @@ public static partial class SoftInputExtensions
 			return Task.FromResult(false);
 		}
 
-		return InvokeOnDispatcherAsync(dispatcher, () => platformView.HideSoftInput(), token);
+		return InvokeOnDispatcherAsync(dispatcher,
+			() => OwnsPlatformView(view, handler, platformView, generation) && platformView.HideSoftInput(), token);
 #endif
 	}
 
@@ -67,7 +69,7 @@ public static partial class SoftInputExtensions
 #else
 		token.ThrowIfCancellationRequested();
 
-		if (!targetView.TryGetPlatformView(out var platformView, out var handler, out var view))
+		if (!targetView.TryGetPlatformView(out var platformView, out var handler, out var view, out var generation))
 		{
 			return Task.FromResult(false);
 		}
@@ -77,7 +79,7 @@ public static partial class SoftInputExtensions
 			return Task.FromResult(false);
 		}
 
-		return ShowSoftInputAsyncCore(dispatcher, platformView, handler, view, token);
+		return ShowSoftInputAsyncCore(dispatcher, platformView, handler, view, generation, token);
 #endif
 	}
 
@@ -89,7 +91,7 @@ public static partial class SoftInputExtensions
 	/// Returns <c>true</c> if the soft input pane is currently showing.</returns>
 	public static bool IsSoftInputShowing(this ITextInput targetView)
 	{
-		if (!targetView.TryGetPlatformView(out PlatformView? platformView, out var handler, out _))
+		if (!targetView.TryGetPlatformView(out PlatformView? platformView, out var handler, out _, out _))
 		{
 			return false;
 		}
@@ -140,29 +142,50 @@ public static partial class SoftInputExtensions
 	}
 
 #if !NETSTANDARD
-	static async Task<bool> ShowSoftInputAsyncCore(IDispatcher dispatcher, PlatformView platformView, IPlatformViewHandler handler, IView view, CancellationToken token)
+	static async Task<bool> ShowSoftInputAsyncCore(IDispatcher dispatcher, PlatformView platformView, IPlatformViewHandler handler, IView view, long? generation, CancellationToken token)
 	{
-		var isFocused = await InvokeOnDispatcherAsync(dispatcher, () => view.IsFocused, token).ConfigureAwait(false);
+		var isFocused = false;
+		if (!await InvokeOnDispatcherAsync(dispatcher, () =>
+		{
+			if (!OwnsPlatformView(view, handler, platformView, generation))
+				return false;
+			isFocused = view.IsFocused;
+			return true;
+		}, token).ConfigureAwait(false))
+			return false;
+
 		if (!isFocused)
 		{
-			await InvokeOnDispatcherAsync(dispatcher, () =>
+			if (!await InvokeOnDispatcherAsync(dispatcher, () =>
 			{
+				if (!OwnsPlatformView(view, handler, platformView, generation))
+					return false;
 #pragma warning disable CS0618
 				handler.Invoke(nameof(IView.Focus), new FocusRequest(false));
 #pragma warning restore CS0618
 				return true;
-			}, token).ConfigureAwait(false);
+			}, token).ConfigureAwait(false))
+				return false;
 		}
 
-		return await InvokeOnDispatcherAsync(dispatcher, () => platformView.ShowSoftInput(), token).ConfigureAwait(false);
+		return await InvokeOnDispatcherAsync(dispatcher,
+			() => OwnsPlatformView(view, handler, platformView, generation) && platformView.ShowSoftInput(), token).ConfigureAwait(false);
 	}
+
+	static bool OwnsPlatformView(IView view, IPlatformViewHandler handler, PlatformView platformView, long? generation) =>
+		ReferenceEquals(view.Handler, handler) &&
+		ReferenceEquals(((IElementHandler)handler).VirtualView, view) &&
+		ReferenceEquals(((IElementHandler)handler).PlatformView, platformView) &&
+		(handler is not ElementHandler elementHandler || elementHandler.VirtualViewGeneration == generation);
 #endif
 
 	static bool TryGetPlatformView(this ITextInput textInput,
 									[NotNullWhen(true)] out PlatformView? platformView,
 									[NotNullWhen(true)] out IPlatformViewHandler? handler,
-									[NotNullWhen(true)] out IView? view)
+									[NotNullWhen(true)] out IView? view,
+									out long? generation)
 	{
+		generation = null;
 		if (textInput is not IView iView ||
 			iView.Handler is not IPlatformViewHandler platformViewHandler)
 		{
@@ -173,7 +196,9 @@ public static partial class SoftInputExtensions
 			return false;
 		}
 
-		if (iView.Handler?.PlatformView is not PlatformView platform)
+		generation = (platformViewHandler as ElementHandler)?.VirtualViewGeneration;
+		if (((IElementHandler)platformViewHandler).PlatformView is not PlatformView platform ||
+			!ReferenceEquals(((IElementHandler)platformViewHandler).VirtualView, iView))
 		{
 			platformView = null;
 			handler = null;
