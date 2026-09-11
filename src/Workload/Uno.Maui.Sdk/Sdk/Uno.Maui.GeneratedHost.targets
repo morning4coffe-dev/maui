@@ -1,4 +1,14 @@
 <Project>
+  <Import Project="$(_MauiBuildTasksLocation)Microsoft.Maui.Resizetizer.targets"
+          Condition="'$(UnoMauiUseSource)' == 'true' and Exists('$(_MauiBuildTasksLocation)Microsoft.Maui.Resizetizer.targets')" />
+
+  <Target Name="_UnoMauiValidateSourceResizetizer"
+          BeforeTargets="_CheckForInvalidConfigurationAndPlatform"
+          Condition="'$(UnoMauiUseSource)' == 'true'">
+    <Error Condition="!Exists('$(_MauiBuildTasksLocation)Microsoft.Maui.Resizetizer.dll') or !Exists('$(_MauiBuildTasksLocation)Microsoft.Maui.Resizetizer.targets') or !Exists('$(_MauiBuildTasksLocation)Microsoft.Maui.Resizetizer.After.targets')"
+           Text="Source-mode Uno MAUI heads require the source Resizetizer build tasks. Build Microsoft.Maui.BuildTasks.slnf first and use the same _MauiBuildTasksLocation for the generated head." />
+  </Target>
+
   <PropertyGroup>
     <ResizetizerIncludeSelfProject Condition="'$(UnoMauiTarget)' != 'Android'">true</ResizetizerIncludeSelfProject>
     <ResizetizerPlatformType Condition="'$(UnoMauiTarget)' != 'Android'">uwp</ResizetizerPlatformType>

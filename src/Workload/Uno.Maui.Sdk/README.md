@@ -157,6 +157,19 @@ dotnet msbuild src\Workload\Uno.Maui.Sdk\tests\RuntimeAssets.proj
 
 ## Package mode
 
+Source-mode generated heads use the Resizetizer targets and assemblies built by
+`Microsoft.Maui.BuildTasks.slnf`, through `_MauiBuildTasksLocation`, just like
+in-tree samples. Build those tasks before building the head, and propagate the
+same task location when using isolated outputs. Source Gallery restore does not
+require prepacked MAUI packages or the Automatic sample's local Shipping feed.
+
+After building the tasks, validate both dependency modes:
+
+```powershell
+dotnet msbuild src\Workload\Uno.Maui.Sdk\tests\HeadDependencies.Tests.proj -p:Profile=GeneratedSource
+dotnet msbuild src\Workload\Uno.Maui.Sdk\tests\HeadDependencies.Tests.proj -p:Profile=GeneratedPackage
+```
+
 Set `UnoMauiUseSource=false` to consume `Uno.Maui.Runtime`,
 `Microsoft.Maui.Controls.Build.Tasks`, and `Microsoft.Maui.Resizetizer`
 packages instead of MAUI source project references. `Uno.Maui.Runtime`
