@@ -16,6 +16,8 @@ namespace Microsoft.Maui.Handlers
 		internal readonly CommandMapper? _commandMapper;
 		internal IPropertyMapper _mapper;
 		ElementHandlerState _handlerState;
+		// Identity alone cannot detect a handler rebound away and back while UI work is queued.
+		internal long VirtualViewGeneration { get; private set; }
 
 		ElementHandlerState IElementHandlerStateExhibitor.State => _handlerState;
 
@@ -48,6 +50,7 @@ namespace Microsoft.Maui.Handlers
 			}
 
 			var oldVirtualView = VirtualView;
+			VirtualViewGeneration++;
 
 			bool setupPlatformView = oldVirtualView == null;
 
@@ -139,6 +142,7 @@ namespace Microsoft.Maui.Handlers
 
 		void IElementHandler.DisconnectHandler()
 		{
+			VirtualViewGeneration++;
 #if UNO
 			// CreatePlatformElement can throw after VirtualView has been assigned.
 			// There is no platform element to disconnect, but embedding rollback still
