@@ -1,0 +1,13 @@
+<Project>
+  <!-- A binary assembly reference does not participate in SDK static-web-asset discovery. -->
+  <PropertyGroup Condition="'$(UnoMauiGenerateStaticWebAssets)' == 'true'">
+    <DisableTransitiveProjectReferences>false</DisableTransitiveProjectReferences>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(UnoMauiGenerateStaticWebAssets)' == 'true' and '$(UnoMauiAppProject)' != ''">
+    <ProjectReference Include="$(UnoMauiAppProject)"
+                      SkipGetTargetFrameworkProperties="true"
+                      SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoBuildProperties)">
+      <GlobalPropertiesToRemove>TargetFrameworks;RuntimeIdentifiers;SelfContained;BaseOutputPath;BaseIntermediateOutputPath;MSBuildProjectExtensionsPath;UnoMauiGeneratedProjectName;UnoMauiAppProject;UnoMauiAppTargetDir;UnoMauiResourceManifest;OutputType</GlobalPropertiesToRemove>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

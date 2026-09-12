@@ -38,6 +38,7 @@
           Condition="'$(WasmShellMonoRuntimeExecutionMode)' == 'InterpreterAndAOT'" />
   <Import Project="$(UnoMauiResourceManifest)" Condition="Exists('$(UnoMauiResourceManifest)')" />
   <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.Source.props" />
+  <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.StaticWebAssets.props" />
   <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.GeneratedHost.targets" />
 
   <ItemGroup>
@@ -51,7 +52,7 @@
   <ItemGroup>
     <Reference
       Include="$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)'))"
-      Condition="'$(UnoMauiAppTargetDir)' != ''">
+      Condition="'$(UnoMauiAppTargetDir)' != '' and '$(UnoMauiGenerateStaticWebAssets)' != 'true'">
       <HintPath>$(UnoMauiAppTargetDir)$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)')).dll</HintPath>
       <Private>true</Private>
     </Reference>

@@ -5,6 +5,8 @@
     <UnoMauiUnoVersion>6.7.0-default</UnoMauiUnoVersion>
     <UnoMauiCoreRuntimeVersion>6.7.0-core-fix</UnoMauiCoreRuntimeVersion>
     <UnoMauiWasmRuntimeVersion>6.7.0-browser-fix</UnoMauiWasmRuntimeVersion>
+    <UnoMauiGenerateStaticWebAssets Condition="'$(ProbeStaticWebAssets)' == ''">true</UnoMauiGenerateStaticWebAssets>
+    <UnoMauiGenerateStaticWebAssets Condition="'$(ProbeStaticWebAssets)' != ''">$(ProbeStaticWebAssets)</UnoMauiGenerateStaticWebAssets>
     <UnoMauiWin32RuntimeVersion Condition="'$(UseDefaultWin32Version)' != 'true'">6.7.0-win32-fix</UnoMauiWin32RuntimeVersion>
   </PropertyGroup>
   <Import Project="..\Sdk\Uno.Maui.Sdk.targets" />

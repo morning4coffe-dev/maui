@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <UnoMauiGenerateStaticWebAssets>true</UnoMauiGenerateStaticWebAssets>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+    <UnoMauiAppProject Condition="'$(UnoMauiAppProject)' == ''">$(MSBuildThisFileDirectory)..\App\App.csproj</UnoMauiAppProject>
+    <_MauiUnoBuildProperties>MauiUnoTarget=true;SelfContained=false;BuildInParallel=false</_MauiUnoBuildProperties>
+  </PropertyGroup>
+  <Import Project="$(UnoMauiSdkRoot)Sdk\Uno.Maui.StaticWebAssets.props"
+          Condition="Exists('$(UnoMauiSdkRoot)Sdk\Uno.Maui.StaticWebAssets.props')" />
+</Project>
