@@ -1,0 +1,26 @@
+<Project DefaultTargets="Test">
+  <PropertyGroup>
+    <UnoMauiGenerateStaticWebAssets Condition="'$(UnoMauiGenerateStaticWebAssets)' == ''">true</UnoMauiGenerateStaticWebAssets>
+    <UnoMauiAppProject>$(MSBuildThisFileDirectory)StaticWebAssets\App\App.csproj</UnoMauiAppProject>
+    <_MauiUnoBuildProperties>MauiUnoTarget=true;MauiUnoHostPlatform=WebAssembly;RuntimeIdentifier=browser-wasm;SelfContained=false;BuildInParallel=false</_MauiUnoBuildProperties>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+  </PropertyGroup>
+  <Import Project="..\Sdk\Uno.Maui.StaticWebAssets.props" />
+  <Target Name="Test">
+    <PropertyGroup>
+      <_ExpectedReferences Condition="'$(UnoMauiGenerateStaticWebAssets)' == 'true'">1</_ExpectedReferences>
+      <_ExpectedReferences Condition="'$(UnoMauiGenerateStaticWebAssets)' != 'true'">0</_ExpectedReferences>
+    </PropertyGroup>
+    <Error Condition="'@(ProjectReference->Count())' != '$(_ExpectedReferences)'" Text="Only an opted-in static-asset application may add its project edge." />
+    <Error Condition="'$(UnoMauiGenerateStaticWebAssets)' == 'true' and '$(DisableTransitiveProjectReferences)' != 'false'" Text="Static assets require the normal transitive project graph." />
+    <Error Condition="'$(UnoMauiGenerateStaticWebAssets)' != 'true' and '$(DisableTransitiveProjectReferences)' != 'true'" Text="Non-static-asset graph policy must remain unchanged." />
+    <Error Condition="'%(ProjectReference.ReferenceOutputAssembly)' == 'false'" Text="Excluding the project from the restore graph loses transitive static assets." />
+    <Error Condition="'@(ProjectReference)' != '' and '%(ProjectReference.SetTargetFramework)' != 'TargetFramework=net10.0;$(_MauiUnoBuildProperties)'" Text="The application must retain its canonical Uno framework properties." />
+    <XmlPeek XmlInputPath="$(MSBuildThisFileDirectory)..\templates\WebAssembly\Uno.Maui.Generated.WebAssembly.csproj"
+             Query="/Project/Import[@Project='%24(UnoMauiSdkRoot)Sdk\Uno.Maui.StaticWebAssets.props']/@Project">
+      <Output TaskParameter="Result" ItemName="_TemplateImports" />
+    </XmlPeek>
+    <Error Condition="'@(_TemplateImports->Count())' != '1'" Text="The actual WebAssembly template must import the static-asset project edge." />
+    <Message Importance="high" Text="Generated static-web-asset reference policy passed." />
+  </Target>
+</Project>
