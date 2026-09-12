@@ -11,6 +11,25 @@
   </PropertyGroup>
 
   <Import Project="$(MauiSrcDirectory)UnoTargeting.props" />
+  <Import Project="Integrity/ReferenceIntegrity.targets" />
+
+  <ItemGroup>
+    <!-- Build-only helpers must not become part of the runtime assembly or NuGet payload. -->
+    <Compile Remove="Integrity/**/*.cs" />
+    <_UnoMauiRuntimeAssembly Include="Core" AssemblyName="Microsoft.Maui" />
+    <_UnoMauiRuntimeAssembly Include="Essentials" AssemblyName="Microsoft.Maui.Essentials" />
+    <_UnoMauiRuntimeAssembly Include="Graphics" AssemblyName="Microsoft.Maui.Graphics" />
+    <_UnoMauiRuntimeAssembly Include="Graphics.Skia" AssemblyName="Microsoft.Maui.Graphics.Skia" />
+    <_UnoMauiRuntimeAssembly Include="Controls.Core" AssemblyName="Microsoft.Maui.Controls" />
+    <_UnoMauiRuntimeAssembly Include="Controls.Xaml" AssemblyName="Microsoft.Maui.Controls.Xaml" />
+    <_UnoMauiRuntimeAssembly Update="@(_UnoMauiRuntimeAssembly)"
+                            PackagePath="lib/net10.0/%(AssemblyName).dll"
+                            ProducerReference="$(ArtifactsObjDir)uno\%(Identity)\$(Configuration)\net10.0\refint\%(AssemblyName).dll" />
+    <_UnoMauiRuntimeManagedImage Include="@(_UnoMauiRuntimeAssembly->'$(ArtifactsBinDir)uno\%(Identity)\$(Configuration)\net10.0\%(AssemblyName).dll')"
+                                ProducerReference="" />
+    <_UnoMauiRuntimeManagedImage Include="@(_UnoMauiRuntimeAssembly->'$(ArtifactsBinDir)uno\%(Identity)\$(Configuration)\net10.0\ref\%(AssemblyName).dll')"
+                                PackagePath="" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="$(MauiSrcDirectory)Core\src\Core.csproj" PrivateAssets="all" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0;$(_MauiUnoProjectReferenceProperties)" />
