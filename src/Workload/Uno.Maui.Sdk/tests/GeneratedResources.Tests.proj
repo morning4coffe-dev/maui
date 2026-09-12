@@ -18,22 +18,40 @@
   </ItemGroup>
   <Import Project="$(SdkUnderTestRoot)Uno.Maui.Source.props" />
   <Import Project="$(SdkUnderTestRoot)Uno.Maui.GeneratedHost.targets" />
+  <ItemGroup Condition="'$(InheritedResources)' == 'true'">
+    <MauiAsset Include="fixtures/library.js" Link="library/script.js" ExpectedLink="library/script.js" CustomMetadata="inherited" />
+    <MauiFont Include="fixtures/library.ttf" Link="library/font.ttf" ExpectedLink="library/font.ttf" CustomMetadata="inherited" />
+    <MauiImage Include="fixtures/library.png" Link="library/image.png" ExpectedLink="library/image.png" CustomMetadata="inherited" />
+    <MauiIcon Include="fixtures/library-icon.svg" Link="library/icon.svg" ExpectedLink="library/icon.svg" CustomMetadata="inherited" />
+    <MauiSplashScreen Include="fixtures/library-splash.svg" Link="library/splash.svg" ExpectedLink="library/splash.svg" CustomMetadata="inherited" />
+  </ItemGroup>
   <Target Name="Validate" DependsOnTargets="$(_ValidationDependsOn)">
     <Error Condition="'$(MauiUnoTarget)' != 'true' or '$(_MauiTargetPlatformIsUno)' != 'True'"
            Text="Package-only hosts must activate the Uno resource pipeline." />
-    <Error Condition="'@(MauiAsset->'%(LogicalName)')' != 'data/nested.json' or '@(MauiAsset->'%(Link)')' != 'data/nested.json'"
+    <ItemGroup>
+      <_Asset Include="@(MauiAsset->WithMetadataValue('LogicalName', 'data/nested.json'))" />
+      <_Font Include="@(MauiFont->WithMetadataValue('LogicalName', 'fonts/renamed.ttf'))" />
+      <_Icon Include="@(MauiIcon->WithMetadataValue('LogicalName', 'icons/app.svg'))" />
+      <_Splash Include="@(MauiSplashScreen->WithMetadataValue('LogicalName', 'splash/screen.svg'))" />
+      <_Inherited Include="@(MauiAsset->WithMetadataValue('CustomMetadata', 'inherited'));@(MauiFont->WithMetadataValue('CustomMetadata', 'inherited'));@(MauiImage->WithMetadataValue('CustomMetadata', 'inherited'));@(MauiIcon->WithMetadataValue('CustomMetadata', 'inherited'));@(MauiSplashScreen->WithMetadataValue('CustomMetadata', 'inherited'))" />
+    </ItemGroup>
+    <Error Condition="'@(_Asset->'%(Link)')' != 'data/nested.json'"
            Text="Raw assets must retain their renamed nested logical path." />
-    <Error Condition="'@(MauiFont->'%(LogicalName)')' != 'fonts/renamed.ttf' or '@(MauiFont->'%(Link)')' != 'fonts/renamed.ttf' or '@(MauiFont->'%(Alias)')' != 'ExampleFont'"
+    <Error Condition="'@(_Font->'%(Link)')' != 'fonts/renamed.ttf' or '@(_Font->'%(Alias)')' != 'ExampleFont'"
            Text="Fonts must retain their logical path and alias." />
     <ItemGroup>
       <_Image Include="@(MauiImage->WithMetadataValue('LogicalName', 'images/renamed.svg'))" />
     </ItemGroup>
     <Error Condition="'@(_Image->'%(Link)')' != 'images/renamed.svg' or '@(_Image->'%(BaseSize)')' != '300,185' or '@(_Image->'%(Resize)')' != 'true' or '@(_Image->'%(TintColor)')' != 'Red' or '@(_Image->'%(CustomMetadata)')' != 'preserved'"
            Text="Image projection must preserve all inherited metadata." />
-    <Error Condition="'@(MauiIcon->'%(Link)')' != 'icons/app.svg' or '@(MauiIcon->'%(ForegroundFile)')' != 'fixtures/foreground.svg' or '@(MauiIcon->'%(ForegroundScale)')' != '0.5'"
+    <Error Condition="'@(_Icon->'%(Link)')' != 'icons/app.svg' or '@(_Icon->'%(ForegroundFile)')' != 'fixtures/foreground.svg' or '@(_Icon->'%(ForegroundScale)')' != '0.5'"
            Text="Icon projection must preserve foreground metadata." />
-    <Error Condition="'@(MauiSplashScreen->'%(Link)')' != 'splash/screen.svg' or '@(MauiSplashScreen->'%(Color)')' != 'Blue' or '@(MauiSplashScreen->'%(BaseSize)')' != '100,100'"
+    <Error Condition="'@(_Splash->'%(Link)')' != 'splash/screen.svg' or '@(_Splash->'%(Color)')' != 'Blue' or '@(_Splash->'%(BaseSize)')' != '100,100'"
            Text="Splash projection must preserve logical and sizing metadata." />
+    <Error Condition="'$(InheritedResources)' == 'true' and '@(_Inherited->Count())' != '5'"
+           Text="Inherited resources without LogicalName must not be dropped or duplicated." />
+    <Error Condition="'%(_Inherited.Link)' != '%(_Inherited.ExpectedLink)' or '%(_Inherited.LogicalName)' != ''"
+           Text="Generated resource projection must not rewrite inherited resource metadata." />
     <Message Importance="high" Text="Generated resource metadata passed (deduplication: $(DeduplicateResources))." />
   </Target>
 </Project>

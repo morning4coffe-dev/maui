@@ -33,6 +33,8 @@
              Properties="UnoMauiResourceManifest=$(_UnoMauiResourceManifest);UnoMauiAppTargetDir=$(TargetDir);UnoMauiAppProject=$(TargetDir)App.csproj" />
     <MSBuild Projects="GeneratedResources.Tests.proj" Properties="DeduplicateResources=false" />
     <MSBuild Projects="GeneratedResources.Tests.proj" Properties="DeduplicateResources=true" />
+    <MSBuild Projects="GeneratedResources.Tests.proj" Properties="DeduplicateResources=false;InheritedResources=true" />
+    <MSBuild Projects="GeneratedResources.Tests.proj" Properties="DeduplicateResources=true;InheritedResources=true" />
     <MSBuild Projects="RuntimeVersionOverrides.Tests.proj" />
     <MSBuild Projects="StaticWebAssetsPropagation.Tests.proj" />
     <MSBuild Projects="StaticWebAssetsPropagation.Tests.proj" Properties="ProbeStaticWebAssets=false" />
