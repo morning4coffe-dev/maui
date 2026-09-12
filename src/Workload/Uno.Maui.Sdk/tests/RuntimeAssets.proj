@@ -65,6 +65,7 @@
     <MSBuild Projects="RuntimeVersionPropagation.Tests.proj" Properties="ProbeStaticWebAssets=false" />
     <MSBuild Projects="StaticWebAssetsReference.Tests.proj" />
     <MSBuild Projects="StaticWebAssetsReference.Tests.proj" Properties="UnoMauiGenerateStaticWebAssets=false" />
+    <MSBuild Projects="PackageInputPaths.Tests.proj" />
     <MSBuild Projects="SourceProjectReferences.Tests.proj" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />
     <MSBuild Projects="SourceProjectReferences.Tests.proj" Properties="ProbeRuntimeIdentifier=browser-wasm" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />
     <MSBuild Projects="SourceProjectReferences.Tests.proj" Properties="ProbeRuntimeIdentifier=win-x64" RemoveProperties="MauiUnoTarget;TargetFramework;RuntimeIdentifier" />

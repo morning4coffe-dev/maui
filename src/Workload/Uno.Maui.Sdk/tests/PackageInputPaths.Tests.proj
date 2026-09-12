@@ -1,0 +1,16 @@
+<Project DefaultTargets="Test">
+  <PropertyGroup>
+    <_RepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\..\'))</_RepositoryRoot>
+  </PropertyGroup>
+  <Target Name="Test">
+    <XmlPeek XmlInputPath="$(_RepositoryRoot)Directory.Build.props"
+             Query="/Project/PropertyGroup/LicenseFile/text()">
+      <Output TaskParameter="Result" PropertyName="_LicenseSource" />
+    </XmlPeek>
+    <Error Condition="$([System.String]::Equals('$(_LicenseSource)', '%24(MauiRootDirectory)LICENSE.txt', System.StringComparison.Ordinal)) != 'True'"
+           Text="The package license input must match the tracked LICENSE.txt casing, including on Windows." />
+    <Error Condition="!Exists('$(_RepositoryRoot)LICENSE.txt')"
+           Text="The tracked package license input is missing." />
+    <Message Importance="high" Text="Package license input casing passed." />
+  </Target>
+</Project>
