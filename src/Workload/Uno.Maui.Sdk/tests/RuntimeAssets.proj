@@ -63,6 +63,8 @@
     <MSBuild Projects="RuntimeVersionPropagation.Tests.proj" />
     <MSBuild Projects="RuntimeVersionPropagation.Tests.proj" Properties="UseDefaultWin32Version=true" />
     <MSBuild Projects="RuntimeVersionPropagation.Tests.proj" Properties="ProbeStaticWebAssets=false" />
+    <MSBuild Projects="StaticWebAssetsPropagation.Tests.proj" />
+    <MSBuild Projects="StaticWebAssetsPropagation.Tests.proj" Properties="ProbeStaticWebAssets=false" />
     <MSBuild Projects="StaticWebAssetsReference.Tests.proj" />
     <MSBuild Projects="StaticWebAssetsReference.Tests.proj" Properties="UnoMauiGenerateStaticWebAssets=false" />
     <MSBuild Projects="PackageInputPaths.Tests.proj" />

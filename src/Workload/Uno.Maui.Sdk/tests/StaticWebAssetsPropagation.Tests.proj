@@ -1,0 +1,20 @@
+<Project DefaultTargets="Test">
+  <PropertyGroup>
+    <UnoMauiSkipSourceImport>true</UnoMauiSkipSourceImport>
+    <UnoMauiTarget>WebAssembly</UnoMauiTarget>
+    <UnoMauiGenerateStaticWebAssets Condition="'$(ProbeStaticWebAssets)' == ''">true</UnoMauiGenerateStaticWebAssets>
+    <UnoMauiGenerateStaticWebAssets Condition="'$(ProbeStaticWebAssets)' != ''">$(ProbeStaticWebAssets)</UnoMauiGenerateStaticWebAssets>
+  </PropertyGroup>
+  <Import Project="..\Sdk\Uno.Maui.Sdk.targets" />
+  <PropertyGroup>
+    <_UnoMauiHostProject>$(MSBuildThisFileDirectory)StaticWebAssetsPropagationHost.proj</_UnoMauiHostProject>
+  </PropertyGroup>
+  <!-- Exercise real child forwarding without generating or building an application. -->
+  <Target Name="_UnoMauiPrepareHost" />
+  <Target Name="_UnoMauiBuildApplication" />
+  <Target Name="_UnoMauiPrepareStaticWebAssets" />
+  <Target Name="_UnoMauiPreparePublishStaticWebAssets" />
+  <Target Name="Test" DependsOnTargets="RestoreUnoMaui;BuildUnoMaui;PublishUnoMaui">
+    <Message Importance="high" Text="Generated restore/build/publish static-web-asset propagation passed." />
+  </Target>
+</Project>

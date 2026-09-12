@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <_ExpectedStaticWebAssets Condition="'$(ProbeStaticWebAssets)' == ''">true</_ExpectedStaticWebAssets>
+    <_ExpectedStaticWebAssets Condition="'$(ProbeStaticWebAssets)' != ''">$(ProbeStaticWebAssets)</_ExpectedStaticWebAssets>
+  </PropertyGroup>
+  <Target Name="Validate">
+    <Error Condition="'$(UnoMauiGenerateStaticWebAssets)' != '$(_ExpectedStaticWebAssets)'"
+           Text="The generated restore/build/publish lost its static-web-asset opt-in." />
+  </Target>
+  <Target Name="Restore" DependsOnTargets="Validate" />
+  <Target Name="Build" DependsOnTargets="Validate" />
+  <Target Name="Publish" DependsOnTargets="Validate" />
+</Project>
