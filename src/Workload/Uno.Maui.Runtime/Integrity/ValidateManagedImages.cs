@@ -61,7 +61,7 @@ namespace Uno.Maui.Integrity
 					var seen = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
 					foreach (var item in PackageFiles ?? new Microsoft.Build.Framework.ITaskItem[0])
 					{
-						var path = System.IO.Path.GetFullPath(item.ItemSpec);
+						var path = item.GetMetadata("FullPath");
 						bool portable = path.EndsWith(".snupkg", System.StringComparison.OrdinalIgnoreCase);
 						bool legacy = path.EndsWith(".symbols.nupkg", System.StringComparison.OrdinalIgnoreCase);
 						if (!portable && !path.EndsWith(".nupkg", System.StringComparison.OrdinalIgnoreCase))
@@ -81,7 +81,7 @@ namespace Uno.Maui.Integrity
 					throw new System.InvalidOperationException("Managed inputs were already leased for this package.");
 				foreach (var item in Images)
 				{
-					var image = ManagedImage.Open(item.ItemSpec, item.GetMetadata("AssemblyName"));
+					var image = ManagedImage.Open(item.GetMetadata("FullPath"), item.GetMetadata("AssemblyName"));
 					leases.Images.Add(image);
 					var packagePath = item.GetMetadata("PackagePath");
 					if (!System.String.IsNullOrEmpty(packagePath))
@@ -89,7 +89,7 @@ namespace Uno.Maui.Integrity
 					var producerPath = item.GetMetadata("ProducerReference");
 					if (!System.String.IsNullOrEmpty(producerPath))
 					{
-						var producer = ManagedImage.Open(producerPath, item.GetMetadata("AssemblyName"));
+						var producer = ManagedImage.Open(ResolveMetadataPath(producerPath), item.GetMetadata("AssemblyName"));
 						leases.Images.Add(producer);
 						ManagedImage.AssertReferenceCopy(image, producer);
 					}
@@ -101,7 +101,7 @@ namespace Uno.Maui.Integrity
 				{
 					var symbol = new Symbol
 					{
-						File = new System.IO.FileStream(item.ItemSpec, System.IO.FileMode.Open,
+						File = new System.IO.FileStream(item.GetMetadata("FullPath"), System.IO.FileMode.Open,
 							System.IO.FileAccess.Read, System.IO.FileShare.Read)
 					};
 					try
@@ -111,7 +111,7 @@ namespace Uno.Maui.Integrity
 							symbol.File.CopyTo(buffer);
 							symbol.Bytes = buffer.ToArray();
 						}
-						var implementation = System.IO.Path.GetFullPath(item.GetMetadata("Implementation"));
+						var implementation = ResolveMetadataPath(item.GetMetadata("Implementation"));
 						ManagedImage image = null;
 						foreach (var candidate in leases.PackageImages.Values)
 							if (candidate.Path == implementation) image = candidate;
@@ -218,6 +218,18 @@ namespace Uno.Maui.Integrity
 					stream.Dispose();
 					throw;
 				}
+			}
+
+			// MSBuild items/metadata allow both slash styles on every host. Native
+			// System.IO on Unix does not interpret a backslash as a directory separator.
+			// Resolve custom path metadata through the same MSBuild FullPath contract
+			// used for incoming ITaskItem paths, without changing the PE reader's native
+			// filesystem API or weakening any identity/hash comparison.
+			static string ResolveMetadataPath(string path)
+			{
+				if (System.String.IsNullOrEmpty(path))
+					throw new System.IO.InvalidDataException("Required managed input path metadata is empty.");
+				return new Microsoft.Build.Utilities.TaskItem(path).GetMetadata("FullPath");
 			}
 		}
 	}

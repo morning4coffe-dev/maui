@@ -32,6 +32,18 @@ Every expected entry is required, and unexpected managed/PDB entries fail.
 All archives are read/decompressed and leased through build completion.
 This is not a full IL, PDB-semantic or adversarial-storage verifier.
 
+MSBuild path identity is not native filesystem syntax. An evaluated item may
+retain mixed separators in `Identity`/`ItemSpec` while its `FullPath` metadata
+is canonical for the executing host. The task opens incoming image, PDB and
+package items through `FullPath`; custom `ProducerReference`/`Implementation`
+path metadata is resolved through an MSBuild `TaskItem` before native I/O.
+Do not pass raw MSBuild path text to Unix `System.IO` or infer assembly identity
+from its native basename: backslash is a literal filename character there.
+This path adapter does not change PE/assembly/refint/PDB/hash or lease checks.
+The Pack fixture retains complete evaluation JSON before asserting canonical
+assembly/producer/symbol identities, and runs native/mixed-separator input
+controls plus wrong-reference/PDB/assembly-identity negatives.
+
 Windows sharing locks prevent pathname replacement or writing through normal
 file APIs while leased. POSIX native writers need not respect those locks:
 post-pack comparison is necessary, and release tooling must retain its own
