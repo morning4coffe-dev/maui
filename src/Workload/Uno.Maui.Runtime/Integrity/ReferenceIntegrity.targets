@@ -8,6 +8,7 @@
       <Reference Include="$(MSBuildToolsPath)/Sdks/Microsoft.NET.Sdk/tools/net472/System.Reflection.Metadata.dll" />
       <Reference Include="$(MSBuildToolsPath)/Sdks/Microsoft.NET.Sdk/tools/net472/System.Collections.Immutable.dll" />
       <Code Type="Class" Language="cs"><![CDATA[$([MSBuild]::Unescape($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)ManagedImage.cs'))))
+$([MSBuild]::Unescape($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)PortablePdb.cs'))))
 $([MSBuild]::Unescape($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)ValidateManagedImages.cs'))))]]></Code>
     </Task>
   </UsingTask>
@@ -15,13 +16,18 @@ $([MSBuild]::Unescape($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirector
        Keep the files leased through the NuGet consumer, including NoBuild packing. -->
   <Target Name="_ValidateUnoMauiRuntimeManagedImages" BeforeTargets="_GetPackageFiles">
     <Uno.Maui.Integrity.ValidateManagedImages Images="@(_UnoMauiRuntimeManagedImage)"
+      Symbols="@(_UnoMauiRuntimeSymbolFile)"
       LeaseKey="UnoMauiIntegrity:$(MSBuildProjectFullPath):$(TargetFramework):$(Configuration)" />
   </Target>
   <!-- Also verify what NuGet actually consumed. POSIX native writers need not honor
        FileShare; hashes from immutable snapshots must match the finished archive. -->
-  <Target Name="_ValidateUnoMauiRuntimePackageBytes" AfterTargets="GenerateNuspec">
+  <Target Name="_ValidateUnoMauiRuntimePackageBytes" AfterTargets="GenerateNuspec" DependsOnTargets="_GetOutputItemsFromPack">
+    <PropertyGroup>
+      <_UnoMauiExpectSymbols>false</_UnoMauiExpectSymbols>
+      <_UnoMauiExpectSymbols Condition="'$(IncludeSymbols)' == 'true' Or '$(IncludeSource)' == 'true'">true</_UnoMauiExpectSymbols>
+    </PropertyGroup>
     <Uno.Maui.Integrity.ValidateManagedImages Images="@(_UnoMauiRuntimeManagedImage)"
       LeaseKey="UnoMauiIntegrity:$(MSBuildProjectFullPath):$(TargetFramework):$(Configuration)"
-      PackageFile="$(PackageOutputPath)$(PackageId).$(PackageVersion).nupkg" />
+      VerifyOutputs="true" ExpectSymbols="$(_UnoMauiExpectSymbols)" PackageFiles="@(_OutputPackItems)" />
   </Target>
 </Project>

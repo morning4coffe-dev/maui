@@ -18,6 +18,20 @@ retained input snapshot exactly, with no duplicate/missing entry. The archive
 is then held read-only until build completion. Validation never recopies,
 rebuilds, repairs, retries or converts failure to a warning.
 
+The RI-1/RI-2 follow-up selects **SDK-resolved `@(_OutputPackItems)`**, including
+the requested symbol output. It never concatenates `PackageOutputPath` and a
+filename: `dotnet pack --output <directory-without-trailing-separator>` must
+validate the actual archive, not an adjacent decoy. Missing resolved outputs
+fail even when a normal package was successfully emitted.
+
+When symbols are requested, the runtime projects six PDB inputs alongside its
+six implementations. Portable PDB metadata must be readable and its content ID
+must match the implementation's portable CodeView GUID/stamp. Legacy symbols
+bind the same DLL/PDB bytes; `.snupkg` contains the validated PDBs, not DLLs.
+Every expected entry is required, and unexpected managed/PDB entries fail.
+All archives are read/decompressed and leased through build completion.
+This is not a full IL, PDB-semantic or adversarial-storage verifier.
+
 Windows sharing locks prevent pathname replacement or writing through normal
 file APIs while leased. POSIX native writers need not respect those locks:
 post-pack comparison is necessary, and release tooling must retain its own
@@ -34,6 +48,10 @@ The returned stream is not writable and cannot expose its backing array.
 and clones the caller's buffer. Dispose that snapshot after consuming its
 read-only stream. The release owner must still bind the enclosing archive
 and any separately shipped symbol packages through finalization.
+The wrapper now records symbol archives separately in `SymbolPackages`, retains
+their leases and hashes, and checks them against normal-package implementations.
+Its consumer cache guard is separate: validating this task's or the wrapper's
+private extraction is not evidence about files used by a consumer.
 
 Focused regressions in the wrapper:
 
@@ -47,6 +65,10 @@ Focused regressions in the wrapper:
   normal/diagnostic/concurrent controls on separately owned volumes.
 
 These are build/artifact tests, not application or physical-input acceptance.
+The subprocess Pack tests prove unlocking after process exit only. The separate
+event-driven cancellation fixture opens inputs exclusively **before** disposing
+its still-live BuildManager/process. Neither injected target errors nor process
+teardown alone establish build-lifetime cancellation cleanup.
 The probe records task order, sampled hashes/file IDs and distinct SDK/observer
 runtimes. It does not prove kernel write ordering, compiler process identity,
 block cloning or cold filesystem caches. A full MAUI rebuild and filtered

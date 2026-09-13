@@ -24,11 +24,17 @@
     <_UnoMauiRuntimeAssembly Include="Controls.Xaml" AssemblyName="Microsoft.Maui.Controls.Xaml" />
     <_UnoMauiRuntimeAssembly Update="@(_UnoMauiRuntimeAssembly)"
                             PackagePath="lib/net10.0/%(AssemblyName).dll"
+                            SymbolImplementation="$(ArtifactsBinDir)uno\%(Identity)\$(Configuration)\net10.0\%(AssemblyName).dll"
                             ProducerReference="$(ArtifactsObjDir)uno\%(Identity)\$(Configuration)\net10.0\refint\%(AssemblyName).dll" />
     <_UnoMauiRuntimeManagedImage Include="@(_UnoMauiRuntimeAssembly->'$(ArtifactsBinDir)uno\%(Identity)\$(Configuration)\net10.0\%(AssemblyName).dll')"
                                 ProducerReference="" />
     <_UnoMauiRuntimeManagedImage Include="@(_UnoMauiRuntimeAssembly->'$(ArtifactsBinDir)uno\%(Identity)\$(Configuration)\net10.0\ref\%(AssemblyName).dll')"
                                 PackagePath="" />
+    <_UnoMauiRuntimeSymbolFile Include="@(_UnoMauiRuntimeAssembly->'$(ArtifactsBinDir)uno\%(Identity)\$(Configuration)\net10.0\%(AssemblyName).pdb')"
+                              Condition="'$(IncludeSymbols)' == 'true' Or '$(IncludeSource)' == 'true'"
+                              PackagePath="lib/net10.0/%(AssemblyName).pdb"
+                              Implementation="%(SymbolImplementation)" />
+    <None Include="@(_UnoMauiRuntimeSymbolFile)" Pack="true" PackagePath="lib/net10.0" />
   </ItemGroup>
 
   <ItemGroup>
