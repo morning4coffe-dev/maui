@@ -1,4 +1,4 @@
-<Project>
+<Project InitialTargets="_MauiValidateSdkSourceLink">
   <!-- GHSA-23fw-v26w-5fgq: use SourceLink shipped in the patched SDK, not an
        older PackageReference that suppresses or overrides the SDK imports.
        Keep this SDK selection in sync with both pins in global.json. -->
@@ -8,7 +8,7 @@
 
   <Target Name="_MauiValidateSdkSourceLink"
           BeforeTargets="_GenerateRestoreGraphProjectEntry;InitializeSourceControlInformation;InitializeSourceControlInformationFromSourceControlManager;SetEmbeddedFilesFromSourceControlManagerUntrackedFiles;_GenerateSourceLinkFile;GenerateSourceLinkFile;_InitializeGitHubSourceLinkUrl;_InitializeAzureReposGitSourceLinkUrl;TranslateAzureReposGitUrlsInSourceControlInformation;CoreCompile"
-          Condition="'$(UsingMicrosoftNETSdk)' == 'true' And '$(DesignTimeBuild)' != 'true'">
+          Condition="'$(UsingMicrosoftNETSdk)' == 'true'">
     <ItemGroup>
       <_MauiSourceLinkPackageOverride Include="@(PackageReference)"
         Condition="$([System.String]::Copy('%(PackageReference.Identity)').ToLowerInvariant().StartsWith('microsoft.sourcelink.')) Or '%(PackageReference.Identity)' == 'Microsoft.Build.Tasks.Git'" />
