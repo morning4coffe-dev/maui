@@ -1,5 +1,22 @@
 <Project>
-  <ItemGroup >
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All"/>
-  </ItemGroup>
+  <!-- GHSA-23fw-v26w-5fgq: use SourceLink shipped in the patched SDK, not an
+       older PackageReference that suppresses or overrides the SDK imports.
+       Keep this SDK selection in sync with both pins in global.json. -->
+  <PropertyGroup>
+    <_MauiSourceLinkSdkVersion>10.0.111</_MauiSourceLinkSdkVersion>
+  </PropertyGroup>
+
+  <Target Name="_MauiValidateSdkSourceLink"
+          BeforeTargets="_GenerateRestoreGraphProjectEntry;InitializeSourceControlInformation;InitializeSourceControlInformationFromSourceControlManager;SetEmbeddedFilesFromSourceControlManagerUntrackedFiles;_GenerateSourceLinkFile;GenerateSourceLinkFile;_InitializeGitHubSourceLinkUrl;_InitializeAzureReposGitSourceLinkUrl;TranslateAzureReposGitUrlsInSourceControlInformation;CoreCompile"
+          Condition="'$(UsingMicrosoftNETSdk)' == 'true' And '$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <_MauiSourceLinkPackageOverride Include="@(PackageReference)"
+        Condition="$([System.String]::Copy('%(PackageReference.Identity)').ToLowerInvariant().StartsWith('microsoft.sourcelink.')) Or '%(PackageReference.Identity)' == 'Microsoft.Build.Tasks.Git'" />
+    </ItemGroup>
+    <Error Code="MAUISL002"
+           Condition="'@(_MauiSourceLinkPackageOverride)' != '' Or '$(SuppressImplicitGitSourceLink)' == 'true' Or '$(PkgMicrosoft_SourceLink_Common)' != '' Or '$(PkgMicrosoft_Build_Tasks_Git)' != ''"
+           Text="MAUI uses SDK-owned SourceLink. Remove Microsoft.SourceLink.* / Microsoft.Build.Tasks.Git PackageReference overrides and restore a fresh owned project graph; do not suppress SDK SourceLink or reuse stale package imports." />
+    <Error Code="MAUISL001" Condition="'$(NETCoreSdkVersion)' != '$(_MauiSourceLinkSdkVersion)'"
+           Text="MAUI source builds require the pinned .NET SDK $(_MauiSourceLinkSdkVersion) with patched SDK-owned SourceLink (GHSA-23fw-v26w-5fgq). Actual SDK: $(NETCoreSdkVersion)." />
+  </Target>
 </Project>
