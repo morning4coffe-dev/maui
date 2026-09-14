@@ -16,9 +16,15 @@ that a `Microsoft.SourceLink.GitHub` NuGet version 10.0.111 exists, nor that
 `SourceLink.Build.props` is imported for all source projects. Its validation
 target rejects another selected SDK (`MAUISL001`) or explicit/stale
 `Microsoft.SourceLink.*` / `Microsoft.Build.Tasks.Git` package overrides
-(`MAUISL002`) before restore graph generation, SCM queries and compilation.
-It does not disable SourceLink, source-control queries, auditing or warnings.
-Existing SDK/Arcade design-time behavior is not replaced.
+(`MAUISL002`) as an initial target for .NET SDK projects, before requested
+targets or their dependencies. The task-entry hooks are retained, but are not
+the only enforcement: `PrepareForBuild`, disabled SourceLink writer/wrapper
+conditions and design-time requests must not bypass the policy.
+
+The design-time check only validates configuration; it does not trigger SCM
+queries or source generation. Supported on/off and design-time configurations
+retain the SDK's normal behavior. No SourceLink, source-control query, audit or
+warning is disabled by the policy.
 
 Restore a fresh **owned project graph** after removing an override; never
 edit restored packages, delete shared caches, inject task DLLs or force
