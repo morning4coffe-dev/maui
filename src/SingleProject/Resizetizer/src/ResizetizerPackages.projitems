@@ -77,7 +77,7 @@
       </_ResizetizerDependencySymbols>
       <_ResizetizerDependencySymbols Remove="@(_ResizetizerFiles)" />
       <_ResizetizerFiles Include="@(_ResizetizerDependencySymbols)" />
-      <None Include="@(_ResizetizerDependencySymbols)" Visible="false" Pack="true" PackagePath="buildTransitive/%(Arch)" />
+      <None Include="@(_ResizetizerDependencySymbols)" Visible="false" Pack="true" PackagePath="buildTransitive/%(_ResizetizerDependencySymbols.Arch)" />
     </ItemGroup>
   </Target>
 
