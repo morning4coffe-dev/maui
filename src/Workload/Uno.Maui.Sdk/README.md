@@ -119,9 +119,15 @@ changing the rest of the Uno package graph:
 <UnoMauiWin32RuntimeVersion>6.8.0-dev.124</UnoMauiWin32RuntimeVersion>
 <UnoMauiAndroidRuntimeVersion>6.8.0-dev.123</UnoMauiAndroidRuntimeVersion>
 <UnoMauiWasmRuntimeVersion>6.8.0-dev.123</UnoMauiWasmRuntimeVersion>
+<UnoMauiIcuVersion>77.4.0-local.example</UnoMauiIcuVersion>
 ```
 
-Each property defaults to `UnoMauiUnoVersion`. The core override is useful when
+The runtime properties default to `UnoMauiUnoVersion`. `UnoMauiIcuVersion` has
+no stock default; when explicitly selected, generated Desktop and WebAssembly
+heads add direct `Uno.icu-macos`, `Uno.icu-win`, and `Uno.icu-wasm` references
+for their enabled hosts. This lets a reviewed prerelease ICU package participate
+in NuGet selection without changing global prerelease policy or the transitive
+constraints of stock Uno packages. The core override is useful when
 a platform runtime fix also requires a matching `Uno.WinUI` runtime assembly.
 The Win32 override selects only `Uno.WinUI.Runtime.Skia.Win32`; Lottie and the
 other Desktop host packages keep their base version.

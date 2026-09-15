@@ -9,6 +9,7 @@
     <UnoMauiWin32RuntimeVersion Condition="'$(UnoMauiWin32RuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiWin32RuntimeVersion>
     <UnoMauiAndroidRuntimeVersion Condition="'$(UnoMauiAndroidRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiAndroidRuntimeVersion>
     <UnoMauiWasmRuntimeVersion Condition="'$(UnoMauiWasmRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiWasmRuntimeVersion>
+    <UnoMauiIcuVersion Condition="'$(UnoMauiIcuVersion)' == ''"></UnoMauiIcuVersion>
     <UnoMauiWasmBootstrapVersion Condition="'$(UnoMauiWasmBootstrapVersion)' == ''">10.0.96</UnoMauiWasmBootstrapVersion>
     <UnoMauiAutoEnableAccessibility Condition="'$(UnoMauiAutoEnableAccessibility)' == ''">false</UnoMauiAutoEnableAccessibility>
     <UnoMauiEnableStartupTracing Condition="'$(UnoMauiEnableStartupTracing)' == ''">false</UnoMauiEnableStartupTracing>

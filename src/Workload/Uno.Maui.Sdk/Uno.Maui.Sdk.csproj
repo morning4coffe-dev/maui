@@ -63,6 +63,10 @@
              XmlInputPath="$(_UnoMauiVersionedPackageProps)"
              Query="/Project/PropertyGroup/UnoMauiWasmRuntimeVersion"
              Value="$(UnoMauiWasmRuntimeVersion)" />
+    <XmlPoke Condition="'$(UnoMauiIcuVersion)' != ''"
+             XmlInputPath="$(_UnoMauiVersionedPackageProps)"
+             Query="/Project/PropertyGroup/UnoMauiIcuVersion"
+             Value="$(UnoMauiIcuVersion)" />
     <XmlPoke XmlInputPath="$(_UnoMauiVersionedPackageProps)"
              Query="/Project/PropertyGroup/UnoMauiWin32RuntimeVersion"
              Value="$(_UnoMauiPackWin32RuntimeVersion)" />

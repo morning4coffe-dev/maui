@@ -35,6 +35,8 @@
     <PackageReference Condition="'$(UnoMauiUseMacOSHost)' == 'true'" Include="Uno.WinUI.Runtime.Skia.MacOS" Version="$(UnoMauiUnoVersion)" />
     <PackageReference Condition="'$(UnoMauiUseWin32Host)' == 'true'" Include="Uno.WinUI.Runtime.Skia.Win32" Version="$(UnoMauiWin32RuntimeVersion)" />
     <PackageReference Condition="'$(UnoMauiUseX11Host)' == 'true'" Include="Uno.WinUI.Runtime.Skia.X11" Version="$(UnoMauiUnoVersion)" />
+    <PackageReference Condition="'$(UnoMauiIcuVersion)' != '' and '$(UnoMauiUseMacOSHost)' == 'true'" Include="Uno.icu-macos" Version="$(UnoMauiIcuVersion)" />
+    <PackageReference Condition="'$(UnoMauiIcuVersion)' != '' and '$(UnoMauiUseWin32Host)' == 'true'" Include="Uno.icu-win" Version="$(UnoMauiIcuVersion)" />
     <PublishReadyToRunExclude Include="DirectNAot.dll" />
     <PublishReadyToRunExclude Include="DirectNAot.Extensions.dll" />
   </ItemGroup>

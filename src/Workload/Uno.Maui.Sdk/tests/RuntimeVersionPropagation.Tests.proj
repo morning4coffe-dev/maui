@@ -5,6 +5,7 @@
     <UnoMauiUnoVersion>6.7.0-default</UnoMauiUnoVersion>
     <UnoMauiCoreRuntimeVersion>6.7.0-core-fix</UnoMauiCoreRuntimeVersion>
     <UnoMauiWasmRuntimeVersion>6.7.0-browser-fix</UnoMauiWasmRuntimeVersion>
+    <UnoMauiIcuVersion Condition="'$(UseDefaultIcuVersion)' != 'true'">77.4.0-local-fixture</UnoMauiIcuVersion>
     <UnoMauiGenerateStaticWebAssets Condition="'$(ProbeStaticWebAssets)' == ''">true</UnoMauiGenerateStaticWebAssets>
     <UnoMauiGenerateStaticWebAssets Condition="'$(ProbeStaticWebAssets)' != ''">$(ProbeStaticWebAssets)</UnoMauiGenerateStaticWebAssets>
     <UnoMauiWin32RuntimeVersion Condition="'$(UseDefaultWin32Version)' != 'true'">6.7.0-win32-fix</UnoMauiWin32RuntimeVersion>
@@ -23,8 +24,22 @@
              Query="/Project/ItemGroup/PackageReference[@Include='Uno.WinUI.Runtime.Skia.Win32']/@Version">
       <Output TaskParameter="Result" PropertyName="_Win32TemplateVersion" />
     </XmlPeek>
+    <XmlPeek XmlInputPath="$(MSBuildThisFileDirectory)..\templates\Desktop\Uno.Maui.Generated.Desktop.csproj"
+             Query="/Project/ItemGroup/PackageReference[@Include='Uno.icu-macos']/@Version">
+      <Output TaskParameter="Result" PropertyName="_MacIcuTemplateVersion" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(MSBuildThisFileDirectory)..\templates\Desktop\Uno.Maui.Generated.Desktop.csproj"
+             Query="/Project/ItemGroup/PackageReference[@Include='Uno.icu-win']/@Version">
+      <Output TaskParameter="Result" PropertyName="_WinIcuTemplateVersion" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(MSBuildThisFileDirectory)..\templates\WebAssembly\Uno.Maui.Generated.WebAssembly.csproj"
+             Query="/Project/ItemGroup/PackageReference[@Include='Uno.icu-wasm']/@Version">
+      <Output TaskParameter="Result" PropertyName="_WasmIcuTemplateVersion" />
+    </XmlPeek>
     <Error Condition="'$(_Win32TemplateVersion)' != '%24(UnoMauiWin32RuntimeVersion)'"
            Text="Generated Desktop must select the independent Win32 runtime property." />
+    <Error Condition="'$(_MacIcuTemplateVersion)' != '%24(UnoMauiIcuVersion)' or '$(_WinIcuTemplateVersion)' != '%24(UnoMauiIcuVersion)' or '$(_WasmIcuTemplateVersion)' != '%24(UnoMauiIcuVersion)'"
+           Text="Generated heads must use the explicit ICU version for direct platform package selection." />
     <Message Importance="high" Text="Generated restore/build/publish runtime version propagation passed." />
   </Target>
 </Project>

@@ -6,12 +6,14 @@
     <UnoMauiAndroidRuntimeVersion>6.7.0-android-fix</UnoMauiAndroidRuntimeVersion>
     <UnoMauiWasmRuntimeVersion>6.7.0-browser-fix</UnoMauiWasmRuntimeVersion>
     <UnoMauiWin32RuntimeVersion Condition="'$(UseDefaultWin32Version)' != 'true'">6.7.0-win32-fix</UnoMauiWin32RuntimeVersion>
+    <UnoMauiIcuVersion Condition="'$(UseDefaultIcuVersion)' != 'true'">77.4.0-local-fixture</UnoMauiIcuVersion>
   </PropertyGroup>
   <Import Project="..\Sdk\Uno.Maui.Sdk.props" Condition="'$(SdkDefaults)' == 'Source'" />
   <Import Project="..\Sdk\Uno.Maui.Package.props" Condition="'$(SdkDefaults)' == 'Package'" />
   <PropertyGroup>
     <_ExpectedWin32Version>$(UnoWinUIPackageVersion)</_ExpectedWin32Version>
     <_ExpectedWin32Version Condition="'$(UseDefaultWin32Version)' != 'true'">6.7.0-win32-fix</_ExpectedWin32Version>
+    <_ExpectedIcuVersion Condition="'$(UseDefaultIcuVersion)' != 'true'">77.4.0-local-fixture</_ExpectedIcuVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Uno.WinUI" />
@@ -37,6 +39,7 @@
     <Error Condition="'@(_Browser->'%(Version)')' != '$(UnoMauiWasmRuntimeVersion)'" Text="Source browser runtime override was lost." />
     <Error Condition="'@(_Desktop->'%(Version)')' != '$(_ExpectedWin32Version)'" Text="The independent Win32 runtime version or its base default was lost." />
     <Error Condition="'$(SdkDefaults)' != '' and '$(UnoMauiWin32RuntimeVersion)' != '$(_ExpectedWin32Version)'" Text="$(SdkDefaults) SDK defaults lost the Win32 version." />
+    <Error Condition="'$(UnoMauiIcuVersion)' != '$(_ExpectedIcuVersion)'" Text="$(SdkDefaults) SDK defaults changed the explicit/empty ICU selection." />
     <Error Condition="'%(_Unrelated.Version)' != '$(UnoWinUIPackageVersion)'" Text="Unrelated provider %(_Unrelated.Identity) changed version." />
     <Message Importance="high" Text="Independent source runtime overrides passed." />
   </Target>

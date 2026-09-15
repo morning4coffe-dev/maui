@@ -46,6 +46,7 @@
     <PackageReference Update="Uno.WinUI" VersionOverride="$(UnoMauiCoreRuntimeVersion)" Condition="'$(UnoMauiUseSource)' == 'true'" />
     <PackageReference Include="Uno.WinUI" Version="$(UnoMauiCoreRuntimeVersion)" VersionOverride="$(UnoMauiCoreRuntimeVersion)" Condition="'$(UnoMauiUseSource)' != 'true'" />
     <PackageReference Include="Uno.WinUI.Runtime.Skia.WebAssembly.Browser" Version="$(UnoMauiWasmRuntimeVersion)" VersionOverride="$(UnoMauiWasmRuntimeVersion)" />
+    <PackageReference Condition="'$(UnoMauiIcuVersion)' != ''" Include="Uno.icu-wasm" Version="$(UnoMauiIcuVersion)" />
     <TrimmerRootAssembly Include="$([System.IO.Path]::GetFileNameWithoutExtension('$(UnoMauiAppProject)'))" />
   </ItemGroup>
 

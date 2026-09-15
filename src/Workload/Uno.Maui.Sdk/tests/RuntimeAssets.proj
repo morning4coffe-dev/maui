@@ -58,8 +58,10 @@
     <MSBuild Projects="RuntimeVersionOverrides.Tests.proj" Properties="UseDefaultWin32Version=true" />
     <MSBuild Projects="RuntimeVersionOverrides.Tests.proj" Properties="SdkDefaults=Source" />
     <MSBuild Projects="RuntimeVersionOverrides.Tests.proj" Properties="SdkDefaults=Source;UseDefaultWin32Version=true" />
+    <MSBuild Projects="RuntimeVersionOverrides.Tests.proj" Properties="SdkDefaults=Source;UseDefaultIcuVersion=true" />
     <MSBuild Projects="RuntimeVersionOverrides.Tests.proj" Properties="SdkDefaults=Package" />
     <MSBuild Projects="RuntimeVersionOverrides.Tests.proj" Properties="SdkDefaults=Package;UseDefaultWin32Version=true" />
+    <MSBuild Projects="RuntimeVersionOverrides.Tests.proj" Properties="SdkDefaults=Package;UseDefaultIcuVersion=true" />
     <MSBuild Projects="RuntimeVersionPropagation.Tests.proj" />
     <MSBuild Projects="RuntimeVersionPropagation.Tests.proj" Properties="UseDefaultWin32Version=true" />
     <MSBuild Projects="RuntimeVersionPropagation.Tests.proj" Properties="ProbeStaticWebAssets=false" />
