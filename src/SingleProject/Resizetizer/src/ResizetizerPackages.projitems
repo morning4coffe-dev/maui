@@ -68,4 +68,17 @@
     <_ResizetizerFiles Include="$(PkgHarfBuzzSharp_NativeAssets_Linux)\runtimes\linux-x64\native\libHarfBuzzSharp.so" Link="x64\libHarfBuzzSharp.so" Arch="x64/" />
   </ItemGroup>
 
+  <Target Name="_CollectResizetizerDependencySymbols" BeforeTargets="_GetPackageFiles;_CopyToBuildTasksDir">
+    <ItemGroup>
+      <_ResizetizerDependencySymbols
+          Include="@(_ResizetizerFiles->'%(RootDir)%(Directory)%(Filename).pdb')"
+          Condition="'%(_ResizetizerFiles.Extension)' == '.dll' and Exists('%(_ResizetizerFiles.RootDir)%(_ResizetizerFiles.Directory)%(_ResizetizerFiles.Filename).pdb')">
+        <Arch>%(_ResizetizerFiles.Arch)</Arch>
+      </_ResizetizerDependencySymbols>
+      <_ResizetizerDependencySymbols Remove="@(_ResizetizerFiles)" />
+      <_ResizetizerFiles Include="@(_ResizetizerDependencySymbols)" />
+      <None Include="@(_ResizetizerDependencySymbols)" Visible="false" Pack="true" PackagePath="buildTransitive/%(Arch)" />
+    </ItemGroup>
+  </Target>
+
 </Project>
