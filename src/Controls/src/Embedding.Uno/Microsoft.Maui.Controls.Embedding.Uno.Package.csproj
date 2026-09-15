@@ -27,6 +27,7 @@
     <UnoMauiCoreRuntimeVersion Condition="'$(UnoMauiCoreRuntimeVersion)' == ''">$(UnoMauiUnoVersion)</UnoMauiCoreRuntimeVersion>
 
     <_UnoMauiEmbeddingAssembly Condition="'$(_UnoMauiEmbeddingAssembly)' == ''">$(ArtifactsBinDir)uno\Microsoft.Maui.Controls.Embedding.Uno\$(Configuration)\net10.0\Microsoft.Maui.Controls.Embedding.Uno.dll</_UnoMauiEmbeddingAssembly>
+    <_UnoMauiEmbeddingPdb Condition="'$(_UnoMauiEmbeddingPdb)' == ''">$([System.IO.Path]::ChangeExtension('$(_UnoMauiEmbeddingAssembly)', '.pdb'))</_UnoMauiEmbeddingPdb>
   </PropertyGroup>
 
   <!-- Runtime dependencies of the embedding assembly. Uno.Maui.Runtime carries the MAUI assemblies
@@ -39,10 +40,13 @@
   <ItemGroup>
     <None Include="nuget\_._" Pack="true" PackagePath="lib\netstandard2.0\_._" />
     <None Include="$(_UnoMauiEmbeddingAssembly)" Pack="true" PackagePath="lib\net10.0" />
+    <None Include="$(_UnoMauiEmbeddingPdb)" Pack="true" PackagePath="lib\net10.0" />
   </ItemGroup>
 
   <Target Name="_ValidateUnoMauiEmbeddingPackFiles" BeforeTargets="Pack">
     <Error Condition="!Exists('$(_UnoMauiEmbeddingAssembly)')"
            Text="Uno MAUI embedding pack input does not exist: $(_UnoMauiEmbeddingAssembly). Build Microsoft.Maui.Controls.Embedding.Uno.csproj for the same configuration first." />
+    <Error Condition="!Exists('$(_UnoMauiEmbeddingPdb)')"
+           Text="Uno MAUI embedding PDB input does not exist: $(_UnoMauiEmbeddingPdb). Build Microsoft.Maui.Controls.Embedding.Uno.csproj for the same configuration first." />
   </Target>
 </Project>
