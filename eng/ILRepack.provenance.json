@@ -1,0 +1,21 @@
+{
+  "SchemaVersion": 1,
+  "ToolVersion": "2.1.0",
+  "ToolSha256": "E6D8E61A0225FF4D29D82D191D6A3045D301B3D06CC05D788A7FFDB076FBB892",
+  "OriginalToolSha256": "2235E0B74AAF13A2983008AA7DE57D36EB61F20C917D565A7240397D022CB419",
+  "SourceRepository": "https://github.com/gluck/il-repack",
+  "SourceCommit": "9a20c0a167aeee298baa5717af48caefaec3d94a",
+  "SourceTree": "5efaa118d8a635239b339944321737fc97f63b90",
+  "BackportPatch": "ILRepack.SourceLink.patch",
+  "BackportPatchSha256": "1826460D3559ADC9ACEECE5E8DDAFF12ECA93B52FB21D104D288AEAE0CD7697A",
+  "UpstreamSourceLinkReferenceCommit": "662df901a3eca718dc4f89d7afa3755ee81553ca",
+  "BuildSdk": "10.0.111",
+  "BuildConfiguration": "Release",
+  "BuildVersion": "2.1.0",
+  "BuildCommand": "dotnet build ILRepack/ILRepack.csproj --configuration Release --no-restore --no-incremental --disable-build-servers -p:Version=2.1.0 -p:ContinuousIntegrationBuild=true",
+  "BootstrapTool": "ILRepack/bin/Release/ILRepack.exe",
+  "BootstrapToolSha256": "49F9C921DC05F4C15AF23D5D1524686E6BCE2B71D4A9C3DC790B5A20BD397581",
+  "SelectedOutput": "ILRepack/bin/Release/Repacked/ILRepack.exe",
+  "KnownNondeterminism": "ILRepack/RepackImporter.cs GenerateName uses Guid.NewGuid for duplicate private type names.",
+  "ByteReproducibility": "Not claimed. The selected Repacked output SHA256 is authoritative; public API/reference/resource equivalence is validated separately."
+}

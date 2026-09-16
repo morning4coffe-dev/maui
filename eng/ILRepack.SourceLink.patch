@@ -1,0 +1,126 @@
+diff --git a/ILRepack/ILRepack.cs b/ILRepack/ILRepack.cs
+index 9ec746d..198cf5b 100644
+--- a/ILRepack/ILRepack.cs
++++ b/ILRepack/ILRepack.cs
+@@ -329,6 +329,7 @@ public void Repack()
+                     new AttributesRepackStep(Logger, this, _repackImporter, Options),
+                     new ReferencesFixStep(Logger, this, _repackImporter, Options),
+                     new XamlResourcePathPatcherStep(Logger, this),
++                    new SourceLinkRepackStep(Logger, this),
+                     sourceServerDataStep
+                 };
+ 
+diff --git a/ILRepack/ILRepack.csproj b/ILRepack/ILRepack.csproj
+index 35ad5b9..2758bc1 100644
+--- a/ILRepack/ILRepack.csproj
++++ b/ILRepack/ILRepack.csproj
+@@ -37,6 +37,7 @@
+   <ItemGroup>
+     <Reference Include="Microsoft.CSharp" />
+     <Reference Include="System.Data.DataSetExtensions" />
++    <Reference Include="System.Web.Extensions" />
+   </ItemGroup>
+   <ItemGroup>
+     <None Include="ILRepack.snk" />
+diff --git a/ILRepack/Steps/SourceLinkRepackStep.cs b/ILRepack/Steps/SourceLinkRepackStep.cs
+new file mode 100644
+index 0000000..2e2e4d3
+--- /dev/null
++++ b/ILRepack/Steps/SourceLinkRepackStep.cs
+@@ -0,0 +1,96 @@
++//
++// Copyright (c) ILRepack contributors
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//       http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++//
++using Mono.Cecil.Cil;
++using System;
++using System.Collections.Generic;
++using System.Web.Script.Serialization;
++
++namespace ILRepacking.Steps
++{
++    internal sealed class SourceLinkRepackStep : IRepackStep
++    {
++        private readonly ILogger _logger;
++        private readonly IRepackContext _repackContext;
++
++        public SourceLinkRepackStep(ILogger logger, IRepackContext repackContext)
++        {
++            _logger = logger;
++            _repackContext = repackContext;
++        }
++
++        public void Perform()
++        {
++            var documents = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
++            var serializer = new JavaScriptSerializer();
++            foreach (var input in _repackContext.MergedAssemblies)
++            {
++                var sourceLinkRecords = 0;
++                foreach (var custom in input.MainModule.CustomDebugInformations)
++                {
++                    var sourceLink = custom as SourceLinkDebugInformation;
++                    if (sourceLink == null)
++                        continue;
++
++                    sourceLinkRecords++;
++                    if (sourceLinkRecords != 1)
++                        throw new InvalidOperationException("An input module contains multiple SourceLink records.");
++                    if (string.IsNullOrWhiteSpace(sourceLink.Content))
++                        throw new InvalidOperationException("SourceLink content must be nonempty JSON.");
++                    var root = serializer.DeserializeObject(sourceLink.Content) as IDictionary<string, object>;
++                    object value;
++                    var sourceDocuments = root != null && root.TryGetValue("documents", out value)
++                        ? value as IDictionary<string, object>
++                        : null;
++                    if (sourceDocuments == null || sourceDocuments.Count == 0)
++                        throw new InvalidOperationException("SourceLink must contain a nonempty documents object.");
++                    foreach (var document in sourceDocuments)
++                    {
++                        var url = document.Value as string;
++                        ValidatePattern(document.Key, url);
++                        string existing;
++                        if (documents.TryGetValue(document.Key, out existing) &&
++                            !string.Equals(existing, url, StringComparison.Ordinal))
++                            throw new InvalidOperationException("Merged SourceLink inputs disagree for " + document.Key);
++                        documents[document.Key] = url;
++                    }
++                }
++            }
++            if (documents.Count == 0)
++                return;
++
++            var content = serializer.Serialize(new Dictionary<string, object>
++            {
++                { "documents", documents }
++            });
++            _repackContext.TargetAssemblyMainModule.CustomDebugInformations.Add(
++                new SourceLinkDebugInformation(content));
++            _logger.Verbose("Wrote aggregated SourceLink json with " + documents.Count + " entries");
++        }
++
++        private static void ValidatePattern(string path, string url)
++        {
++            if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(url))
++                throw new InvalidOperationException("SourceLink document paths and URLs must be nonempty strings.");
++            var pathWildcard = path.IndexOf('*');
++            if (pathWildcard >= 0 && (pathWildcard != path.Length - 1 || path.LastIndexOf('*') != pathWildcard))
++                throw new InvalidOperationException("SourceLink document path has an invalid wildcard: " + path);
++            var urlWildcard = url.IndexOf('*');
++            if (pathWildcard < 0 && urlWildcard >= 0 ||
++                pathWildcard >= 0 && (urlWildcard < 0 || url.LastIndexOf('*') != urlWildcard))
++                throw new InvalidOperationException("SourceLink document path and URL wildcards do not correspond: " + path);
++        }
++    }
++}

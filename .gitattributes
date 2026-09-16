@@ -15,6 +15,9 @@
 
 # Always checkout docs using unix line endings because mdoc uses unix line endings even on windows
 /docs/**/*.xml text eol=lf
+# Unified-diff context lines intentionally contain a single space.
+eng/ILRepack.SourceLink.patch text eol=lf whitespace=-blank-at-eol
+eng/ILRepack.provenance.json text eol=lf
 
 # avoid overriding GitInfo.txt on merge
 GitInfo.txt merge=ours
