@@ -1,0 +1,56 @@
+<Project DefaultTargets="Test">
+  <PropertyGroup>
+    <SdkDefaults Condition="'$(SdkDefaults)' == ''">Package</SdkDefaults>
+    <UnoMauiTarget>WebAssembly</UnoMauiTarget>
+    <UnoMauiRuntimeIdentifier>browser-wasm</UnoMauiRuntimeIdentifier>
+    <ExpectedUnoMauiTrimMode Condition="'$(ExpectedUnoMauiTrimMode)' == ''">partial</ExpectedUnoMauiTrimMode>
+    <_TrimDefaultsProps Condition="'$(TrimDefaultsProps)' != ''">$(TrimDefaultsProps)</_TrimDefaultsProps>
+    <_TrimDefaultsProps Condition="'$(_TrimDefaultsProps)' == '' and '$(SdkDefaults)' == 'Source'">$(MSBuildThisFileDirectory)..\Sdk\Uno.Maui.Sdk.props</_TrimDefaultsProps>
+    <_TrimDefaultsProps Condition="'$(_TrimDefaultsProps)' == '' and '$(SdkDefaults)' == 'Package'">$(MSBuildThisFileDirectory)..\Sdk\Uno.Maui.Package.props</_TrimDefaultsProps>
+    <_TrimTargets Condition="'$(TrimTargets)' != ''">$(TrimTargets)</_TrimTargets>
+    <_TrimTargets Condition="'$(_TrimTargets)' == ''">$(MSBuildThisFileDirectory)..\Sdk\Uno.Maui.Sdk.targets</_TrimTargets>
+    <_TrimTemplate Condition="'$(TrimTemplate)' != ''">$(TrimTemplate)</_TrimTemplate>
+    <_TrimTemplate Condition="'$(_TrimTemplate)' == ''">$(MSBuildThisFileDirectory)..\templates\WebAssembly\Uno.Maui.Generated.WebAssembly.csproj</_TrimTemplate>
+  </PropertyGroup>
+
+  <Import Project="$(_TrimDefaultsProps)" />
+  <Import Project="$(_TrimTargets)" />
+
+  <PropertyGroup>
+    <_TrimModeHostRoot>$(MSBuildThisFileDirectory)obj\trim-mode\$(SdkDefaults)\$(ExpectedUnoMauiTrimMode)\</_TrimModeHostRoot>
+    <_UnoMauiHostProject>$(_TrimModeHostRoot)TrimModePropagationHost.proj</_UnoMauiHostProject>
+  </PropertyGroup>
+
+  <!-- Exercise the real generated-host MSBuild boundary without restoring or compiling an application. -->
+  <Target Name="_UnoMauiPrepareHost">
+    <MakeDir Directories="$(_TrimModeHostRoot)" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)TrimModePropagationHost.proj"
+          DestinationFiles="$(_UnoMauiHostProject)" />
+    <XmlPoke XmlInputPath="$(_UnoMauiHostProject)"
+             Query="/Project/PropertyGroup/_ExpectedUnoMauiTrimMode"
+             Value="$(ExpectedUnoMauiTrimMode)" />
+  </Target>
+  <Target Name="_UnoMauiBuildApplication" />
+  <Target Name="_UnoMauiPrepareStaticWebAssets" />
+  <Target Name="_UnoMauiPreparePublishStaticWebAssets" />
+
+  <Target Name="Test" DependsOnTargets="RestoreUnoMaui;BuildUnoMaui;PublishUnoMaui">
+    <XmlPeek XmlInputPath="$(_TrimTemplate)"
+             Query="/Project/PropertyGroup/UnoMauiTrimMode/text()">
+      <Output TaskParameter="Result" PropertyName="_TemplateUnoMauiTrimMode" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(_TrimTemplate)"
+             Query="/Project/PropertyGroup/TrimMode/text()">
+      <Output TaskParameter="Result" PropertyName="_TemplateTrimMode" />
+    </XmlPeek>
+    <Error Condition="'$(UnoMauiTrimMode)' != '$(ExpectedUnoMauiTrimMode)'"
+           Text="$(SdkDefaults) outer SDK defaults evaluated UnoMauiTrimMode='$(UnoMauiTrimMode)' instead of '$(ExpectedUnoMauiTrimMode)'." />
+    <Error Condition="'$(_TemplateUnoMauiTrimMode)' != 'partial' or '$(_TemplateTrimMode)' != '%24(UnoMauiTrimMode)'"
+           Text="The generated WebAssembly template trim defaults changed independently from the SDK forwarding contract." />
+    <Error Condition="'$(TargetFramework)' != 'outer-target-framework' or '$(OutputType)' != 'Library' or '$(RuntimeIdentifier)' != 'outer-runtime'"
+           Text="The outer application evaluated TargetFramework='$(TargetFramework)', OutputType='$(OutputType)', and RuntimeIdentifier='$(RuntimeIdentifier)' instead of preserving its library role and outer values." />
+    <Error Condition="!$([System.String]::Copy('$(_UnoMauiHostRemoveProperties)').Contains('TargetFramework')) or !$([System.String]::Copy('$(_UnoMauiHostRemoveProperties)').Contains('OutputType')) or !$([System.String]::Copy('$(_UnoMauiHostRemoveProperties)').Contains('RuntimeIdentifier'))"
+           Text="Generated-host evaluation must remove inherited application role, framework, and runtime identifier globals." />
+    <Message Importance="high" Text="$(SdkDefaults) restore/build/publish trim propagation passed with UnoMauiTrimMode=$(UnoMauiTrimMode)." />
+  </Target>
+</Project>

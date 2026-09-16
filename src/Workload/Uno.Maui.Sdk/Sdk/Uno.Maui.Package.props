@@ -13,6 +13,7 @@
     <UnoMauiWasmBootstrapVersion Condition="'$(UnoMauiWasmBootstrapVersion)' == ''">10.0.96</UnoMauiWasmBootstrapVersion>
     <UnoMauiAutoEnableAccessibility Condition="'$(UnoMauiAutoEnableAccessibility)' == ''">false</UnoMauiAutoEnableAccessibility>
     <UnoMauiEnableStartupTracing Condition="'$(UnoMauiEnableStartupTracing)' == ''">false</UnoMauiEnableStartupTracing>
+    <UnoMauiTrimMode Condition="'$(UnoMauiTrimMode)' == ''">partial</UnoMauiTrimMode>
     <UnoMauiOptimizeWasmRuntime Condition="'$(UnoMauiOptimizeWasmRuntime)' == ''">true</UnoMauiOptimizeWasmRuntime>
     <UnoMauiWasmAot Condition="'$(UnoMauiWasmAot)' == ''">false</UnoMauiWasmAot>
     <UnoMauiAndroidProfiledAot Condition="'$(UnoMauiAndroidProfiledAot)' == ''">false</UnoMauiAndroidProfiledAot>

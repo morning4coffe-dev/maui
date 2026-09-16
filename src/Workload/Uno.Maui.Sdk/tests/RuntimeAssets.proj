@@ -67,6 +67,20 @@
     <MSBuild Projects="RuntimeVersionPropagation.Tests.proj" Properties="ProbeStaticWebAssets=false" />
     <MSBuild Projects="StaticWebAssetsPropagation.Tests.proj" />
     <MSBuild Projects="StaticWebAssetsPropagation.Tests.proj" Properties="ProbeStaticWebAssets=false" />
+    <MSBuild Projects="TrimModePropagation.Tests.proj"
+             RemoveProperties="UnoMauiTrimMode"
+             Properties="SdkDefaults=Source;ExpectedUnoMauiTrimMode=partial;TargetFramework=outer-target-framework;OutputType=Library;RuntimeIdentifier=outer-runtime" />
+    <MSBuild Projects="TrimModePropagation.Tests.proj"
+             Properties="SdkDefaults=Source;UnoMauiTrimMode=partial;ExpectedUnoMauiTrimMode=partial;TargetFramework=outer-target-framework;OutputType=Library;RuntimeIdentifier=outer-runtime" />
+    <MSBuild Projects="TrimModePropagation.Tests.proj"
+             Properties="SdkDefaults=Source;UnoMauiTrimMode=full;ExpectedUnoMauiTrimMode=full;TargetFramework=outer-target-framework;OutputType=Library;RuntimeIdentifier=outer-runtime" />
+    <MSBuild Projects="TrimModePropagation.Tests.proj"
+             RemoveProperties="UnoMauiTrimMode"
+             Properties="SdkDefaults=Package;ExpectedUnoMauiTrimMode=partial;TargetFramework=outer-target-framework;OutputType=Library;RuntimeIdentifier=outer-runtime" />
+    <MSBuild Projects="TrimModePropagation.Tests.proj"
+             Properties="SdkDefaults=Package;UnoMauiTrimMode=partial;ExpectedUnoMauiTrimMode=partial;TargetFramework=outer-target-framework;OutputType=Library;RuntimeIdentifier=outer-runtime" />
+    <MSBuild Projects="TrimModePropagation.Tests.proj"
+             Properties="SdkDefaults=Package;UnoMauiTrimMode=full;ExpectedUnoMauiTrimMode=full;TargetFramework=outer-target-framework;OutputType=Library;RuntimeIdentifier=outer-runtime" />
     <MSBuild Projects="StaticWebAssetsReference.Tests.proj" />
     <MSBuild Projects="StaticWebAssetsReference.Tests.proj" Properties="UnoMauiGenerateStaticWebAssets=false" />
     <MSBuild Projects="PackageInputPaths.Tests.proj" />
