@@ -35,7 +35,10 @@ internal static class LifecycleRegressionProbe
 		var originalHeight = viewHost.Height;
 		try
 		{
-			var ownership = await EmbeddingOwnershipRegressionProbe.RunAsync(session, pageHost, viewHost);
+			var supportsSecondaryWindows = EmbeddingHostPlatformSupport.SupportsSecondaryWindows();
+			var ownership = supportsSecondaryWindows
+				? await EmbeddingOwnershipRegressionProbe.RunAsync(session, pageHost, viewHost)
+				: await EmbeddingOwnershipRegressionProbe.RunSingleWindowAsync(session, pageHost, viewHost);
 			report.Append(ownership.Report);
 			Check(ownership.Passed, "public overload and transactional host ownership", report);
 			await VerifyModalReplacementAsync(session, pageHost, report);
@@ -45,7 +48,7 @@ internal static class LifecycleRegressionProbe
 			await VerifyGridAsync(viewHost, report, 0);
 			await VerifyGridAsync(viewHost, report, 32);
 			await VerifyFailedEmbeddingAsync(session, pageHost, viewHost, report);
-			await VerifyExclusiveOwnershipAsync(session, pageHost, viewHost, report);
+			await VerifyExclusiveOwnershipAsync(session, pageHost, viewHost, supportsSecondaryWindows, report);
 			return new Tier2ProbeResult(true, report.ToString());
 		}
 		catch (Exception error)
@@ -97,8 +100,9 @@ internal static class LifecycleRegressionProbe
 		var page = host.MauiContent as MauiPage ?? throw new InvalidOperationException("A page island is required.");
 		var modal = CreateModal();
 		await page.Navigation.PushModalAsync(modal).WaitAsync(Timeout);
+		Check(await Tier2Probe.WaitForAsync(
+			() => (modal.Handler?.PlatformView as FrameworkElement)?.XamlRoot is not null), "modal attached", report);
 		var oldPlatform = modal.Handler?.PlatformView as FrameworkElement;
-		Check(await Tier2Probe.WaitForAsync(() => oldPlatform?.XamlRoot is not null), "modal attached", report);
 
 		var clicks = 0;
 		var button = new MauiButton { Text = "Replacement regression button" };
@@ -229,7 +233,12 @@ internal static class LifecycleRegressionProbe
 		}
 	}
 
-	static async Task VerifyExclusiveOwnershipAsync(MauiEmbeddingSession session, MauiHost firstHost, MauiHost secondHost, StringBuilder report)
+	static async Task VerifyExclusiveOwnershipAsync(
+		MauiEmbeddingSession session,
+		MauiHost firstHost,
+		MauiHost secondHost,
+		bool supportsSecondaryWindows,
+		StringBuilder report)
 	{
 		firstHost.MauiContent = null;
 		secondHost.MauiContent = null;
@@ -254,19 +263,26 @@ internal static class LifecycleRegressionProbe
 		Check(ReferenceEquals(content.Handler, handler) && ReferenceEquals(content.Parent, parent) &&
 			ReferenceEquals(firstHost.Content, platform), "rejected second host leaves the owner untouched", report);
 
-		var otherWindow = new Microsoft.UI.Xaml.Window();
-		var otherSession = MauiEmbeddingSession.GetOrCreate(otherWindow);
-		try
+		if (supportsSecondaryWindows)
 		{
-			ExpectDuplicateRejected(() => otherSession.Embed(content), "cross-session duplicate is rejected", report);
-			otherSession.Release(content);
-			Check(otherSession.EmbeddedWindow is null && ReferenceEquals(content.Handler, handler),
-				"rejected session creates no window scope and cannot release the owner", report);
+			var otherWindow = new Microsoft.UI.Xaml.Window();
+			var otherSession = MauiEmbeddingSession.GetOrCreate(otherWindow);
+			try
+			{
+				ExpectDuplicateRejected(() => otherSession.Embed(content), "cross-session duplicate is rejected", report);
+				otherSession.Release(content);
+				Check(otherSession.EmbeddedWindow is null && ReferenceEquals(content.Handler, handler),
+					"rejected session creates no window scope and cannot release the owner", report);
+			}
+			finally
+			{
+				otherSession.Dispose();
+				otherWindow.Close();
+			}
 		}
-		finally
+		else
 		{
-			otherSession.Dispose();
-			otherWindow.Close();
+			report.AppendLine("SKIP cross-session duplicate — secondary platform windows require the Desktop probe.");
 		}
 
 		var border = firstHost.Parent as Microsoft.UI.Xaml.Controls.Border

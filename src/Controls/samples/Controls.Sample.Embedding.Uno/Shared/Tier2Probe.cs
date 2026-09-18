@@ -291,7 +291,10 @@ public static class Tier2Probe
 			var expected = ToAppTheme(flipped);
 			var followed = await WaitForAsync(() => MauiApplication.Current?.RequestedTheme == expected);
 
-			check(Name, followed, $"host={expected} maui={MauiApplication.Current?.RequestedTheme}");
+			check(
+				Name,
+				followed,
+				$"requested={root.RequestedTheme} actual={root.ActualTheme} host={expected} maui={MauiApplication.Current?.RequestedTheme}");
 		}
 		catch (Exception ex)
 		{

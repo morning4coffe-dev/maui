@@ -172,9 +172,9 @@ internal sealed class MainShell : UserControl
 		Grid.SetRow(scroller, 1);
 		root.Children.Add(scroller);
 
-		if (OperatingSystem.IsAndroid())
+		if (EmbeddingHostPlatformSupport.ShouldApplyVisibleBoundsPadding())
 		{
-			// Uno owns this chrome, so its visible-bounds padding belongs outside the MAUI islands.
+			// Uno owns this chrome, so mobile visible-bounds padding belongs outside the MAUI islands.
 			global::Uno.UI.Toolkit.VisibleBoundsPadding.SetPaddingMask(
 				root, global::Uno.UI.Toolkit.VisibleBoundsPadding.PaddingMask.All);
 		}

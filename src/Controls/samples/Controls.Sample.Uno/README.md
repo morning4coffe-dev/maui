@@ -187,16 +187,15 @@ bounds until Uno exposes a public geometry source for `CompositionPath`.
 | Windows Desktop | Builds, launches, and handles input |
 | Android x64 emulator | Builds, installs, relaunches in-process, handles input and DrawingView, and completes screenshot/runtime/Essentials probes |
 | WebAssembly | Builds, renders, handles input and DrawingView, and completes screenshot/runtime/Essentials probes without browser errors |
-| iOS simulator ARM64 | Builds; theme, initial font layout/density, screenshot and Essentials probes exercised; full interaction coverage remains incomplete |
+| iOS simulator ARM64 | Release builds with the matching Xcode 26.0 toolchain; current visual QA covers initial layout, entry/button input and supported portrait/landscape transitions; full interaction coverage remains incomplete |
 | Mac Catalyst ARM64 | Native build and rendering probes exercised; Keychain requires provisioned signing |
 | Mac Catalyst x64 | Static-graph coverage only; native runtime not verified |
 | macOS Desktop | Debug/Release builds; theme, post-load resource updates, font, Essentials and pointer drawing/clear exercised |
 | X11, Linux framebuffer | Host registrations compile; runtime not yet exercised |
 
-The Apple runtime results are supplemental: the local .NET Apple SDK selects
-Xcode 26.0, while the available installation is Xcode 26.2. A process-local
-`ValidateXcodeVersion=false` override was used for those runs, not added as a
-project default. Use a supported SDK/Xcode pairing for release validation.
+The current Apple runtime results are supplemental and use a supported pairing:
+SDK 10.0.111, the iOS 26.0 pack and Xcode 26.0. Xcode 26.2 remains installed
+separately but was not selected and no compatibility check was disabled.
 
 ## Current limitations
 

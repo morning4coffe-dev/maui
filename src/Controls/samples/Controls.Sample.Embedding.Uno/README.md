@@ -100,9 +100,9 @@ then closes its test window. It checks application window counts, scoped-service
 handlers/configuration, unload/reload, and valid recovery transfers without clearing content first.
 The normal lifecycle probe also includes these checks and retains all existing grid gates.
 
-The minimal browser sample can execute the six single-window cases with
-`MauiUnoEmbeddingOwnershipProbe=true`. Stock Uno's browser host rejects secondary native windows;
-its explicitly labeled single-window result does not cover cross-session transfers. Run those on Desktop.
+Single-window hosts, including iOS and the browser sample, execute the six cases that do not create a
+secondary platform window and explicitly skip cross-session transfers. The minimal browser sample enables
+that path with `MauiUnoEmbeddingOwnershipProbe=true`. Run the three cross-session cases on Desktop.
 
 The Android head links the same activity and DayNight/system-bar resources as
 the generated SDK host via `Uno.Maui.AndroidHost.targets`; it does not maintain
@@ -110,8 +110,8 @@ a separate policy copy. API 35+ uses enforced edge-to-edge geometry, with Uno
 owning insets. The shared contract also validates the API 24 minimum and the
 API 27 navigation-bar resource. Application ownership remains in this sample's
 `MainApplication`, so sharing the activity does not change Uno-root embedding.
-The Uno-owned shell applies visible-bounds padding around its chrome on Android;
-the activity does not replace Uno's inset listener or shrink the native surface.
+The Uno-owned shell applies visible-bounds padding around its chrome on Android and iOS; the native host
+does not replace Uno's inset listener or shrink the native surface.
 
 ## Supported today
 
@@ -620,9 +620,14 @@ WebAssembly as well as on Desktop.
 .\Build.ps1 -Sample Embedding -Target Desktop -Run
 .\Build.ps1 -Sample Embedding -Target WebAssembly -Run
 .\Build.ps1 -Sample Embedding -Target Android -Run
-.\Build.ps1 -Sample Embedding -Target iOS -Run          # untested: needs the ios workload
+.\Build.ps1 -Sample Embedding -Target iOS -Run
 .\Build.ps1 -Sample Embedding -Target MacCatalyst -Run  # untested: needs the maccatalyst workload
 ```
+
+The 2026-09-18 iOS simulator validation used SDK 10.0.111, the matching iOS 26.0 pack and Xcode 26.0.
+The U.4 Uno core completed the full Tier 2 and lifecycle probe; Desktop-only cross-session cases were
+reported as skipped rather than failures. Stock `.704` lacks the required Skia `ItemsWrapGrid`
+virtualization and is not equivalent to that private package graph.
 
 This sample is deliberately large, because its job is to map what works. For the smallest app that embeds
 MAUI in a plain Uno application — five files, one project, no gallery — see

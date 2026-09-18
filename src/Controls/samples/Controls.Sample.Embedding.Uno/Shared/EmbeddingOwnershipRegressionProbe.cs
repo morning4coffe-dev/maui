@@ -59,7 +59,7 @@ internal static class EmbeddingOwnershipRegressionProbe
 			}
 			else
 			{
-				report.AppendLine("SCOPE single-window: cross-session transfers require the Desktop probe.");
+				report.AppendLine("SKIP cross-session transfers — secondary platform windows require the Desktop probe.");
 			}
 		}
 		finally

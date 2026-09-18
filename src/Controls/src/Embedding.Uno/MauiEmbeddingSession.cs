@@ -263,6 +263,7 @@ public sealed class MauiEmbeddingSession : IDisposable
 		}
 
 		_hostIsActivated = true;
+		AttachThemeBridge();
 		ActivateEmbeddedWindow();
 	}
 
@@ -372,15 +373,24 @@ public sealed class MauiEmbeddingSession : IDisposable
 
 	void AttachThemeBridge()
 	{
-		if (_isDisposed || _themeRoot is not null || _platformWindow.Content is not PlatformView root)
+		if (_isDisposed)
 		{
 			return;
 		}
 
-		_themeRoot = root;
-		root.ActualThemeChanged += OnActualThemeChanged;
+		if (_themeRoot is null)
+		{
+			if (_platformWindow.Content is not PlatformView root)
+			{
+				return;
+			}
 
-		// The embedded application resolved its theme before the host existed, so seed it once on attach.
+			_themeRoot = root;
+			root.ActualThemeChanged += OnActualThemeChanged;
+		}
+
+		// The embedded application may be built after the root was attached, so every idempotent call
+		// reseeds the current theme while the event subscription remains single.
 		NotifyThemeChanged();
 	}
 
