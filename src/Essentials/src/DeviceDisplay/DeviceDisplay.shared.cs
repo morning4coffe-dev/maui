@@ -149,6 +149,9 @@ namespace Microsoft.Maui.Devices
 			OnMainDisplayInfoChanged(new DisplayInfoChangedEventArgs(metrics));
 		}
 
+		internal static DisplayOrientation GetDesktopOrientation(double width, double height) =>
+			width >= height ? DisplayOrientation.Landscape : DisplayOrientation.Portrait;
+
 		protected abstract DisplayInfo GetMainDisplayInfo();
 
 		protected abstract bool GetKeepScreenOn();

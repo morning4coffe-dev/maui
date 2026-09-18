@@ -73,6 +73,16 @@ namespace Tests
 			Assert.Equal("DeviceDisplayImplementation", DeviceDisplay.Current.GetType().Name);
 		}
 
+		[Theory]
+		[InlineData(2940, 1912, DisplayOrientation.Landscape)]
+		[InlineData(1912, 2940, DisplayOrientation.Portrait)]
+		[InlineData(2048, 2048, DisplayOrientation.Landscape)]
+		public void Desktop_Orientation_Matches_Physical_Aspect(
+			double width,
+			double height,
+			DisplayOrientation expected) =>
+			Assert.Equal(expected, DeviceDisplayImplementationBase.GetDesktopOrientation(width, height));
+
 		[Fact]
 		public void Setting_Null_Is_Default()
 		{

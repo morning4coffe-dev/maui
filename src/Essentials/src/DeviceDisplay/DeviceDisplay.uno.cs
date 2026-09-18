@@ -50,12 +50,15 @@ namespace Microsoft.Maui.Devices
 		protected override DisplayInfo GetMainDisplayInfo()
 		{
 			var display = DisplayInformation.GetForCurrentView();
+			var width = display.ScreenWidthInRawPixels;
+			var height = display.ScreenHeightInRawPixels;
+			var isMacCatalyst = OperatingSystem.IsMacCatalyst();
 			return new DisplayInfo(
-				display.ScreenWidthInRawPixels,
-				display.ScreenHeightInRawPixels,
+				width,
+				height,
 				display.LogicalDpi / 96d,
-				GetOrientation(display.CurrentOrientation),
-				GetRotation(display.NativeOrientation, display.CurrentOrientation));
+				isMacCatalyst ? GetDesktopOrientation(width, height) : GetOrientation(display.CurrentOrientation),
+				isMacCatalyst ? DisplayRotation.Rotation0 : GetRotation(display.NativeOrientation, display.CurrentOrientation));
 		}
 
 		protected override void StartScreenMetricsListeners()
